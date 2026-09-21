@@ -1189,6 +1189,19 @@ export async function cancelAutoCopas(): Promise<void> {
 }
 
 export async function requestFetchResult(): Promise<void> {
+  // Check clipboard first: if user already has translated lines or clicked copy in Gemini/browser
+  try {
+    const clipText = await navigator.clipboard.readText();
+    const trimmed = clipText ? clipText.trim() : '';
+    if (trimmed.length > 0 && !trimmed.startsWith('You are a visual novel translator')) {
+      applyReceivedResult(trimmed);
+      flashHint(`Hasil diambil dari clipboard (${trimmed.length} karakter). Cek lalu Terapkan.`);
+      setStatus(`Clipboard OK (${trimmed.length} char) — siap Terapkan`);
+      updateButtonStates();
+      return;
+    }
+  } catch (_) {}
+
   if (!available) {
     const ok = await pingExtension();
     if (!ok) {
@@ -1197,12 +1210,12 @@ export async function requestFetchResult(): Promise<void> {
     }
   }
   await applyLocalSettingsToExtension();
-  setStatus('Mengambil hasil dari tab LLM…');
+  setStatus('Mengambil hasil dari AI Companion…');
   const res = await request({
     type: 'COPAS_FETCH_RESULT',
     requestId: rid(),
     target: lastSettings.target,
-  }, 30000);
+  }, 5000);
 
   if (res.type === 'COPAS_RESULT' && res.ok && res.text) {
     applyReceivedResult(res.text);
@@ -1215,17 +1228,18 @@ export async function requestFetchResult(): Promise<void> {
   // Fallback: Check clipboard directly
   try {
     const clipText = await navigator.clipboard.readText();
-    if (clipText && clipText.trim().length > 0) {
-      applyReceivedResult(clipText.trim());
-      flashHint(`Hasil diambil dari clipboard (${clipText.trim().length} karakter). Cek lalu Terapkan.`);
-      setStatus(`Clipboard OK (${clipText.trim().length} char) — siap Terapkan`);
+    const trimmed = clipText ? clipText.trim() : '';
+    if (trimmed.length > 0 && !trimmed.startsWith('You are a visual novel translator')) {
+      applyReceivedResult(trimmed);
+      flashHint(`Hasil diambil dari clipboard (${trimmed.length} karakter). Cek lalu Terapkan.`);
+      setStatus(`Clipboard OK (${trimmed.length} char) — siap Terapkan`);
       updateButtonStates();
       return;
     }
   } catch (_) {}
 
-  const err = res.error || (res.type === 'TIMEOUT' ? 'timeout' : 'gagal ambil hasil');
-  flashHint(`Ambil hasil gagal: ${err}`);
+  const err = res.error || (res.type === 'TIMEOUT' ? 'timeout' : 'Belum ada hasil yang tersalin dari AI.');
+  flashHint(`Ambil hasil: ${err}`);
   setStatus(`Gagal: ${err}`);
 }
 

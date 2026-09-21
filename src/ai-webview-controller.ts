@@ -99,17 +99,20 @@ export async function executeAiWorkflow(
   // Build the self-contained injection script
   const script = `(function() {
     try {
-      document.title = "__COPAS_BUSY__";
       var prompt = decodeURIComponent("${encodeURIComponent(promptText)}");
       var mode = "${mode}";
       var target = "${targetId}";
 
       function findInput() {
         var selectors = [
-          'div.ql-editor.textarea[contenteditable="true"]',
-          'div[contenteditable="true"][aria-label*="prompt" i]',
-          'div[contenteditable="true"][aria-label*="Enter" i]',
           'rich-textarea div[contenteditable="true"]',
+          'div[contenteditable="true"][aria-label*="Gemini" i]',
+          'div[contenteditable="true"][aria-label*="Minta" i]',
+          'div[contenteditable="true"][aria-label*="Ask" i]',
+          'div[contenteditable="true"][aria-label*="prompt" i]',
+          'div.ql-editor.textarea[contenteditable="true"]',
+          'div[contenteditable="true"][aria-label*="Enter" i]',
+          'div[contenteditable="true"][role="textbox"]',
           'div[contenteditable="true"]',
           'textarea#chat-input',
           'textarea#prompt-textarea',
@@ -132,21 +135,25 @@ export async function executeAiWorkflow(
           'button[data-testid="send-button"]',
           'button.send-button',
           'button[mattooltip*="Send" i]',
+          'button[mattooltip*="Kirim" i]',
           'button[aria-label*="Submit" i]',
-          'div[role="button"][aria-label*="Send" i]'
+          'div[role="button"][aria-label*="Send" i]',
+          'div[role="button"][aria-label*="Kirim" i]'
         ];
         for (var i = 0; i < selectors.length; i++) {
           var btn = document.querySelector(selectors[i]);
-          if (btn && !btn.disabled) return btn;
+          if (btn && !btn.disabled && btn.offsetParent !== null) return btn;
         }
         return null;
       }
 
       function findAssistantText() {
         var selectors = [
+          'model-response pre code',
           'model-response .markdown',
           'message-content.model-response-text',
           '.model-response-text',
+          '[data-message-author-role="assistant"] pre code',
           '[data-message-author-role="assistant"] .markdown',
           '[data-message-author-role="model"]',
           'div.markdown.prose',
@@ -164,13 +171,32 @@ export async function executeAiWorkflow(
         return '';
       }
 
-      var input = findInput();
-      if (!input) {
-        document.title = "__COPAS_ERROR__:" + encodeURIComponent("Kotak input chat tidak ditemukan. Pastikan Anda sudah login ke akun AI.");
-        return;
+      function copyToClipboard(text) {
+        try {
+          var copyBtns = document.querySelectorAll('button[aria-label*="Copy" i], button[aria-label*="Salin" i], button[data-tooltip*="Copy" i], button[data-tooltip*="Salin" i]');
+          if (copyBtns.length > 0) copyBtns[copyBtns.length - 1].click();
+        } catch (_) {}
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text);
+          }
+        } catch (_) {}
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (_) {}
       }
 
-      // Fill input
+      var input = findInput();
+      if (!input) return;
+
       if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
         input.value = prompt;
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -181,10 +207,7 @@ export async function executeAiWorkflow(
         input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: prompt }));
       }
 
-      if (mode === 'semi') {
-        document.title = "__COPAS_RESULT__:" + encodeURIComponent(prompt);
-        return;
-      }
+      if (mode === 'semi') return;
 
       // Full mode: Click Send and wait for generation
       setTimeout(function() {
@@ -192,50 +215,43 @@ export async function executeAiWorkflow(
         if (sendBtn) {
           sendBtn.click();
         } else {
-          // Try enter key
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
         }
-
-        document.title = "__COPAS_STATUS__:generating";
 
         // Poll for completion
         var lastText = "";
         var stableCount = 0;
-        var maxWait = 180; // 90 seconds
         var elapsed = 0;
 
-        var interval = setInterval(function() {
+        var timer = setInterval(function() {
           elapsed++;
+          var stopBtn = document.querySelector('button[aria-label*="Stop" i], button[aria-label*="Hentikan" i]');
           var currentText = findAssistantText();
-          if (currentText && currentText.length > 5) {
+          if (!stopBtn && currentText && currentText.length > 10) {
             if (currentText === lastText) {
               stableCount++;
-              if (stableCount >= 4) { // Stable for ~2 seconds
-                clearInterval(interval);
-                document.title = "__COPAS_RESULT__:" + encodeURIComponent(currentText);
+              if (stableCount >= 2) {
+                clearInterval(timer);
+                copyToClipboard(currentText);
                 return;
               }
             } else {
               lastText = currentText;
               stableCount = 0;
             }
+          } else if (currentText) {
+            lastText = currentText;
           }
 
-          if (elapsed >= maxWait) {
-            clearInterval(interval);
-            if (lastText) {
-              document.title = "__COPAS_RESULT__:" + encodeURIComponent(lastText);
-            } else {
-              document.title = "__COPAS_ERROR__:" + encodeURIComponent("Batas waktu menunggu respons AI tercapai.");
-            }
+          if (elapsed >= 180) { // 90 seconds timeout
+            clearInterval(timer);
+            if (lastText) copyToClipboard(lastText);
           }
         }, 500);
 
       }, 300);
 
-    } catch(err) {
-      document.title = "__COPAS_ERROR__:" + encodeURIComponent(err.message || String(err));
-    }
+    } catch(err) {}
   })();`;
 
   const invoke = await getInvoke();
@@ -247,43 +263,97 @@ export async function executeAiWorkflow(
     return { ok: false, error: err?.message || String(err) };
   }
 
-  // Poll AI companion title via invoke
+  onProgress?.('Menghasilkan', 'Prompt terkirim. Menunggu respons AI...');
+
+  // Poll clipboard and periodically poke the AI window to copy latest assistant text
   const startTime = Date.now();
-  const timeoutMs = 120000; // 2 minutes timeout
+  const timeoutMs = 180000; // 3 minutes timeout
+
+  let initialClip = '';
+  try {
+    initialClip = (await navigator.clipboard.readText())?.trim() || '';
+  } catch (_) {}
 
   return new Promise((resolve) => {
+    let tickCount = 0;
     const pollInterval = setInterval(async () => {
+      tickCount++;
       if (Date.now() - startTime > timeoutMs) {
         clearInterval(pollInterval);
-        resolve({ ok: false, error: 'Waktu tunggu melebihi batas (timeout).' });
+        resolve({ ok: false, error: 'Waktu tunggu AI melebihi batas (timeout).' });
         return;
       }
 
+      // Check clipboard
       try {
-        const title = (await invoke('get_ai_window_title')) as string;
-        if (!title) return;
-
-        if (title.startsWith('__COPAS_STATUS__:')) {
-          const stage = title.replace('__COPAS_STATUS__:', '');
-          onProgress?.('Generating', stage);
-        } else if (title.startsWith('__COPAS_RESULT__:')) {
+        const currentClip = (await navigator.clipboard.readText())?.trim() || '';
+        if (
+          currentClip &&
+          currentClip.length > 10 &&
+          currentClip !== initialClip &&
+          currentClip !== promptText.trim() &&
+          !currentClip.startsWith('You are a visual novel translator')
+        ) {
           clearInterval(pollInterval);
-          const encoded = title.replace('__COPAS_RESULT__:', '');
-          const resultText = decodeURIComponent(encoded);
-          // Reset title
-          await invoke('set_ai_window_title', { title: 'CopasTool AI Companion' });
-          resolve({ ok: true, text: resultText });
-        } else if (title.startsWith('__COPAS_ERROR__:')) {
-          clearInterval(pollInterval);
-          const encoded = title.replace('__COPAS_ERROR__:', '');
-          const errorMsg = decodeURIComponent(encoded);
-          await invoke('set_ai_window_title', { title: 'CopasTool AI Companion' });
-          resolve({ ok: false, error: errorMsg });
+          onProgress?.('Selesai', 'Respons AI diterima dari clipboard!');
+          resolve({ ok: true, text: currentClip });
+          return;
         }
-      } catch (e) {
-        // Window might be busy or navigating, ignore poll error
+      } catch (_) {}
+
+      if (tickCount === 4) {
+        onProgress?.('Menghasilkan', 'AI sedang memproses naskah...');
       }
-    }, 400);
+
+      // Every ~1.5 seconds, poke the webview to check if assistant text is ready and copy it
+      if (tickCount % 3 === 0) {
+        try {
+          const pokeScript = `(function() {
+            try {
+              var sel = [
+                'model-response pre code',
+                'model-response .markdown',
+                'message-content.model-response-text',
+                '.model-response-text',
+                '[data-message-author-role="assistant"] pre code',
+                '[data-message-author-role="assistant"] .markdown',
+                '[data-message-author-role="model"]',
+                'div.markdown.prose',
+                'model-response',
+                '.response-container'
+              ];
+              var text = '';
+              for (var i = 0; i < sel.length; i++) {
+                var list = document.querySelectorAll(sel[i]);
+                if (list.length > 0) {
+                  var last = list[list.length - 1];
+                  text = last.innerText || last.textContent || '';
+                  if (text && text.trim().length > 10) break;
+                }
+              }
+              var stopBtn = document.querySelector('button[aria-label*="Stop" i], button[aria-label*="Hentikan" i]');
+              if (!stopBtn && text && text.trim().length > 10) {
+                var copyBtns = document.querySelectorAll('button[aria-label*="Copy" i], button[aria-label*="Salin" i], button[data-tooltip*="Copy" i], button[data-tooltip*="Salin" i]');
+                if (copyBtns.length > 0) copyBtns[copyBtns.length - 1].click();
+                try { navigator.clipboard.writeText(text.trim()); } catch(_) {}
+                try {
+                  var ta = document.createElement('textarea');
+                  ta.value = text.trim();
+                  ta.style.position = 'fixed';
+                  ta.style.left = '-9999px';
+                  document.body.appendChild(ta);
+                  ta.focus();
+                  ta.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(ta);
+                } catch(_) {}
+              }
+            } catch(_) {}
+          })();`;
+          await invoke('eval_ai_script', { script: pokeScript });
+        } catch (_) {}
+      }
+    }, 500);
   });
 }
 
@@ -296,70 +366,59 @@ export async function fetchCurrentAiResult(): Promise<{ ok: boolean; text?: stri
 
   const script = `(function() {
     try {
-      function findAssistantText() {
-        var selectors = [
-          'model-response .markdown',
-          'message-content.model-response-text',
-          '.model-response-text',
-          '[data-message-author-role="assistant"] .markdown',
-          '[data-message-author-role="model"]',
-          'div.markdown.prose',
-          'model-response',
-          '.response-container'
-        ];
-        for (var i = 0; i < selectors.length; i++) {
-          var items = document.querySelectorAll(selectors[i]);
-          if (items.length > 0) {
-            var last = items[items.length - 1];
-            var text = last.innerText || last.textContent;
-            if (text && text.trim().length > 0) return text.trim();
-          }
+      var selectors = [
+        'model-response pre code',
+        'model-response .markdown',
+        'message-content.model-response-text',
+        '.model-response-text',
+        '[data-message-author-role="assistant"] pre code',
+        '[data-message-author-role="assistant"] .markdown',
+        '[data-message-author-role="model"]',
+        'div.markdown.prose',
+        'model-response',
+        '.response-container'
+      ];
+      var text = '';
+      for (var i = 0; i < selectors.length; i++) {
+        var items = document.querySelectorAll(selectors[i]);
+        if (items.length > 0) {
+          var last = items[items.length - 1];
+          text = last.innerText || last.textContent || '';
+          if (text && text.trim().length > 0) break;
         }
-        return '';
       }
-      var text = findAssistantText();
+      var copyBtns = document.querySelectorAll('button[aria-label*="Copy" i], button[aria-label*="Salin" i], button[data-tooltip*="Copy" i], button[data-tooltip*="Salin" i]');
+      if (copyBtns.length > 0) copyBtns[copyBtns.length - 1].click();
       if (text) {
-        document.title = "__COPAS_RESULT__:" + encodeURIComponent(text);
-      } else {
-        document.title = "__COPAS_ERROR__:" + encodeURIComponent("Belum ada respons dari AI.");
+        try { navigator.clipboard.writeText(text.trim()); } catch (_) {}
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text.trim();
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (_) {}
       }
-    } catch(err) {
-      document.title = "__COPAS_ERROR__:" + encodeURIComponent(err.message || String(err));
-    }
+    } catch (_) {}
   })();`;
 
   try {
     await invoke('eval_ai_script', { script });
-  } catch (err: any) {
-    return { ok: false, error: err?.message || String(err) };
-  }
+  } catch (_) {}
 
-  const startTime = Date.now();
-  return new Promise((resolve) => {
-    const pollInterval = setInterval(async () => {
-      if (Date.now() - startTime > 3000) {
-        clearInterval(pollInterval);
-        resolve({ ok: false, error: 'Gagal mengambil hasil dari jendela AI' });
-        return;
-      }
-      try {
-        const title = (await invoke('get_ai_window_title')) as string;
-        if (title.startsWith('__COPAS_RESULT__:')) {
-          clearInterval(pollInterval);
-          const encoded = title.replace('__COPAS_RESULT__:', '');
-          const resultText = decodeURIComponent(encoded);
-          await invoke('set_ai_window_title', { title: 'CopasTool AI Companion' });
-          resolve({ ok: true, text: resultText });
-        } else if (title.startsWith('__COPAS_ERROR__:')) {
-          clearInterval(pollInterval);
-          const encoded = title.replace('__COPAS_ERROR__:', '');
-          const errorMsg = decodeURIComponent(encoded);
-          await invoke('set_ai_window_title', { title: 'CopasTool AI Companion' });
-          resolve({ ok: false, error: errorMsg });
-        }
-      } catch (e) {
-        // ignore
-      }
-    }, 200);
-  });
+  // Wait briefly for clipboard to be populated
+  await new Promise((r) => setTimeout(r, 300));
+
+  try {
+    const text = (await navigator.clipboard.readText())?.trim();
+    if (text && text.length > 0 && !text.startsWith('You are a visual novel translator')) {
+      return { ok: true, text };
+    }
+  } catch (_) {}
+
+  return { ok: false, error: 'Belum ada respons yang tersalin dari AI' };
 }
