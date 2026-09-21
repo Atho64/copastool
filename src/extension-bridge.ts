@@ -31,6 +31,8 @@ import {
 } from './ai-check';
 import { queueAutoSave } from './project';
 import { getDisplayOrderedLines } from './selection';
+import { isTauri } from './native-storage';
+import { executeAiWorkflow, openAiCompanion, fetchCurrentAiResult } from './ai-webview-controller';
 import JSZip from 'jszip';
 
 (window as any).JSZip = JSZip;
@@ -39,7 +41,7 @@ const SOURCE_APP = 'cstl-app';
 const SOURCE_EXT = 'cstl-extension';
 const PROTOCOL = 1;
 
-export type CopasTargetId = 'gemini' | 'deepseek' | 'meta' | 'chatgpt' | 'qwen' | 'arena' | 'freebuff';
+export type CopasTargetId = 'gemini' | 'deepseek' | 'meta' | 'chatgpt' | 'claude' | 'qwen' | 'arena' | 'freebuff';
 export type CopasMode = 'semi' | 'full';
 
 type ExtMsg = {
@@ -207,11 +209,117 @@ function selectNextFullAutoBatch(scope: Set<number>): number {
   return batch.length;
 }
 
+async function handleTauriNativeRequest(msg: Record<string, unknown>, workflow?: CopasWorkflow): Promise<ExtMsg> {
+  const requestId = (msg.requestId as string) || rid();
+  const type = msg.type as string;
+
+  if (type === 'COPAS_PING') {
+    return {
+      type: 'COPAS_PONG',
+      requestId,
+      ok: true,
+      extensionVersion: 'Tauri Native 2.0',
+      settings: { target: lastSettings.target, mode: lastSettings.mode },
+      capabilities: {
+        targets: ['gemini', 'chatgpt', 'deepseek', 'meta', 'claude', 'qwen', 'arena', 'freebuff'],
+        modes: ['semi', 'full'],
+      },
+    };
+  }
+
+  if (type === 'COPAS_GET_SETTINGS') {
+    return {
+      type: 'COPAS_SETTINGS',
+      requestId,
+      ok: true,
+      settings: { target: lastSettings.target, mode: lastSettings.mode, newTabEvery: 0 },
+    };
+  }
+
+  if (type === 'COPAS_SET_SETTINGS') {
+    if (msg.settings && typeof msg.settings === 'object') {
+      const s = msg.settings as any;
+      if (s.target) lastSettings.target = s.target;
+      if (s.mode) lastSettings.mode = s.mode;
+    }
+    return {
+      type: 'COPAS_SETTINGS',
+      requestId,
+      ok: true,
+      settings: { target: lastSettings.target, mode: lastSettings.mode },
+    };
+  }
+
+  if (type === 'COPAS_FETCH_RESULT') {
+    const res = await fetchCurrentAiResult();
+    if (!res.ok) {
+      return {
+        type: 'COPAS_RESULT',
+        requestId,
+        ok: false,
+        error: res.error || 'Belum ada respons dari AI di jendela companion',
+      };
+    }
+    return {
+      type: 'COPAS_RESULT',
+      requestId,
+      ok: true,
+      text: res.text,
+      stage: 'done',
+    };
+  }
+
+  if (type === 'COPAS_SEND' || type === 'COPAS_REQUEST') {
+    const target = (msg.target as CopasTargetId) || lastSettings.target || 'gemini';
+    const mode = (msg.mode as CopasMode) || lastSettings.mode || 'semi';
+    const payload = String(msg.payload || '');
+
+    const onProgress = (stage: string, detail?: string) => {
+      onWindowMessage({
+        source: window,
+        data: {
+          source: SOURCE_EXT,
+          msg: {
+            type: 'COPAS_STATUS',
+            requestId,
+            stage,
+            detail,
+          },
+        },
+      } as unknown as MessageEvent);
+    };
+
+    const res = await executeAiWorkflow(target, payload, mode, onProgress);
+    if (!res.ok) {
+      return {
+        type: 'COPAS_RESULT',
+        requestId,
+        ok: false,
+        error: res.error || 'Gagal mengeksekusi Auto Copas di Web AI',
+      };
+    }
+
+    return {
+      type: 'COPAS_RESULT',
+      requestId,
+      ok: true,
+      text: res.text,
+      stage: 'done',
+    };
+  }
+
+  return { type: 'COPAS_RESULT', requestId, ok: true };
+}
+
 function request(msg: Record<string, unknown>, timeoutMs = 200000, workflow?: CopasWorkflow): Promise<ExtMsg> {
   const requestId = (msg.requestId as string) || rid();
   msg.requestId = requestId;
   msg.v = PROTOCOL;
   if (workflow) requestWorkflows.set(requestId, workflow);
+
+  if (isTauri()) {
+    return handleTauriNativeRequest(msg, workflow);
+  }
 
   return new Promise((resolve) => {
     const timer = window.setTimeout(() => {
@@ -337,22 +445,27 @@ export async function pingExtension(): Promise<boolean> {
     }
     syncSettingsUi();
     setAutoCopasVisible(true);
-    const connectedMsg = `Terhubung v${extensionVersion || '?'} · ${lastSettings.target}/${lastSettings.mode}`;
-    setStatus(`Extension ${connectedMsg}`);
+    const connectedMsg = isTauri()
+      ? `Tauri Native AI · ${lastSettings.target}/${lastSettings.mode}`
+      : `Terhubung v${extensionVersion || '?'} · ${lastSettings.target}/${lastSettings.mode}`;
+    setStatus(isTauri() ? connectedMsg : `Extension ${connectedMsg}`);
     setGlossaryStatus(connectedMsg);
     setAiCheckExtStatus(connectedMsg);
     updateButtonStates();
     return true;
   }
-  available = false;
-  (window as any).__cstlExtAvailable = false;
-  delete document.documentElement.dataset.cstlExt;
-  setAutoCopasVisible(false);
-  setStatus('Extension belum terpasang / bridge tidak aktif');
-  setGlossaryStatus('Extension belum terpasang');
-  setAiCheckExtStatus('Extension belum terpasang');
-  updateButtonStates();
-  return false;
+  if (!isTauri()) {
+    available = false;
+    (window as any).__cstlExtAvailable = false;
+    delete document.documentElement.dataset.cstlExt;
+    setAutoCopasVisible(false);
+    setStatus('Extension belum terpasang / bridge tidak aktif');
+    setGlossaryStatus('Extension belum terpasang');
+    setAiCheckExtStatus('Extension belum terpasang');
+    updateButtonStates();
+    return false;
+  }
+  return true;
 }
 
 function syncSettingsUi(): void {
@@ -1118,6 +1231,20 @@ export async function requestFetchResult(): Promise<void> {
 
 export function initExtensionBridge(): void {
   window.addEventListener('message', onWindowMessage);
+
+  if (isTauri()) {
+    available = true;
+    (window as any).__cstlExtAvailable = true;
+    document.documentElement.dataset.cstlExt = '1';
+    extensionVersion = 'Tauri Native 2.0';
+    setAutoCopasVisible(true);
+    const connectedMsg = `Tauri Native AI · ${lastSettings.target}/${lastSettings.mode}`;
+    setStatus(connectedMsg);
+    setGlossaryStatus(connectedMsg);
+    setAiCheckExtStatus(connectedMsg);
+    updateButtonStates();
+  }
+
   window.setTimeout(() => { void pingExtension(); }, 400);
   window.setTimeout(() => { if (!available) void pingExtension(); }, 1500);
 
@@ -1135,4 +1262,12 @@ export function initExtensionBridge(): void {
   ui.btnAutoCopasAiCheck?.addEventListener('click', () => { void sendAiCheckAutoCopas(); });
   ui.btnFetchCopasAiCheckResult?.addEventListener('click', () => { void fetchAiCheckResult(); });
   ui.btnAutoCopasAiCheckCancel?.addEventListener('click', () => { cancelAiCheckAutoCopas(); });
+
+  // Tauri Open AI Window button
+  const openAiBtns = document.querySelectorAll('.btn-open-ai-window');
+  openAiBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      void openAiCompanion(lastSettings.target);
+    });
+  });
 }

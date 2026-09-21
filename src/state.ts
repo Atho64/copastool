@@ -222,6 +222,12 @@ export function normalizeLineDict(line: any): Line {
   return normalized;
 }
 
-export function getOpfsRoot(): Promise<FileSystemDirectoryHandle> {
+export async function getOpfsRoot(): Promise<FileSystemDirectoryHandle> {
+  try {
+    const { isTauri, getTauriNativeRoot } = await import('./native-storage');
+    if (isTauri()) {
+      return getTauriNativeRoot();
+    }
+  } catch (_) {}
   return navigator.storage.getDirectory();
 }
