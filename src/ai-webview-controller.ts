@@ -45,7 +45,7 @@ export async function openAiCompanion(targetId: CopasTargetId): Promise<boolean>
   // Fallback via tauri plugin opener or window.open
   try {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
-    await openUrl(url);
+    await openUrl(url, 'inAppBrowser');
     return true;
   } catch (_) {
     window.open(url, '_blank');

@@ -95,7 +95,7 @@ async fn open_ai_window(app: tauri::AppHandle, url: String) -> Result<(), String
     #[cfg(not(desktop))]
     {
         use tauri_plugin_opener::OpenerExt;
-        let _ = app.opener().open_url(&url, None::<&str>);
+        let _ = app.opener().open_url(&url, Some("inAppBrowser"));
     }
 
     Ok(())
