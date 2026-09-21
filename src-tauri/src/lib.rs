@@ -116,6 +116,8 @@ fn eval_ai_script(app: tauri::AppHandle, script: String) -> Result<(), String> {
     } else {
         Err("Jendela AI Companion belum dibuka.".to_string())
     }
+}
+
 #[tauri::command]
 fn get_ai_window_title(app: tauri::AppHandle) -> Result<String, String> {
     if let Some(window) = app.get_webview_window("ai-companion") {
