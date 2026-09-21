@@ -30,15 +30,25 @@ async function getInvoke() {
 }
 
 export async function openAiCompanion(targetId: CopasTargetId): Promise<boolean> {
-  const invoke = await getInvoke();
-  if (!invoke) return false;
   const url = AI_TARGET_URLS[targetId] || AI_TARGET_URLS.gemini;
+  const invoke = await getInvoke();
+  if (invoke) {
+    try {
+      await invoke('open_ai_window', { url });
+      return true;
+    } catch (err) {
+      console.warn('[AiWebview] invoke open_ai_window failed, trying opener:', err);
+    }
+  }
+
+  // Fallback via tauri plugin opener or window.open
   try {
-    await invoke('open_ai_window', { url });
+    const { openUrl } = await import('@tauri-apps/plugin-opener');
+    await openUrl(url);
     return true;
-  } catch (err) {
-    console.error('[AiWebview] Failed to open AI window:', err);
-    return false;
+  } catch (_) {
+    window.open(url, '_blank');
+    return true;
   }
 }
 
@@ -64,17 +74,24 @@ export async function executeAiWorkflow(
   mode: 'semi' | 'full',
   onProgress?: (stage: string, detail?: string) => void
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
+  // Always copy prompt to clipboard so user can immediately paste in any AI window/browser
+  try {
+    await navigator.clipboard.writeText(promptText);
+  } catch (_) {}
+
+  // Open or focus AI Companion window (or external browser)
+  await openAiCompanion(targetId);
+
+  if (mode === 'semi') {
+    onProgress?.('pasted', 'Tersalin ke Clipboard & Web AI terbuka');
+    return { ok: true, text: promptText };
+  }
+
   if (!isTauri()) {
-    return { ok: false, error: 'Tauri environment not detected' };
+    return { ok: false, error: 'Fitur Full Auto memerlukan runtime Tauri Desktop' };
   }
 
-  // Ensure AI window is open
-  const opened = await openAiCompanion(targetId);
-  if (!opened) {
-    return { ok: false, error: 'Gagal membuka jendela AI Companion' };
-  }
-
-  onProgress?.('Persiapan', 'Menghubungkan ke Web AI...');
+  onProgress?.('Persiapan', 'Menghubungkan ke Web AI Companion...');
 
   // Wait briefly for window to be ready
   await new Promise((r) => setTimeout(r, 600));

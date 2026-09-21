@@ -2017,7 +2017,7 @@ select {
   .mobile-only { display: flex !important; }
 
   .dashboard-shell {
-    padding: max(32px, calc(env(safe-area-inset-top) + 12px)) max(16px, env(safe-area-inset-right)) max(20px, calc(env(safe-area-inset-bottom) + 8px)) max(16px, env(safe-area-inset-left));
+    padding: max(44px, calc(env(safe-area-inset-top) + 16px)) max(16px, env(safe-area-inset-right)) max(20px, calc(env(safe-area-inset-bottom) + 8px)) max(16px, env(safe-area-inset-left));
   }
   .dashboard-hero {
     flex-direction: row !important;
@@ -2063,7 +2063,7 @@ select {
 
   /* Toolbar: explicit safe padding for Android notch / status bar */
   .toolbar {
-    padding-top: max(32px, calc(env(safe-area-inset-top) + 8px)) !important;
+    padding-top: max(44px, calc(env(safe-area-inset-top) + 12px)) !important;
     padding-bottom: 6px !important;
     padding-left: max(8px, env(safe-area-inset-left)) !important;
     padding-right: max(8px, env(safe-area-inset-right)) !important;
@@ -2323,17 +2323,35 @@ select {
     z-index: 150 !important;
   }
 
-  .modal-backdrop { align-items: flex-end; padding: 0; padding-bottom: env(safe-area-inset-bottom); }
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: hidden;
+  }
   .modal, .modal-wide, .modal-xl {
     width: 100%;
     max-width: 100%;
-    height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - 8px));
-    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - 8px));
+    height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - 12px));
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - 12px));
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    padding: 16px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    padding: 16px max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
   .modal-head {
     padding-bottom: 12px;
+  }
+  .modal-body {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .modal-body .flex-between,
+  .settings-section .flex-between,
+  .settings-tab-pane .flex-between {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
   }
   #pluginManagerModal .modal-body > .flex.wrap > .btn.grow {
     flex-basis: 100%;
@@ -2346,8 +2364,24 @@ select {
     margin-bottom: 3px;
   }
   .settings-section {
-    padding: 11px 13px;
-    margin-bottom: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+  }
+  .settings-section .flex {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .settings-section select,
+  .settings-section input,
+  .settings-section textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
   .settings-section-title {
     font-size: 12px;

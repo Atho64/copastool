@@ -81,24 +81,26 @@ async function runPreload(): Promise<void> {
       addedKeys.push(key);
     };
 
-    await Promise.all(imageFiles.map(async (imgPath) => {
-      if (epubImageCache.has(imgPath)) return;
+    // Extract images sequentially with event loop yielding to prevent freezing mobile UI
+    for (const imgPath of imageFiles) {
+      if (epubImageCache.has(imgPath)) continue;
       try {
         const zipEntry = zip.file(imgPath);
-        if (!zipEntry) return;
-        const blob = await zipEntry.async('blob');
-        const blobUrl = URL.createObjectURL(blob);
-        createdUrls.push(blobUrl);
-        cacheImage(imgPath, blobUrl);
-        const fileName = imgPath.includes('/') ? imgPath.substring(imgPath.lastIndexOf('/') + 1) : imgPath;
-        cacheImage(fileName, blobUrl);
-        // XHTML hrefs are often percent-encoded while zip entries are not (or vice versa)
-        cacheImage(tryDecodePath(imgPath), blobUrl);
-        cacheImage(tryDecodePath(fileName), blobUrl);
+        if (zipEntry) {
+          const blob = await zipEntry.async('blob');
+          const blobUrl = URL.createObjectURL(blob);
+          createdUrls.push(blobUrl);
+          cacheImage(imgPath, blobUrl);
+          const fileName = imgPath.includes('/') ? imgPath.substring(imgPath.lastIndexOf('/') + 1) : imgPath;
+          cacheImage(fileName, blobUrl);
+          cacheImage(tryDecodePath(imgPath), blobUrl);
+          cacheImage(tryDecodePath(fileName), blobUrl);
+        }
       } catch (e) {
         console.warn('[CSTL] Error loading EPUB image:', imgPath, e);
       }
-    }));
+      await new Promise(r => setTimeout(r, 0));
+    }
 
     // Scan XHTML spine files to map chapters to images
     const htmlExtensions = ['.xhtml', '.html', '.htm', '.xml'];
@@ -107,10 +109,10 @@ async function runPreload(): Promise<void> {
       return htmlExtensions.some(ext => lower.endsWith(ext));
     });
 
-    await Promise.all(htmlPaths.map(async (relativePath) => {
+    for (const relativePath of htmlPaths) {
       try {
         const entry = zip.file(relativePath);
-        if (!entry) return;
+        if (!entry) continue;
         const text = await entry.async('text');
         const doc = new DOMParser().parseFromString(text, relativePath.toLowerCase().endsWith('.xhtml') ? 'application/xhtml+xml' : 'text/html');
         const imgEls = Array.from(doc.querySelectorAll('img, image'));
@@ -127,7 +129,8 @@ async function runPreload(): Promise<void> {
           mappedFiles.push(relativePath);
         }
       } catch (_) {}
-    }));
+      await new Promise(r => setTimeout(r, 0));
+    }
   } catch (err) {
     console.error('[CSTL] Failed to preload EPUB images:', err);
   } finally {
@@ -140,6 +143,43 @@ async function runPreload(): Promise<void> {
       }
     }
   }
+}
+
+export async function loadEpubImage(targetSrc: string): Promise<string | null> {
+  if (!targetSrc) return null;
+  const existing = getEpubImageBlobUrl(targetSrc);
+  if (existing) return existing;
+
+  if (!state.epubSourceId) return null;
+  try {
+    const root = await getOpfsRoot();
+    const fh = await (root as any).getFileHandle(state.epubSourceId);
+    const file = await fh.getFile();
+    const zip = await (window as any).JSZip.loadAsync(file);
+
+    let zipEntry = zip.file(targetSrc);
+    if (!zipEntry) zipEntry = zip.file(tryDecodePath(targetSrc));
+    if (!zipEntry) {
+      const fileName = targetSrc.includes('/') ? targetSrc.substring(targetSrc.lastIndexOf('/') + 1) : targetSrc;
+      zip.forEach((path: string, entry: any) => {
+        if (!zipEntry && !entry.dir && (path.endsWith(fileName) || path.endsWith(tryDecodePath(fileName)))) {
+          zipEntry = entry;
+        }
+      });
+    }
+
+    if (zipEntry) {
+      const blob = await zipEntry.async('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      epubImageCache.set(targetSrc, blobUrl);
+      const fileName = targetSrc.includes('/') ? targetSrc.substring(targetSrc.lastIndexOf('/') + 1) : targetSrc;
+      epubImageCache.set(fileName, blobUrl);
+      return blobUrl;
+    }
+  } catch (err) {
+    console.warn('[CSTL] Lazy load EPUB image failed:', targetSrc, err);
+  }
+  return null;
 }
 
 export function preloadEpubImages(): Promise<void> {

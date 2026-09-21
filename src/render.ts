@@ -10,7 +10,7 @@ import { getTranslationPastePlaceholder } from './ai-format';
 import { getActiveLineEditorLineNum, setActiveLineEditorLineNum } from './state';
 import { isClannadProtagonistToken, parseLucaTxtText, resolveLucaDisplayName } from './luca-engine';
 import { getFileDisplayOrder } from './file-list';
-import { getEpubImageBlobUrl, getEpubImagesForFile, preloadEpubImages, openImageLightbox } from './epub-images';
+import { getEpubImageBlobUrl, getEpubImagesForFile, preloadEpubImages, loadEpubImage, openImageLightbox } from './epub-images';
 import { getCustomParser } from './custom-parsers';
 import type { DisplayRow, Line } from './types';
 
@@ -295,8 +295,7 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
             openImageLightbox(blobUrl);
           });
         } else {
-          preloadEpubImages().then(() => {
-            const url = getEpubImageBlobUrl(targetSrc);
+          loadEpubImage(targetSrc).then((url) => {
             if (url && imgBox.isConnected) {
               img.src = url;
               img.onload = () => getMainScroller()?.requestRemeasure();

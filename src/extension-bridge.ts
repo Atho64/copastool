@@ -61,8 +61,8 @@ type ExtMsg = {
 let available = false;
 let extensionVersion = '';
 let lastSettings: { target: CopasTargetId; mode: CopasMode } = {
-  target: 'gemini',
-  mode: 'semi',
+  target: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_target')) as CopasTargetId) || 'gemini',
+  mode: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_mode')) as CopasMode) || 'semi',
 };
 let statusText = 'Extension: mengecek…';
 
@@ -1211,6 +1211,19 @@ export async function requestFetchResult(): Promise<void> {
     updateButtonStates();
     return;
   }
+
+  // Fallback: Check clipboard directly
+  try {
+    const clipText = await navigator.clipboard.readText();
+    if (clipText && clipText.trim().length > 0) {
+      applyReceivedResult(clipText.trim());
+      flashHint(`Hasil diambil dari clipboard (${clipText.trim().length} karakter). Cek lalu Terapkan.`);
+      setStatus(`Clipboard OK (${clipText.trim().length} char) — siap Terapkan`);
+      updateButtonStates();
+      return;
+    }
+  } catch (_) {}
+
   const err = res.error || (res.type === 'TIMEOUT' ? 'timeout' : 'gagal ambil hasil');
   flashHint(`Ambil hasil gagal: ${err}`);
   setStatus(`Gagal: ${err}`);
@@ -1224,6 +1237,37 @@ export function initExtensionBridge(): void {
   document.documentElement.dataset.cstlExt = '1';
   extensionVersion = isTauri() ? 'Tauri Native 2.0' : 'Native 2.0';
   setAutoCopasVisible(true);
+
+  // Wire up Target AI select and Mode select
+  const targetSel = document.getElementById('autoCopasTargetSelect') as HTMLSelectElement | null;
+  const modeSel = document.getElementById('autoCopasModeSelect') as HTMLSelectElement | null;
+
+  if (targetSel) {
+    targetSel.value = lastSettings.target;
+    targetSel.addEventListener('change', () => {
+      lastSettings.target = targetSel.value as CopasTargetId;
+      try { localStorage.setItem('cstl_copas_target', lastSettings.target); } catch (_) {}
+      const msg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
+      setStatus(msg);
+      setGlossaryStatus(msg);
+      setAiCheckExtStatus(msg);
+      void applyLocalSettingsToExtension();
+    });
+  }
+
+  if (modeSel) {
+    modeSel.value = lastSettings.mode;
+    modeSel.addEventListener('change', () => {
+      lastSettings.mode = modeSel.value as CopasMode;
+      try { localStorage.setItem('cstl_copas_mode', lastSettings.mode); } catch (_) {}
+      const msg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
+      setStatus(msg);
+      setGlossaryStatus(msg);
+      setAiCheckExtStatus(msg);
+      void applyLocalSettingsToExtension();
+    });
+  }
+
   const connectedMsg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
   setStatus(connectedMsg);
   setGlossaryStatus(connectedMsg);

@@ -149,6 +149,13 @@ jobs:
           name: CopasTool-Android-APK
           path: release-assets/android
 
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release-files
+          find release-assets -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.apk" \) -exec cp {} release-files/ \;
+          echo "Files to be released:"
+          ls -lh release-files/
+
       - name: Upload Assets to GitHub Release
         uses: softprops/action-gh-release@v2
         continue-on-error: true
@@ -156,8 +163,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          files: |
-            release-assets/windows/*.exe
-            release-assets/windows/*.msi
-            release-assets/android/*.apk
-            release-assets/android/**/*.apk
+          files: release-files/*

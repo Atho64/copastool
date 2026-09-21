@@ -250,13 +250,27 @@
             <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
             <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
             <div id="autoCopasControls">
+              <div class="flex gap-2 wrap mb-1 mt-1" id="autoCopasConfigRow">
+                <select id="autoCopasTargetSelect" class="text-input grow" style="min-width: 110px;" title="Pilih Platform Web AI">
+                  <option value="gemini">Google Gemini</option>
+                  <option value="chatgpt">ChatGPT (OpenAI)</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="claude">Claude (Anthropic)</option>
+                  <option value="meta">Meta AI</option>
+                  <option value="qwen">Qwen AI</option>
+                </select>
+                <select id="autoCopasModeSelect" class="text-input grow" style="min-width: 110px;" title="Pilih Mode Copas">
+                  <option value="semi">Semi Auto (Kirim/Salin)</option>
+                  <option value="full">Full Auto (Loop Otomatis)</option>
+                </select>
+              </div>
               <div class="flex gap-2 wrap mb-1 mt-1">
-                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Kirim baris terpilih ke Web AI">Auto Copas</button>
-                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari Web AI">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
+                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Jalankan Auto Copas (Semi / Full Auto)">Auto Copas</button>
+                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari Web AI / Clipboard">Ambil Hasil</button>
+                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka Jendela Web AI Companion">Jendela AI</button>
                 <button id="btnAutoCopasCancel" class="btn btn-danger" style="display:none" title="Batalkan Auto Copas yang berjalan">Batal</button>
               </div>
-              <div id="autoCopasStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
+              <div id="autoCopasStatus" class="hint m-0 mb-1">Auto Copas: Siap · Gemini (Semi)</div>
             </div>
             <label class="checkbox-line mt-1" title="Jika gagal, ulangi batch yang sama terus sampai dihentikan (jeda pakai RPM)"><input id="checkAutoRepeatOnFailure" type="checkbox" /> Ulangi jika gagal</label>
           </div>
