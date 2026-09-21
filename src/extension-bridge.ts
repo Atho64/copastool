@@ -33,6 +33,7 @@ import { queueAutoSave } from './project';
 import { getDisplayOrderedLines } from './selection';
 import { isTauri } from './native-storage';
 import { executeAiWorkflow, openAiCompanion, fetchCurrentAiResult } from './ai-webview-controller';
+import { readClipboardText } from './native-clipboard';
 import JSZip from 'jszip';
 
 (window as any).JSZip = JSZip;
@@ -1191,7 +1192,7 @@ export async function cancelAutoCopas(): Promise<void> {
 export async function requestFetchResult(): Promise<void> {
   // Check clipboard first: if user already has translated lines or clicked copy in Gemini/browser
   try {
-    const clipText = await navigator.clipboard.readText();
+    const clipText = await readClipboardText();
     const trimmed = clipText ? clipText.trim() : '';
     if (trimmed.length > 0 && !trimmed.startsWith('You are a visual novel translator')) {
       applyReceivedResult(trimmed);
@@ -1225,9 +1226,9 @@ export async function requestFetchResult(): Promise<void> {
     return;
   }
 
-  // Fallback: Check clipboard directly
+  // Fallback: Check clipboard directly using focus-independent native clipboard
   try {
-    const clipText = await navigator.clipboard.readText();
+    const clipText = await readClipboardText();
     const trimmed = clipText ? clipText.trim() : '';
     if (trimmed.length > 0 && !trimmed.startsWith('You are a visual novel translator')) {
       applyReceivedResult(trimmed);

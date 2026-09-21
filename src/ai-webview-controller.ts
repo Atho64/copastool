@@ -2,6 +2,7 @@
 // Controls ChatGPT, Gemini, DeepSeek, Claude webviews natively without a Chrome extension
 
 import { isTauri } from './native-storage';
+import { readClipboardText, writeClipboardText } from './native-clipboard';
 import type { CopasTargetId } from './extension-bridge';
 
 export const AI_TARGET_URLS: Record<CopasTargetId, string> = {
@@ -76,7 +77,7 @@ export async function executeAiWorkflow(
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
   // Always copy prompt to clipboard so user can immediately paste in any AI window/browser
   try {
-    await navigator.clipboard.writeText(promptText);
+    await writeClipboardText(promptText);
   } catch (_) {}
 
   // Open or focus AI Companion window (or external browser)
@@ -271,7 +272,7 @@ export async function executeAiWorkflow(
 
   let initialClip = '';
   try {
-    initialClip = (await navigator.clipboard.readText())?.trim() || '';
+    initialClip = (await readClipboardText())?.trim() || '';
   } catch (_) {}
 
   return new Promise((resolve) => {
@@ -284,9 +285,9 @@ export async function executeAiWorkflow(
         return;
       }
 
-      // Check clipboard
+      // Check clipboard using focus-independent native clipboard
       try {
-        const currentClip = (await navigator.clipboard.readText())?.trim() || '';
+        const currentClip = (await readClipboardText())?.trim() || '';
         if (
           currentClip &&
           currentClip.length > 10 &&
@@ -414,7 +415,7 @@ export async function fetchCurrentAiResult(): Promise<{ ok: boolean; text?: stri
   await new Promise((r) => setTimeout(r, 300));
 
   try {
-    const text = (await navigator.clipboard.readText())?.trim();
+    const text = (await readClipboardText())?.trim();
     if (text && text.length > 0 && !text.startsWith('You are a visual novel translator')) {
       return { ok: true, text };
     }
