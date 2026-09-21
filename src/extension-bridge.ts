@@ -144,11 +144,11 @@ function setStatus(text: string): void {
  * the CSTL UI until the bridge has completed a successful ping. */
 function setAutoCopasVisible(show: boolean): void {
   const controls = ui.autoCopasControls as HTMLElement | undefined;
-  if (controls) controls.hidden = !show;
+  if (controls) controls.hidden = false;
   const gControls = ui.autoCopasGlossaryControls as HTMLElement | undefined;
-  if (gControls) gControls.hidden = !show;
+  if (gControls) gControls.hidden = false;
   const cControls = ui.autoCopasAiCheckControls as HTMLElement | undefined;
-  if (cControls) cControls.hidden = !show;
+  if (cControls) cControls.hidden = false;
   if (!show) {
     showCancelButton(false);
     showGlossaryCancelButton(false);
@@ -445,25 +445,12 @@ export async function pingExtension(): Promise<boolean> {
     }
     syncSettingsUi();
     setAutoCopasVisible(true);
-    const connectedMsg = isTauri()
-      ? `Tauri Native AI · ${lastSettings.target}/${lastSettings.mode}`
-      : `Terhubung v${extensionVersion || '?'} · ${lastSettings.target}/${lastSettings.mode}`;
-    setStatus(isTauri() ? connectedMsg : `Extension ${connectedMsg}`);
+    const connectedMsg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
+    setStatus(connectedMsg);
     setGlossaryStatus(connectedMsg);
     setAiCheckExtStatus(connectedMsg);
     updateButtonStates();
     return true;
-  }
-  if (!isTauri()) {
-    available = false;
-    (window as any).__cstlExtAvailable = false;
-    delete document.documentElement.dataset.cstlExt;
-    setAutoCopasVisible(false);
-    setStatus('Extension belum terpasang / bridge tidak aktif');
-    setGlossaryStatus('Extension belum terpasang');
-    setAiCheckExtStatus('Extension belum terpasang');
-    updateButtonStates();
-    return false;
   }
   return true;
 }
@@ -1232,18 +1219,16 @@ export async function requestFetchResult(): Promise<void> {
 export function initExtensionBridge(): void {
   window.addEventListener('message', onWindowMessage);
 
-  if (isTauri()) {
-    available = true;
-    (window as any).__cstlExtAvailable = true;
-    document.documentElement.dataset.cstlExt = '1';
-    extensionVersion = 'Tauri Native 2.0';
-    setAutoCopasVisible(true);
-    const connectedMsg = `Tauri Native AI · ${lastSettings.target}/${lastSettings.mode}`;
-    setStatus(connectedMsg);
-    setGlossaryStatus(connectedMsg);
-    setAiCheckExtStatus(connectedMsg);
-    updateButtonStates();
-  }
+  available = true;
+  (window as any).__cstlExtAvailable = true;
+  document.documentElement.dataset.cstlExt = '1';
+  extensionVersion = isTauri() ? 'Tauri Native 2.0' : 'Native 2.0';
+  setAutoCopasVisible(true);
+  const connectedMsg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
+  setStatus(connectedMsg);
+  setGlossaryStatus(connectedMsg);
+  setAiCheckExtStatus(connectedMsg);
+  updateButtonStates();
 
   window.setTimeout(() => { void pingExtension(); }, 400);
   window.setTimeout(() => { if (!available) void pingExtension(); }, 1500);

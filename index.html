@@ -234,14 +234,14 @@
           <div class="card-box is-primary mb-2" data-htl-hide="true">
             <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
             <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
-            <div id="autoCopasControls" hidden>
+            <div id="autoCopasControls">
               <div class="flex gap-2 wrap mb-1 mt-1">
-                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Kirim baris terpilih ke extension CSTL Auto Copas">Auto Copas</button>
-                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari tab LLM">Ambil Hasil</button>
+                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Kirim baris terpilih ke Web AI">Auto Copas</button>
+                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari Web AI">Ambil Hasil</button>
                 <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
                 <button id="btnAutoCopasCancel" class="btn btn-danger" style="display:none" title="Batalkan Auto Copas yang berjalan">Batal</button>
               </div>
-              <div id="autoCopasStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+              <div id="autoCopasStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
             </div>
             <label class="checkbox-line mt-1" title="Jika gagal, ulangi batch yang sama terus sampai dihentikan (jeda pakai RPM)"><input id="checkAutoRepeatOnFailure" type="checkbox" /> Ulangi jika gagal</label>
           </div>
@@ -313,14 +313,14 @@
             <label class="section-label mt-0">Ekstrak Glossary</label>
             <button id="btnCopyForGlossaryAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyGlossaryCount">0</span>)</button>
             <button id="btnAutoGlossaryAi" class="btn btn-success w-full mb-1" disabled>Auto Ekstrak</button>
-            <div id="autoCopasGlossaryControls" hidden>
+            <div id="autoCopasGlossaryControls">
               <div class="flex gap-2 wrap mb-1">
                 <button id="btnAutoCopasGlossary" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk ekstrak glossary">Auto Copas</button>
                 <button id="btnFetchCopasGlossaryResult" class="btn btn-outline grow" title="Ambil hasil glossary dari tab LLM">Ambil Hasil</button>
                 <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
                 <button id="btnAutoCopasGlossaryCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
               </div>
-              <div id="autoCopasGlossaryStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+              <div id="autoCopasGlossaryStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
             </div>
           </div>
           <label class="section-label" for="pasteGlossaryArea">Paste Glossary AI</label>
@@ -369,14 +369,14 @@
             <label class="section-label mt-0">AI Double Check</label>
             <button id="btnCopyForAiCheck" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyAiCheckCount">0</span>)</button>
             <button id="btnAutoAiCheck" class="btn btn-success w-full mb-1" disabled>Auto Check</button>
-            <div id="autoCopasAiCheckControls" hidden>
+            <div id="autoCopasAiCheckControls">
               <div class="flex gap-2 wrap mb-1">
                 <button id="btnAutoCopasAiCheck" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk AI Check">Auto Copas</button>
                 <button id="btnFetchCopasAiCheckResult" class="btn btn-outline grow" title="Ambil hasil AI Check dari tab LLM">Ambil Hasil</button>
                 <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
                 <button id="btnAutoCopasAiCheckCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
               </div>
-              <div id="autoCopasAiCheckStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+              <div id="autoCopasAiCheckStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
             </div>
             <label class="checkbox-line mt-1"><input id="settingsAiCheckReviewMode" type="checkbox" /> Review mode (pause tiap batch)</label>
           </div>
