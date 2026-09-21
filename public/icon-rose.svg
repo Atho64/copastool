@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#241018"/>
+      <stop offset="100%" stop-color="#15090e"/>
+    </radialGradient>
+    <linearGradient id="pageL" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0ece4"/>
+      <stop offset="100%" stop-color="#d6cfc2"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0ece4"/>
+      <stop offset="100%" stop-color="#d6cfc2"/>
+    </linearGradient>
+    <linearGradient id="coverL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b2d3a"/>
+      <stop offset="100%" stop-color="#5a1b24"/>
+    </linearGradient>
+    <linearGradient id="coverR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b2d3a"/>
+      <stop offset="100%" stop-color="#5a1b24"/>
+    </linearGradient>
+    <linearGradient id="spine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5a1b24"/>
+      <stop offset="50%" stop-color="#c49aa0"/>
+      <stop offset="100%" stop-color="#5a1b24"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0ece4"/>
+      <stop offset="60%" stop-color="#c49aa0"/>
+      <stop offset="100%" stop-color="#8b2d3a"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowStrong">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)" rx="80"/>
+  <ellipse cx="256" cy="175" rx="150" ry="100" fill="#c49aa0" opacity="0.12" filter="url(#glowStrong)"/>
+  <line x1="256" y1="80" x2="256" y2="52" stroke="#c49aa0" stroke-width="11" stroke-linecap="round" filter="url(#glow)"/>
+  <line x1="214" y1="93" x2="197" y2="68" stroke="#c49aa0" stroke-width="9" stroke-linecap="round" filter="url(#glow)"/>
+  <line x1="298" y1="93" x2="315" y2="68" stroke="#c49aa0" stroke-width="9" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M 148 310 Q 140 350 175 360 L 256 370 L 337 360 Q 372 350 364 310 L 256 320 Z" fill="#15090e" opacity="0.55"/>
+  <path d="M 148 118 L 148 315 Q 148 335 165 340 L 248 348 L 248 120 Z" fill="url(#coverL)" rx="6"/>
+  <path d="M 364 118 L 364 315 Q 364 335 347 340 L 264 348 L 264 120 Z" fill="url(#coverR)"/>
+  <path d="M 158 120 Q 210 108 248 118 L 248 320 Q 210 318 162 310 Q 148 306 150 295 L 150 130 Q 150 118 158 120 Z" fill="url(#pageL)" filter="url(#softGlow)"/>
+  <path d="M 354 120 Q 302 108 264 118 L 264 320 Q 302 318 350 310 Q 364 306 362 295 L 362 130 Q 362 118 354 120 Z" fill="url(#pageR)" filter="url(#softGlow)"/>
+  <rect x="162" y="152" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="162" y="176" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="162" y="200" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="162" y="224" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="162" y="248" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="162" y="272" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.60"/>
+  <rect x="276" y="152" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="276" y="176" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="276" y="200" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="276" y="224" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="276" y="248" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.70"/>
+  <rect x="276" y="272" width="74" height="9" rx="4.5" fill="#6e2430" opacity="0.60"/>
+  <path d="M 252 118 Q 248 220 252 348" stroke="#15090e" stroke-width="4" fill="none" opacity="0.9"/>
+  <path d="M 260 118 Q 264 220 260 348" stroke="#15090e" stroke-width="4" fill="none" opacity="0.9"/>
+  <path d="M 148 295 Q 148 355 178 362 L 256 372 L 334 362 Q 364 355 364 295" fill="none" stroke="url(#spine)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M 160 305 Q 160 348 183 354 L 256 362 L 329 354 Q 352 348 352 305" fill="none" stroke="#15090e" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+  <text x="256" y="446" font-family="'Arial Black','Impact',sans-serif" font-size="92" font-weight="900" font-style="italic" fill="url(#textGrad)" text-anchor="middle" letter-spacing="-2" filter="url(#softGlow)">CSTL</text>
+  <text x="256" y="485" font-family="'Arial','Helvetica',sans-serif" font-size="24" fill="#c49aa0" text-anchor="middle" letter-spacing="4">コバスソール</text>
+</svg>

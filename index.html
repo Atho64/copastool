@@ -1,0 +1,1969 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <script>
+    window.addEventListener('error', function(e) {
+      if (e.message === 'ResizeObserver loop limit exceeded' || e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+        e.stopImmediatePropagation();
+      }
+    });
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Alat bantu penerjemahan string dengan dukungan AI." />
+  <meta name="theme-color" content="#161412" />
+  <title>Copas Tool</title>
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=24" />
+
+  <script type="module" src="./src/app.ts"></script>
+</head>
+<body>
+  <div id="startupLoader" class="startup-loader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <h1 class="loader-title">Copas Tool</h1>
+    </div>
+  </div>
+  <div id="dashboardView" class="dashboard-shell open">
+    <div class="dashboard-aurora" aria-hidden="true">
+      <span class="aurora-blob aurora-1"></span>
+      <span class="aurora-blob aurora-2"></span>
+    </div>
+    <header class="dashboard-hero">
+      <div class="hero-brand">
+        <img src="./icon.svg" alt="Copas Tool" class="hero-logo-img" width="64" height="64" />
+        <div class="hero-title-group">
+          <h1 class="hero-title">Copas Tool</h1>
+          <span class="hero-badge">vM15</span>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <div class="dropdown">
+          <button id="btnDropdownDashboardSettings" class="btn btn-icon btn-outline btn-settings-gear" aria-expanded="false" aria-haspopup="menu" title="Pengaturan & Backup Proyek">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>
+          </button>
+          <div id="dropdownDashboardSettingsMenu" class="dropdown-content dropdown-right" role="menu">
+            <button id="btnDashboardSettings" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Project Defaults</span>
+            </button>
+            <button id="btnDashboardPrompts" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>Prompt Defaults</span>
+            </button>
+            <button id="btnPluginManagerOpen" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+              <span>Plugin & Parser Manager</span>
+            </button>
+            <button id="btnShortcutsOpen" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+              <span>Shortcut Keyboard</span>
+            </button>
+            <button id="btnOpfsExplorerOpen" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>File Explorer (OPFS)</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button id="btnBackupAllProjects" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" /><path d="M10 12h4" /></svg>
+              <span>Backup Semua (.zip)</span>
+            </button>
+            <button id="btnFolderBackup" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+              <span>Backup ke Folder</span>
+            </button>
+            <button id="btnFolderRestore" class="dropdown-item" role="menuitem">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>
+              <span>Pulihkan dari Folder</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div id="storageWarningBanner" class="storage-warning-banner" style="display:none;">
+      <div class="storage-warning-inner">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="storageWarningText">Penyimpanan perangkat hampir penuh. Harap backup proyek kamu ke .zip untuk mencegah kehilangan data.</span>
+      </div>
+    </div>
+
+    <div class="dashboard-hero-cta">
+      <button id="btnNewProject" class="btn btn-primary btn-cta">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        <span>Buat Project</span>
+      </button>
+      <button id="btnRestoreProject" class="btn btn-outline btn-cta">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
+        <span>Pulihkan Project</span>
+      </button>
+    </div>
+
+    <main class="dashboard-content">
+      <div class="dashboard-section-header">
+        <div class="dashboard-section-title">
+          <span>Project Tersimpan</span>
+          <span id="projectCountBadge" class="project-count-badge">0</span>
+        </div>
+      </div>
+      <div class="dashboard-filter-bar">
+        <div class="search-input-wrap">
+          <svg class="search-icon lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="projectFilterInput" class="text-input dashboard-search-input" type="search" placeholder="Cari project..." />
+        </div>
+        <div class="sort-select-wrap">
+          <select id="projectSortSelect" class="text-input dashboard-sort-select">
+            <option value="newest">Terbaru</option>
+            <option value="oldest">Terlama</option>
+            <option value="name_asc">Nama (A-Z)</option>
+            <option value="name_desc">Nama (Z-A)</option>
+            <option value="progress_desc">Progress Tertinggi</option>
+            <option value="progress_asc">Progress Terendah</option>
+          </select>
+        </div>
+      </div>
+      <div id="projectList" class="project-grid"></div>
+    </main>
+  </div>
+  
+  <div id="workspaceView" class="app-shell" style="display: none;">
+    <header class="toolbar" role="toolbar" aria-label="Workspace">
+      <div class="toolbar-scroll" role="toolbar" aria-label="Workspace actions">
+        <button id="btnBackToDashboard" class="btn btn-outline" title="Kembali ke Dashboard"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg><span class="btn-text"> Dashboard</span></button>
+        <span class="toolbar-sep"></span>
+        <div class="dropdown">
+          <button id="btnDropdownImport" class="btn dropdown-toggle" aria-expanded="false" aria-haspopup="menu" title="Impor File"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span class="btn-text"> Impor</span> ▾</button>
+          <div id="dropdownImportMenu" class="dropdown-content">
+            <button id="btnImportFile" class="dropdown-item">Impor File</button>
+            <button id="btnImportFolder" class="dropdown-item">Impor Folder</button>
+            <button id="btnImportZip" class="dropdown-item">Impor ZIP</button>
+            <hr class="dropdown-divider">
+            <button id="btnImportTranslatedFile" class="dropdown-item">Impor TL File</button>
+            <button id="btnImportTranslatedFolder" class="dropdown-item">Impor TL Folder</button>
+            <hr class="dropdown-divider">
+            <button id="btnImportCustom" class="dropdown-item">Impor File (Plugin/Parser)…</button>
+            <button id="btnImportCustomFolder" class="dropdown-item">Impor Folder (Plugin/Parser)</button>
+          </div>
+        </div>
+        <button id="btnUndo" class="btn btn-icon" disabled title="Undo (Batalkan aksi terakhir)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></svg></button>
+        <button id="btnRedo" class="btn btn-icon" disabled title="Redo (Ulangi aksi terakhir)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" /></svg></button>
+        <button id="btnBatchPrev" class="btn btn-icon" title="Batch sebelumnya (Alt+ArrowUp)" aria-label="Batch sebelumnya (Alt+ArrowUp)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
+        <button id="btnBatchNext" class="btn btn-icon" title="Batch berikutnya (Alt+ArrowDown)" aria-label="Batch berikutnya (Alt+ArrowDown)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <span class="toolbar-sep"></span>
+        <button id="btnExport" class="btn" disabled title="Ekspor Terjemahan"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="btn-text"> Ekspor</span></button>
+        <span class="toolbar-sep"></span>
+        <button id="btnProofread" class="btn" disabled title="Cari / Ganti"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="btn-text"> Cari</span></button>
+        <button id="btnToolbarBookmark" class="btn toolbar-bookmark-btn" title="Daftar Bookmark">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+          <span class="btn-text">Bookmark</span>
+          <span id="toolbarBookmarkBadge" class="bubble-badge is-zero">0</span>
+        </button>
+        <div class="dropdown">
+          <button id="btnDropdownTools" class="btn dropdown-toggle" aria-expanded="false" aria-haspopup="menu" title="Tools Tambahan"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg><span class="btn-text"> Tools</span> ▾</button>
+          <div id="dropdownToolsMenu" class="dropdown-content">
+            <button id="btnFileList" class="dropdown-item" disabled><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13h4"/><path d="M10 17h4"/></svg><span>Daftar File</span></button>
+            <button id="btnQaCheck" class="dropdown-item" disabled><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg><span>Validasi QC</span></button>
+            <button id="btnDictHistory" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Riwayat Kamus</span></button>
+            <button id="btnTextReplacer" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span>Text Replacer</span></button>
+            <button id="btnWorkspaceOpfsExplorerOpen" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>File Explorer (OPFS)</span></button>
+          </div>
+        </div>
+        <div class="dropdown" id="pluginMenuGroup">
+          <button id="btnOpenPlugins" class="btn dropdown-toggle" aria-expanded="false" aria-haspopup="menu" title="Plugin & Commands"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg><span class="btn-text"> Plugin</span> ▾</button>
+          <div id="pluginMenu" class="dropdown-content dropdown-right"></div>
+        </div>
+        <button id="btnSettingsGeneral" class="btn" title="Pengaturan Proyek">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>
+          <span class="btn-text"> Setting</span>
+        </button>
+        <button id="btnBackupProject" class="btn btn-outline" title="Backup proyek (Ctrl+S)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span class="btn-text"> Backup</span></button>
+      </div>
+      <span id="projectNameDisplay" class="toolbar-label toolbar-project-name desktop-only"></span>
+    </header>
+    <main class="split-layout">
+      <section class="panel panel-left">
+        <div class="panel-header">
+          <h2 class="panel-title">Daftar Teks</h2>
+          <div id="currentFileBar" class="current-file-bar is-collapsed">
+            <span class="cfb-label">File:</span>
+            <span class="cfb-name"></span>
+            <span class="cfb-range"></span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <span id="progressText" class="mono">0/0</span>
+          </div>
+        </div>
+        <div id="previewViewport" class="preview-viewport">
+          <div id="previewContainer" class="preview-container"></div>
+        </div>
+      </section>
+      <section class="panel panel-right">
+        <h2 class="panel-title">Area Kerja</h2>
+
+        <div class="card-box mb-2">
+          <label class="section-label mt-0">Pilih Range Baris</label>
+          <div class="flex-center gap-4 mb-2 wrap">
+            <input id="rangeFromInput" type="number" class="text-input grow" placeholder="Dari..." min="1" disabled />
+            <span class="text-muted">-</span>
+            <input id="rangeToInput" type="number" class="text-input grow" placeholder="Sampai..." min="1" disabled />
+            <button id="btnSelectRange" class="btn btn-outline" disabled>Centang</button>
+          </div>
+          <div class="flex-center gap-4 mb-2 wrap">
+            <button id="btnSelectAll" class="btn btn-outline grow" disabled>Pilih Semua</button>
+            <button id="btnClearSelection" class="btn btn-outline grow" disabled>Batal Pilih</button>
+          </div>
+        </div>
+
+        <div class="tabs-wrap mb-2 workspace-ai-tabs" data-htl-hide="true" role="tablist" aria-label="Workspace sections">
+          <button id="tabTranslate" class="btn btn-primary grow" role="tab" aria-selected="true">Translate</button>
+          <button id="tabGlossary" class="btn btn-outline grow workspace-ai-tab" data-htl-hide="true" role="tab" aria-selected="false">Glossary</button>
+          <button id="tabAiCheck" class="btn btn-outline grow workspace-ai-tab" data-htl-hide="true" role="tab" aria-selected="false">AI Check</button>
+          <button id="tabDelete" class="btn btn-outline grow text-danger" style="border-color: rgba(239, 68, 68, 0.3);" role="tab" aria-selected="false">Hapus</button>
+        </div>
+
+        <div id="copyStatus" class="status-toast empty" data-htl-hide="true"></div>
+
+        <div id="viewTranslate">
+          <div class="card-box is-primary mb-2" data-htl-hide="true">
+            <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
+            <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
+            <div id="autoCopasControls" hidden>
+              <div class="flex gap-2 wrap mb-1 mt-1">
+                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Kirim baris terpilih ke extension CSTL Auto Copas">Auto Copas</button>
+                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari tab LLM">Ambil Hasil</button>
+                <button id="btnAutoCopasCancel" class="btn btn-danger" style="display:none" title="Batalkan Auto Copas yang berjalan">Batal</button>
+              </div>
+              <div id="autoCopasStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+            </div>
+            <label class="checkbox-line mt-1" title="Jika gagal, ulangi batch yang sama terus sampai dihentikan (jeda pakai RPM)"><input id="checkAutoRepeatOnFailure" type="checkbox" /> Ulangi jika gagal</label>
+          </div>
+          <div id="glossaryPreviewWrap" class="glossary-preview" hidden data-htl-hide="true">
+            <div class="section-label mt-0">Glossary yang ikut terkirim</div>
+            <pre id="glossaryPreviewText" class="mono glossary-preview-text"></pre>
+          </div>
+          <label class="section-label" for="pasteArea" data-htl-hide="true">Paste Terjemahan</label>
+          <textarea id="pasteArea" class="mono input-area" placeholder="Paste hasil dari AI di sini..." disabled data-htl-hide="true"></textarea>
+          <div class="inline-actions mt-2" data-htl-hide="true">
+            <button id="btnApply" class="btn btn-success grow" disabled>Terapkan</button>
+          </div>
+          <details class="collapsible-section mt-3 mb-2" data-htl-hide="true">
+            <summary class="collapsible-summary">
+              <span class="collapsible-title">
+                <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Terjemahan Nama Karakter (Opsional)
+              </span>
+              <span class="collapsible-arrow">▾</span>
+            </summary>
+            <div class="collapsible-body">
+              <div class="card-box mb-2">
+                <button id="btnCopyNamesForAi" class="btn btn-primary w-full" disabled>Copy Nama (<span id="copyNameCount">0</span>)</button>
+              </div>
+              <label class="section-label" for="pasteNameArea">Paste Terjemahan Nama</label>
+              <textarea id="pasteNameArea" class="mono input-area small" placeholder="[character] 速川麦 = Hayakawa Mugi {male name}&#10;[character] 辻倉朱比華 = Tsujikura Spica {female name}" disabled></textarea>
+              <div class="inline-actions mb-2">
+                <button id="btnApplyNameTranslations" class="btn btn-success grow" disabled>Terapkan</button>
+                <button id="btnResetNameTranslations" class="btn btn-danger" disabled>Reset</button>
+              </div>
+              <div id="nameTableWrap" class="name-table-wrap">
+                <table class="name-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Asli</th>
+                      <th>Terjemahan</th>
+                    </tr>
+                  </thead>
+                  <tbody id="nameTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+          <div id="viewHtlPlaceholder" data-htl-show="true" style="display: none;">
+            <div class="card-box mb-2" style="border-color: rgba(200, 78, 24, 0.25);">
+              <label class="section-label mt-0">Mode HTL (Human Translation)</label>
+              <p class="hint">Klik baris manapun untuk membuka editor dan mengetik terjemahan secara manual.</p>
+            </div>
+            <div class="card-box mb-2" id="htlRefLang1Box" data-htl-show="true" style="display: none;">
+              <label class="section-label mt-0" id="htlRefLang1Label">Referensi 1</label>
+              <pre id="htlRefLang1Text" class="mono" style="max-height: 240px; overflow: auto; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; white-space: pre-wrap; font-size: 12px;"></pre>
+            </div>
+            <div class="card-box mb-2" id="htlRefLang2Box" data-htl-show="true" style="display: none;">
+              <label class="section-label mt-0" id="htlRefLang2Label">Referensi 2</label>
+              <pre id="htlRefLang2Text" class="mono" style="max-height: 240px; overflow: auto; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; white-space: pre-wrap; font-size: 12px;"></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="viewDelete" style="display: none;">
+          <div class="card-box" style="border-color: rgba(239, 68, 68, 0.3);">
+            <label class="section-label mt-0 text-danger">Hapus Terjemahan</label>
+            <button id="btnDeleteTranslation" class="btn btn-danger w-full mt-2" disabled>Hapus (<span id="deleteTranslationCount">0</span>)</button>
+          </div>
+        </div>
+
+        <div id="viewGlossary" style="display: none;">
+          <div class="card-box mb-2">
+            <label class="section-label mt-0">Ekstrak Glossary</label>
+            <button id="btnCopyForGlossaryAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyGlossaryCount">0</span>)</button>
+            <button id="btnAutoGlossaryAi" class="btn btn-success w-full mb-1" disabled>Auto Ekstrak</button>
+            <div id="autoCopasGlossaryControls" hidden>
+              <div class="flex gap-2 wrap mb-1">
+                <button id="btnAutoCopasGlossary" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk ekstrak glossary">Auto Copas</button>
+                <button id="btnFetchCopasGlossaryResult" class="btn btn-outline grow" title="Ambil hasil glossary dari tab LLM">Ambil Hasil</button>
+                <button id="btnAutoCopasGlossaryCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
+              </div>
+              <div id="autoCopasGlossaryStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+            </div>
+          </div>
+          <label class="section-label" for="pasteGlossaryArea">Paste Glossary AI</label>
+          <textarea id="pasteGlossaryArea" class="mono input-area" placeholder="[character] 速川麦 = Hayakawa Mugi {male name}&#10;[place] 渋谷 = Shibuya {place name}" disabled></textarea>
+          <div class="inline-actions mt-2">
+            <button id="btnSaveGlossary" class="btn btn-success grow" disabled>Simpan ke Glossary</button>
+            <button id="btnImportGlossaryFile" class="btn btn-outline" disabled>Import</button>
+            <button id="btnExportGlossaryFile" class="btn btn-outline" disabled>Export</button>
+          </div>
+          <details class="collapsible-section mt-3">
+            <summary class="collapsible-summary">
+              <span class="collapsible-title">
+                <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import Eksternal (VNDB / AniList / Ruby)
+              </span>
+              <span class="collapsible-arrow">▾</span>
+            </summary>
+            <div class="collapsible-body">
+              <div class="card-box mb-2">
+                <label class="section-label mt-0" for="vndbInput">Import VNDB</label>
+                <div class="inline-actions">
+                  <input id="vndbInput" class="text-input grow" type="text" placeholder="v47937 atau URL VNDB" />
+                  <button id="btnImportVndbNames" class="btn btn-outline">Import</button>
+                </div>
+                <p id="vndbStatus" class="hint mt-2 m-0"></p>
+              </div>
+              <div class="card-box mb-2">
+                <label class="section-label mt-0">Extract Ruby EPUB</label>
+                <button id="btnExtractEpubRubyNames" class="btn btn-outline w-full" disabled>Extract Ruby</button>
+                <p id="epubRubyStatus" class="hint mt-2 m-0"></p>
+              </div>
+              <div class="card-box">
+                <label class="section-label mt-0" for="anilistInput">Import AniList</label>
+                <div class="inline-actions">
+                  <input id="anilistInput" class="text-input grow" type="text" placeholder="URL AniList manga/novel" />
+                  <button id="btnImportAnilistNames" class="btn btn-outline">Import</button>
+                </div>
+                <p id="anilistStatus" class="hint mt-2 m-0"></p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div id="viewAiCheck" style="display: none;">
+          <div class="card-box mb-2">
+            <label class="section-label mt-0">AI Double Check</label>
+            <button id="btnCopyForAiCheck" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyAiCheckCount">0</span>)</button>
+            <button id="btnAutoAiCheck" class="btn btn-success w-full mb-1" disabled>Auto Check</button>
+            <div id="autoCopasAiCheckControls" hidden>
+              <div class="flex gap-2 wrap mb-1">
+                <button id="btnAutoCopasAiCheck" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk AI Check">Auto Copas</button>
+                <button id="btnFetchCopasAiCheckResult" class="btn btn-outline grow" title="Ambil hasil AI Check dari tab LLM">Ambil Hasil</button>
+                <button id="btnAutoCopasAiCheckCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
+              </div>
+              <div id="autoCopasAiCheckStatus" class="hint m-0 mb-1">Extension: mengecek…</div>
+            </div>
+            <label class="checkbox-line mt-1"><input id="settingsAiCheckReviewMode" type="checkbox" /> Review mode (pause tiap batch)</label>
+          </div>
+
+          <div id="aiCheckStatus" class="status-toast empty"></div>
+          <label class="section-label" for="pasteAiCheckArea">Paste Hasil AI Check</label>
+          <textarea id="pasteAiCheckArea" class="mono input-area" placeholder="[line 12]&#10;category: Grammar&#10;reason: alasan koreksi&#10;correction: Nama: Teks terjemahan yang sudah dikoreksi" disabled></textarea>
+          <div class="inline-actions">
+            <button id="btnParseAiCheck" class="btn btn-outline grow" disabled>Parse</button>
+            <button id="btnApplyAiCheck" class="btn btn-success grow" disabled>Terapkan</button>
+            <button id="btnClearAiCheck" class="btn btn-danger" disabled>Hapus</button>
+          </div>
+          <div class="inline-actions mt-1" id="aiCheckReviewActions" style="display:none;">
+            <button id="btnReviewApply" class="btn btn-success grow">Apply & Lanjut</button>
+            <button id="btnReviewSkip" class="btn btn-outline grow">Skip</button>
+          </div>
+          <div id="aiCheckResults" class="ai-check-results mt-2"></div>
+        </div>
+        <div id="pluginPanels" class="plugin-panels mt-2"></div>
+      </section>
+    </main>
+    <footer id="statusBar" class="status-bar">
+      File: - | Baris: 0 | Diterjemahkan: 0/0 (0%)
+    </footer>
+  </div>
+
+  <input id="importFileInput" type="file" accept=".json,.epub" multiple hidden />
+  <input id="importCustomInput" type="file" multiple hidden />
+  <input id="importCustomFolderInput" type="file" webkitdirectory directory multiple hidden />
+  <input id="importFolderInput" type="file" accept=".json,.epub" webkitdirectory directory multiple hidden />
+  <input id="importZipInput" type="file" accept=".zip" hidden />
+  <input id="importLucaTxtInput" type="file" accept=".txt" multiple hidden />
+  <input id="importLucaTxtFolderInput" type="file" accept=".txt" webkitdirectory directory multiple hidden />
+  <input id="importTranslatedFileInput" type="file" accept=".json,.epub,.zip,.txt" multiple hidden />
+  <input id="importTranslatedFolderInput" type="file" accept=".json,.epub,.txt" webkitdirectory directory multiple hidden />
+  <input id="restoreProjectInput" type="file" accept=".cstl,.cstl.zip" hidden />
+  <input id="glossaryFileInput" type="file" accept=".txt,.glossary,.md" hidden />
+  <input id="refLang1Input" type="file" accept=".json" hidden />
+  <input id="refLang2Input" type="file" accept=".json" hidden />
+  <input id="refLang1FolderInput" type="file" accept=".json" webkitdirectory directory multiple hidden />
+  <input id="refLang2FolderInput" type="file" accept=".json" webkitdirectory directory multiple hidden />
+
+  <!-- Dashboard Default Settings Modal -->
+  <div id="dashboardSettingsModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg> Default Pengaturan Proyek Baru</h3>
+      </div>
+      <div class="modal-body">
+
+        <!-- SECTION: Bahasa & Mode -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            Bahasa & Mode
+          </div>
+          <div class="flex-center gap-4 wrap">
+            <div class="flex-col grow">
+              <label class="form-label" for="dsSourceLang">Bahasa Sumber (Source)</label>
+              <select id="dsSourceLang" class="text-input w-full">
+                <option value="Japanese">Japanese</option>
+                <option value="English">English</option>
+                <option value="Chinese">Chinese</option>
+                <option value="Korean">Korean</option>
+              </select>
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsTargetLang">Bahasa Tujuan (Target)</label>
+              <select id="dsTargetLang" class="text-input w-full">
+                <option value="Indonesian">Indonesian</option>
+                <option value="English">English</option>
+                <option value="Japanese">Japanese</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex-center gap-4 wrap mt-2">
+            <div class="flex-col grow">
+              <label class="form-label" for="dsTranslationMode">Mode Terjemahan</label>
+              <select id="dsTranslationMode" class="text-input w-full">
+                <option value="ai">AI (Bantuan AI)</option>
+                <option value="htl">HTL (Manual / Manusia)</option>
+              </select>
+            </div>
+            <div class="flex-col grow">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label" for="dsRegexFilter">Regex Filter (Opsional)</label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);">
+                  <input id="dsRegexFilterCase" type="checkbox" style="cursor: pointer;" />
+                  <span>Case-sensitive</span>
+                </label>
+              </div>
+              <input id="dsRegexFilter" type="text" class="text-input w-full" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: Tampilan & Kamus -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
+            Tampilan & Kamus
+          </div>
+          <div class="checkbox-grid" style="align-items: end;">
+            <div>
+              <label class="checkbox-line mb-1">
+                <input id="dsShowFurigana" type="checkbox" />
+                <span>Tampilkan Furigana</span>
+              </label>
+              <select id="dsFuriganaType" class="text-input w-full">
+                <option value="hiragana">Hiragana (Default)</option>
+                <option value="katakana">Katakana</option>
+                <option value="romaji">Romaji</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label mb-1" for="dsFontSize">Ukuran Font Utama</label>
+              <div class="flex-center gap-2">
+                <input type="number" id="dsFontSize" class="text-input grow w-full" min="10" max="48" value="14" />
+                <span class="hint" style="font-size: 13px; font-weight: 500;">px</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="checkbox-line mb-1">
+              <input id="dsEnableDictionary" type="checkbox" />
+              <span>Kamus Pop-up (Hover / Sentuh)</span>
+            </label>
+            <select id="dsDictionaryEngine" class="text-input w-full">
+              <option value="llm">AI / LLM (Direkomendasikan)</option>
+              <option value="jisho">Tradisional (Jisho / FreeDict)</option>
+            </select>
+            <details class="mt-2">
+              <summary class="hint-sm" style="cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;">
+                <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span>Kustomisasi Prompt Kamus AI</span>
+              </summary>
+              <textarea id="dsDictionaryPrompt" class="prompt-input mt-1 w-full" rows="3" placeholder="Gunakan {word} dan {context}"></textarea>
+            </details>
+          </div>
+        </div>
+
+        <!-- SECTION: Validasi & QC -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            Validasi & QC Terjemahan
+          </div>
+          <div class="checkbox-grid">
+            <label class="checkbox-line">
+              <input id="dsCheckKanaResidue" type="checkbox" />
+              <span>Saring karakter Kana/Kanji tertinggal</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckSimilarity" type="checkbox" />
+              <span>Saring terjemahan terlalu mirip teks asli</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckLengthRatio" type="checkbox" />
+              <span>Saring terjemahan terlalu panjang (overflow)</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckLinebreak" type="checkbox" checked />
+              <span>Saring ketidaksesuaian jumlah baris</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckLanguage" type="checkbox" checked />
+              <span>Saring teks terdeteksi bahasa Inggris</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckPunctuation" type="checkbox" checked />
+              <span>Saring tanda baca Jepang bocor</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsCheckUntransName" type="checkbox" />
+              <span>Saring nama karakter belum diterjemahkan</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsIgnorePasteNames" type="checkbox" />
+              <span>Abaikan nama karakter saat paste</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsDisableEmptyLineValidation" type="checkbox" />
+              <span>Izinkan simpan baris terjemahan kosong</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsEnableBackgroundChaining" type="checkbox" />
+              <span>Aktifkan Memori Estafet (Summary Chaining)</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsEnableUncertainMarking" type="checkbox" />
+              <span>Tandai terjemahan ragu dengan [?]</span>
+            </label>
+            <label class="checkbox-line">
+              <input id="dsSafeTagsForChatgpt" type="checkbox" />
+              <span>Gunakan safe tag === LABEL ===</span>
+            </label>
+          </div>
+
+          <div id="dsSimilarityThresholdWrap" class="flex-center gap-2 mt-2" style="display: none;">
+            <label class="form-label m-0" for="dsSimilarityThreshold">Ambang Kemiripan (%):</label>
+            <input id="dsSimilarityThreshold" type="number" class="text-input" min="1" max="99" value="70" style="width: 72px;" />
+          </div>
+          <div id="dsLengthRatioWrap" class="flex-center gap-2 mt-2" style="display: none;">
+            <label class="form-label m-0" for="dsLengthRatioThreshold">Rasio Panjang Maksimal:</label>
+            <input id="dsLengthRatioThreshold" type="number" class="text-input" min="1" max="10" step="0.1" value="2.5" style="width: 72px;" />
+            <span class="hint">x</span>
+          </div>
+        </div>
+
+        <!-- SECTION: Batch & Konteks -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Batch & Konteks AI
+          </div>
+          <div class="flex-center gap-4 wrap">
+            <div class="flex-col grow">
+              <label class="form-label" for="dsAiFormat">Format Copy/Paste AI</label>
+              <select id="dsAiFormat" class="text-input w-full">
+                <option value="numbered">Numbered List</option>
+                <option value="block">Block [line N]</option>
+                <option value="xml">XML (BETA)</option>
+                <option value="jsonl">JSONL (BETA)</option>
+                <option value="jsonarray">JSON Array (BETA)</option>
+              </select>
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsContextLines">Konteks Baris Sebelumnya</label>
+              <input id="dsContextLines" type="number" class="text-input w-full" min="0" max="50" value="10" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsContextType">Sumber Teks Konteks</label>
+              <select id="dsContextType" class="text-input w-full">
+                <option value="raw">Teks Asli Jepang</option>
+                <option value="translated">Teks Terjemahan</option>
+                <option value="both">Keduanya (Asli & Terjemahan)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex-center gap-4 wrap mt-2">
+            <div class="flex-col grow">
+              <label class="form-label" for="dsSelectionBatch">Batch Translate</label>
+              <input id="dsSelectionBatch" type="number" class="text-input w-full" min="1" max="1000" value="100" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsGlossaryBatch">Batch Glossary</label>
+              <input id="dsGlossaryBatch" type="number" class="text-input w-full" min="1" max="2000" value="500" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsAiCheckBatch">Batch AI Check</label>
+              <input id="dsAiCheckBatch" type="number" class="text-input w-full" min="1" max="1000" value="250" />
+            </div>
+          </div>
+          <div class="flex-center gap-4 wrap mt-2">
+            <div class="flex-col grow">
+              <label class="form-label" for="dsParallelBatch">Paralel Batch (Auto Translate)</label>
+              <input id="dsParallelBatch" type="number" class="text-input w-full" min="1" max="10" value="1" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsSubagentWorkers">Subagent Workers (Agent Chat)</label>
+              <input id="dsSubagentWorkers" type="number" class="text-input w-full" min="1" max="10" value="3" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsAgentMaxTurns">Agent Max Turns</label>
+              <input id="dsAgentMaxTurns" type="number" class="text-input w-full" min="3" max="30" value="10" />
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: Auto-Increment Baris -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            Auto-Increment Baris
+          </div>
+          <label class="checkbox-line">
+            <input id="dsIncrementCheck" type="checkbox" />
+            <span>Aktifkan Auto-Increment (mengikuti ukuran Batch Translate)</span>
+          </label>
+        </div>
+
+        <!-- SECTION: Preferensi & Eksternal -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 17 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>
+            Preferensi & Tema
+          </div>
+          <div class="flex-center gap-4 wrap">
+            <div class="flex-col grow">
+              <label class="form-label" for="paletteSelect">Tema Warna (Color Palette)</label>
+              <select id="paletteSelect" class="text-input w-full">
+                <option value="indigo">Sumi Ink (Default)</option>
+                <option value="ocean">Indigo Archive</option>
+                <option value="forest">Moss Folio</option>
+                <option value="sunset">Paper & Lacquer</option>
+                <option value="rose">Seal Red</option>
+              </select>
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="dsEpubTags">Tag Target EPUB</label>
+              <input id="dsEpubTags" class="text-input w-full" type="text" placeholder="p, h1, h2, h3" value="p" />
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="checkbox-line">
+              <input id="dsShowEpubImages" type="checkbox" checked />
+              <span>Tampilkan preview gambar/ilustrasi di proyek EPUB</span>
+            </label>
+          </div>
+          <div class="mt-2">
+            <label class="checkbox-line">
+              <input id="dsEnableLogging" type="checkbox" />
+              <span>Tampilkan bubble logging di semua proyek</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION: Plugin & Integrasi -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+            Plugin &amp; Parser
+          </div>
+          <p class="hint-sm m-0 mb-2">Kelola paket plugin (.zip) atau buat script parser baru.</p>
+          <button id="btnOpenPluginManagerFromDashboardSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
+            <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+            <span>Buka Plugin &amp; Parser Manager</span>
+          </button>
+        </div>
+
+      </div><!-- end modal-body -->
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnDashboardSettingsCancel" class="btn">Batal</button>
+        <button id="btnDashboardSettingsReset" class="btn btn-outline">Reset ke Bawaan</button>
+        <button id="btnDashboardSettingsSave" class="btn btn-primary">Simpan Default</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Default Prompts Modal -->
+  <div id="dashboardPromptsModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg> Default Prompts Proyek Baru</h3>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="flex-between mb-1">
+            <label class="form-label m-0">Prompt Terjemahan AI</label>
+            <select id="dpPromptTemplateSelect" class="text-input" style="padding: 2px 8px; font-size: 12px;">
+              <option value="simple">Standar (Bawaan CSTL)</option>
+              <option value="kagikakko">Standar (Kagikakko 「」)</option>
+              <option value="aera-simple">Aera Simple</option>
+              <option value="complex-id">Kompleks (Indo)</option>
+              <option value="complex-en">Kompleks (Eng)</option>
+            </select>
+          </div>
+          <textarea id="dpPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+        </div>
+        <div class="settings-section">
+          <label class="form-label m-0">Prompt Ekstraksi Glosarium</label>
+          <textarea id="dpGlossaryPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+        </div>
+        <div class="settings-section">
+          <label class="form-label m-0">Prompt AI Check</label>
+          <textarea id="dpAiCheckPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+        </div>
+        <div class="settings-section">
+          <label class="form-label m-0">Prompt Agent Mode</label>
+          <textarea id="dpAgentPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+        </div>
+        <div class="settings-section">
+          <label class="form-label m-0">Prompt Summary Chaining (Memori Estafet)</label>
+          <textarea id="dpSummaryPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnDashboardPromptsCancel" class="btn">Batal</button>
+        <button id="btnDashboardPromptsReset" class="btn btn-outline">Reset ke Bawaan</button>
+        <button id="btnDashboardPromptsSave" class="btn btn-primary">Simpan Default Prompts</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head flex-between">
+        <div class="flex-center gap-2">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>
+          <h3 class="m-0">Pengaturan Proyek</h3>
+        </div>
+      </div>
+      <div class="tabs-wrap px-3 pt-2 mb-2" style="display: flex; gap: 6px;" role="tablist">
+        <button id="btnTabSettingsGeneral" type="button" class="btn btn-primary btn-sm grow is-active" role="tab" aria-selected="true">Umum</button>
+        <button id="btnTabSettingsPrompts" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Prompt</button>
+        <button id="btnTabSettingsGlossary" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Glosarium</button>
+        <button id="btnTabSettingsShortcuts" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Shortcut</button>
+        <button id="btnTabSettingsPlugins" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Plugin</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- PANE: UMUM -->
+        <div id="settingsTabGeneral" class="settings-tab-pane">
+          <!-- SECTION: Bahasa & Mode -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              Bahasa &amp; Mode
+            </div>
+            <div class="flex-center gap-4 wrap">
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsSourceLangSelect">Bahasa Sumber (Source)</label>
+                <select id="settingsSourceLangSelect" class="text-input w-full">
+                  <option value="Japanese">Japanese</option>
+                  <option value="English">English</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Korean">Korean</option>
+                </select>
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsTargetLangSelect">Bahasa Tujuan (Target)</label>
+                <select id="settingsTargetLangSelect" class="text-input w-full">
+                  <option value="Indonesian">Indonesian</option>
+                  <option value="English">English</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex-center gap-4 wrap mt-2">
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsTranslationModeSelect">Mode Terjemahan</label>
+                <select id="settingsTranslationModeSelect" class="text-input w-full">
+                  <option value="ai">AI (Bantuan AI)</option>
+                  <option value="htl">HTL (Manual / Manusia)</option>
+                </select>
+              </div>
+              <div class="flex-col grow">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <label class="form-label" for="settingsRegexFilterInput">Regex Filter (Opsional)</label>
+                  <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);">
+                    <input id="settingsRegexFilterCaseCheck" type="checkbox" style="cursor: pointer;" />
+                    <span>Case-sensitive</span>
+                  </label>
+                </div>
+                <input id="settingsRegexFilterInput" class="text-input w-full" type="text" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
+              </div>
+            </div>
+
+            <div class="mt-3" id="settingsRefLangWrap">
+              <label class="form-label">Referensi Bahasa Tambahan (JSON)</label>
+              <div class="flex-center gap-4 wrap">
+                <div class="flex-col grow">
+                  <input id="settingsRefLang1Select" class="text-input w-full" type="text" placeholder="Ref 1 (mis. English) - Belum diimpor" readonly />
+                </div>
+                <div class="flex-col grow">
+                  <input id="settingsRefLang2Select" class="text-input w-full" type="text" placeholder="Ref 2 (mis. Chinese) - Belum diimpor" readonly />
+                </div>
+              </div>
+              <div class="inline-actions mt-2">
+                <button id="btnImportRefLang1" class="btn btn-sm btn-outline" disabled>Impor Ref 1</button>
+                <button id="btnImportRefLang1Folder" class="btn btn-sm btn-outline" disabled>Folder Ref 1</button>
+                <button id="btnImportRefLang2" class="btn btn-sm btn-outline" disabled>Impor Ref 2</button>
+                <button id="btnImportRefLang2Folder" class="btn btn-sm btn-outline" disabled>Folder Ref 2</button>
+                <button id="btnClearRefLang1" class="btn btn-sm btn-danger" disabled>Hapus 1</button>
+                <button id="btnClearRefLang2" class="btn btn-sm btn-danger" disabled>Hapus 2</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Tampilan & Kamus -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
+              Tampilan &amp; Kamus
+            </div>
+            <div class="checkbox-grid" style="align-items: end;">
+              <div>
+                <label class="checkbox-line mb-1">
+                  <input id="settingsShowFurigana" type="checkbox" />
+                  <span>Tampilkan Furigana</span>
+                </label>
+                <select id="settingsFuriganaType" class="text-input w-full">
+                  <option value="hiragana">Hiragana (Default)</option>
+                  <option value="katakana">Katakana</option>
+                  <option value="romaji">Romaji</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label mb-1" for="settingsFontSize">Ukuran Font Utama</label>
+                <div class="flex-center gap-2">
+                  <input type="number" id="settingsFontSize" class="text-input grow w-full" min="10" max="48" value="14" />
+                  <span class="hint" style="font-size: 13px; font-weight: 500;">px</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label class="checkbox-line mb-1">
+                <input id="settingsEnableDictionary" type="checkbox" />
+                <span>Kamus Pop-up (Hover / Sentuh)</span>
+              </label>
+              <select id="settingsDictionaryEngine" class="text-input w-full">
+                <option value="llm">AI / LLM (Direkomendasikan)</option>
+                <option value="jisho">Tradisional (Jisho / FreeDict)</option>
+              </select>
+              <details class="mt-2">
+                <summary class="hint-sm" style="cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;">
+                  <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>Kustomisasi Prompt Kamus AI</span>
+                </summary>
+                <textarea id="settingsDictionaryPrompt" class="prompt-input mt-1 w-full" rows="3" placeholder="Gunakan {word} dan {context}"></textarea>
+              </details>
+            </div>
+          </div>
+
+          <!-- SECTION: Validasi & QC -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+              Validasi &amp; QC Terjemahan
+            </div>
+            <div class="checkbox-grid">
+              <label class="checkbox-line">
+                <input id="settingsCheckKanaResidue" type="checkbox" />
+                <span>Saring karakter Kana/Kanji tertinggal</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckSimilarity" type="checkbox" />
+                <span>Saring terjemahan terlalu mirip teks asli</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckLengthRatio" type="checkbox" />
+                <span>Saring terjemahan terlalu panjang (overflow)</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckLinebreak" type="checkbox" checked />
+                <span>Saring ketidaksesuaian jumlah baris</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckLanguage" type="checkbox" checked />
+                <span>Saring teks terdeteksi bahasa Inggris</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckPunctuation" type="checkbox" checked />
+                <span>Saring tanda baca Jepang bocor</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsCheckUntransName" type="checkbox" />
+                <span>Saring nama karakter belum diterjemahkan</span>
+              </label>
+              <label class="checkbox-line" title="Abaikan nama karakter saat menerapkan hasil terjemahan dari AI (tidak memvalidasi nama jika AI hanya mengembalikan pesan)">
+                <input id="settingsIgnorePasteNames" type="checkbox" />
+                <span>Abaikan nama karakter saat paste</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsDisableEmptyLineValidation" type="checkbox" />
+                <span>Izinkan simpan baris terjemahan kosong</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsEnableUncertainMarking" type="checkbox" />
+                <span>Tandai terjemahan ragu dengan [?]</span>
+              </label>
+              <label class="checkbox-line">
+                <input id="settingsSafeTagsForChatgpt" type="checkbox" />
+                <span>Gunakan safe tag === LABEL ===</span>
+              </label>
+            </div>
+
+            <div id="settingsSimilarityThresholdWrap" class="flex-center gap-2 mt-2" style="display: none;">
+              <label class="form-label m-0" for="settingsSimilarityThreshold">Ambang Kemiripan (%):</label>
+              <input id="settingsSimilarityThreshold" type="number" class="text-input" min="1" max="99" value="70" style="width: 72px;" />
+            </div>
+            <div id="settingsLengthRatioWrap" class="flex-center gap-2 mt-2" style="display: none;">
+              <label class="form-label m-0" for="settingsLengthRatioThreshold">Rasio Panjang Maksimal:</label>
+              <input id="settingsLengthRatioThreshold" type="number" class="text-input" min="1" max="10" step="0.1" value="2.5" style="width: 72px;" />
+              <span class="hint">x</span>
+            </div>
+          </div>
+
+          <!-- SECTION: Batch & Konteks -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Batch &amp; Konteks AI
+            </div>
+            <div class="flex-center gap-4 wrap">
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsContextLinesInput">Konteks Baris Sebelumnya</label>
+                <input id="settingsContextLinesInput" class="text-input w-full" type="number" min="0" value="10" />
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsContextTypeSelect">Sumber Teks Konteks</label>
+                <select id="settingsContextTypeSelect" class="text-input w-full">
+                  <option value="raw">Teks Asli Jepang</option>
+                  <option value="translated">Teks Terjemahan</option>
+                  <option value="both">Keduanya (Asli &amp; Terjemahan)</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex-center gap-4 wrap mt-2">
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsSelectionBatchSizeInput">Batch Translate</label>
+                <input id="settingsSelectionBatchSizeInput" class="text-input w-full" type="number" min="1" value="100" />
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsGlossaryBatchSizeInput">Batch Glossary</label>
+                <input id="settingsGlossaryBatchSizeInput" class="text-input w-full" type="number" min="1" value="500" />
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsAiCheckBatchSizeInput">Batch AI Check</label>
+                <input id="settingsAiCheckBatchSizeInput" class="text-input w-full" type="number" min="1" value="250" />
+              </div>
+            </div>
+            <div class="flex-center gap-4 wrap mt-2">
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsParallelBatchSizeInput">Paralel Batch (Auto Translate)</label>
+                <input id="settingsParallelBatchSizeInput" class="text-input w-full" type="number" min="1" max="10" value="1" />
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsSubagentWorkersInput">Subagent Workers (Agent Chat)</label>
+                <input id="settingsSubagentWorkersInput" class="text-input w-full" type="number" min="1" max="10" value="3" />
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="settingsAgentMaxTurns">Agent Max Turns</label>
+                <input id="settingsAgentMaxTurns" type="number" class="text-input w-full" min="3" max="30" value="10" />
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Auto-Increment Baris -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+              Auto-Increment Baris
+            </div>
+            <label class="checkbox-line">
+              <input id="settingsIncrementCheck" type="checkbox" />
+              <span>Aktifkan Auto-Increment (mengikuti ukuran Batch Translate)</span>
+            </label>
+          </div>
+
+          <!-- SECTION: Format & Eksternal -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Format &amp; Eksternal
+            </div>
+            <div>
+              <label class="form-label" for="settingsAiTranslationFormatSelect">Format Copy/Paste Terjemahan AI</label>
+              <select id="settingsAiTranslationFormatSelect" class="text-input w-full">
+                <option value="numbered">Numbered (12. Name: text)</option>
+                <option value="block">Block ([line N] / speaker / text)</option>
+                <option value="xml">XML (&lt;line num="N" speaker="..."&gt;)</option>
+                <option value="jsonl">JSONL ({"num":N,"speaker":"...","text":"..."})</option>
+                <option value="jsonarray">JSON Array ([id, "name", "text"])</option>
+              </select>
+            </div>
+            <div class="mt-2">
+              <label class="form-label" for="settingsEpubTagsInput">Tag HTML Target EPUB</label>
+              <input id="settingsEpubTagsInput" class="text-input w-full" type="text" placeholder="p, h1, h2, h3" />
+            </div>
+            <div class="mt-2">
+              <label class="checkbox-line">
+                <input id="settingsShowEpubImages" type="checkbox" checked />
+                <span>Tampilkan preview gambar/ilustrasi di daftar teks (EPUB)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE: PROMPT -->
+        <div id="settingsTabPrompts" class="settings-tab-pane" style="display: none;">
+          <div class="settings-section">
+            <div class="flex-between mb-1">
+              <label class="form-label m-0">Prompt Terjemahan AI</label>
+              <div class="flex" style="gap: 8px;">
+                <select id="settingsPromptTemplateSelect" class="text-input" style="padding: 2px 8px; font-size: 12px;">
+                  <option value="simple">Standar (Bawaan CSTL)</option>
+                  <option value="kagikakko">Standar (Kagikakko 「」)</option>
+                  <option value="aera-simple">Aera Simple</option>
+                  <option value="complex-id">Kompleks (Indo)</option>
+                  <option value="complex-en">Kompleks (Eng)</option>
+                </select>
+                <button id="btnSettingsReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
+              </div>
+            </div>
+            <textarea id="settingsPromptInput" class="prompt-input mt-1 w-full" rows="4"></textarea>
+          </div>
+
+          <div class="settings-section">
+            <label class="checkbox-line">
+              <input type="checkbox" id="settingsEnableBackgroundChaining" />
+              <span>Aktifkan Memori Estafet (Summary Chaining)</span>
+            </label>
+            
+            <div class="mt-2 flex-between">
+              <label class="form-label m-0">Ringkasan Cerita Saat Ini (Current Summary)</label>
+              <button id="btnSettingsClearBackground" class="btn btn-outline btn-xs" type="button">Kosongkan</button>
+            </div>
+            <textarea id="settingsBackgroundInput" class="prompt-input mt-1 w-full" style="height: 60px;" placeholder="(Kosong)"></textarea>
+
+            <div class="mt-2 flex-between">
+              <label class="form-label m-0">Kustomisasi Prompt Ringkasan (Summary Prompt)</label>
+              <button id="btnSettingsSummaryPromptReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
+            </div>
+            <textarea id="settingsSummaryPromptInput" class="prompt-input mt-1 w-full" style="height: 75px;"></textarea>
+          </div>
+
+          <div class="settings-section">
+            <div class="flex-between mb-1">
+              <label class="form-label m-0">Prompt AI Check</label>
+              <button id="btnSettingsAiCheckReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
+            </div>
+            <textarea id="settingsAiCheckPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+
+            <div class="mt-3 pt-2" style="border-top: 1px solid var(--border);">
+              <label class="checkbox-line mb-1">
+                <input type="checkbox" id="settingsEnableAiCheckChaining" />
+                <span>Estafet Riwayat Koreksi AI Check (Chaining)</span>
+              </label>
+              <label class="checkbox-line mb-1">
+                <input type="checkbox" id="settingsEnableAiCheckStoryContext" />
+                <span>Sertakan Ringkasan Cerita (Story Context) pada AI Check</span>
+              </label>
+              <label class="checkbox-line mb-2">
+                <input type="checkbox" id="settingsEnableAiCheckAgentMemory" />
+                <span>Koneksikan Memori AI Agent (Karakter &amp; Gaya) ke AI Check</span>
+              </label>
+
+              <div class="mt-2">
+                <div class="flex-between mb-1">
+                  <label class="form-label m-0" for="settingsAiCheckStoryContextInput">Ringkasan Cerita AI Check Saat Ini (Story Context):</label>
+                  <div class="flex gap-1">
+                    <button id="btnSettingsAiCheckCopyStoryFromTranslate" type="button" class="btn btn-outline btn-xs" title="Salin ringkasan cerita dari Translate ke AI Check">Salin dari Translate</button>
+                    <button id="btnSettingsAiCheckClearStoryContext" type="button" class="btn btn-outline btn-xs" title="Kosongkan ringkasan cerita AI Check">Kosongkan</button>
+                  </div>
+                </div>
+                <textarea id="settingsAiCheckStoryContextInput" class="prompt-input mt-1 w-full" style="height: 60px;" placeholder="(Kosong)"></textarea>
+              </div>
+
+              <div class="mt-2">
+                <div class="flex-between mb-1">
+                  <label class="form-label m-0" for="settingsAiCheckSummaryPromptInput">Kustomisasi Prompt Ringkasan Cerita AI Check (Story Context Prompt):</label>
+                  <button id="btnSettingsAiCheckSummaryPromptReset" type="button" class="btn btn-outline btn-xs">Reset Default</button>
+                </div>
+                <textarea id="settingsAiCheckSummaryPromptInput" class="prompt-input mt-1 w-full" style="height: 75px;"></textarea>
+              </div>
+
+              <div class="mt-2">
+                <label class="form-label m-0" for="settingsAiCheckLocalizationNotes">Catatan Khusus Lokalisasi AI Check:</label>
+                <textarea id="settingsAiCheckLocalizationNotes" class="prompt-input mt-1 w-full" rows="2" placeholder="Catatan panduan lokalisasi (misal: gaya panggilan, nada bicara karakter, dll)..."></textarea>
+              </div>
+
+              <div class="mt-2">
+                <div class="flex-between mb-1">
+                  <label class="form-label m-0" for="settingsAiCheckRevisionsInput">Riwayat Koreksi Sebelumnya (Changelog):</label>
+                  <button id="btnSettingsAiCheckClearRevisions" type="button" class="btn btn-outline btn-xs" title="Kosongkan riwayat koreksi">Reset</button>
+                </div>
+                <textarea id="settingsAiCheckRevisionsInput" class="prompt-input mt-1 w-full" style="height: 60px; font-family: monospace; font-size: 11px;" placeholder="(Otomatis terakumulasi saat koreksi diterapkan, atau ketik langsung di sini)"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="flex-between mb-1">
+              <label class="form-label m-0">Prompt Glossary Extractor</label>
+              <button id="btnSettingsGlossaryReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
+            </div>
+            <textarea id="settingsGlossaryPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+          </div>
+
+          <div class="settings-section">
+            <div class="flex-between mb-1">
+              <label class="form-label m-0">Prompt Agent Mode</label>
+              <button id="btnSettingsAgentPromptReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
+            </div>
+            <textarea id="settingsAgentPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+          </div>
+
+          <div class="settings-section">
+            <div class="flex-between mb-1">
+              <label class="form-label m-0">Memori AI Agent &amp; Aturan Karakter</label>
+              <button id="btnOpenAgentMemoryFromSettings" class="btn btn-outline btn-xs flex-center gap-1" type="button">
+                <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>
+                <span>Buka Pengelola Memori AI Agent</span>
+              </button>
+            </div>
+            <p class="hint m-0 mt-1">Kelola pengetahuan karakter, gaya bahasa, istilah, dan preferensi untuk Agent Chat &amp; AI Check.</p>
+          </div>
+        </div>
+
+        <!-- PANE: GLOSARIUM -->
+        <div id="settingsTabGlossary" class="settings-tab-pane" style="display: none;">
+          <div class="settings-section">
+            <label class="form-label m-0">Daftar Istilah &amp; Glosarium Proyek</label>
+            <p class="hint m-0 mt-1 mb-2">Masukkan istilah per baris dalam format <code>[kategori] istilah_asli = terjemahan {catatan}</code> atau <code>istilah = terjemahan</code>.</p>
+            <textarea id="settingsGlossaryInput" class="mono input-area mt-1" style="height: 320px;" placeholder="[character] 速川麦 = Hayakawa Mugi {male name}&#10;[place] 渋谷 = Shibuya {place name}&#10;魔王 = Demon Lord"></textarea>
+          </div>
+        </div>
+
+        <!-- PANE: SHORTCUT -->
+        <div id="settingsTabShortcuts" class="settings-tab-pane" style="display: none;">
+          <div class="flex-between mb-2">
+            <p class="hint m-0">Klik tombol kombinasi lalu tekan tombol keyboard untuk mengubah. Gunakan <kbd>Backspace</kbd> untuk menghapus atau <kbd>Escape</kbd> untuk membatalkan.</p>
+            <button id="btnShortcutsResetAll" class="btn btn-outline btn-xs" title="Reset semua shortcut ke default" type="button" style="flex-shrink: 0; margin-left: 8px;">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
+              <span>Reset Semua</span>
+            </button>
+          </div>
+          <p id="shortcutStatus" class="hint shortcut-status m-0 mb-2" hidden></p>
+          <div id="shortcutList" class="shortcut-list"></div>
+        </div>
+
+        <!-- PANE: PLUGIN -->
+        <div id="settingsTabPlugins" class="settings-tab-pane" style="display: none;">
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+              Plugin &amp; Parser
+            </div>
+            <p class="hint-sm m-0 mb-2">Kelola paket plugin (.zip), script parser, atau buka pengaturan plugin format.</p>
+            <button id="btnOpenPluginManagerFromSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
+              <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+              <span>Buka Plugin &amp; Parser Manager</span>
+            </button>
+          </div>
+          <div id="pluginSettingsSectionsContainer"></div>
+        </div>
+
+      </div><!-- end modal-body -->
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnSettingsCancel" class="btn" type="button">Batal</button>
+        <button id="btnSettingsSave" class="btn btn-primary" type="button">Simpan Pengaturan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fallback/alias containers for backward compatibility -->
+  <div id="settingsPromptsModal" style="display:none;" hidden>
+    <button id="btnSettingsPromptsCancel" type="button" style="display:none;"></button>
+    <button id="btnSettingsPromptsSave" type="button" style="display:none;"></button>
+  </div>
+  <div id="settingsGlossaryModal" style="display:none;" hidden>
+    <button id="btnSettingsGlossaryCancel" type="button" style="display:none;"></button>
+    <button id="btnSettingsGlossarySave" type="button" style="display:none;"></button>
+  </div>
+
+  <div id="agentMemoryModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /><path d="M18 18a4 4 0 0 0 2-7.464" /><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /><path d="M6 18a4 4 0 0 1-2-7.464" /><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg> Memori AI Agent</h3>
+      </div>
+      <div class="modal-body">
+        <div id="agentMemoryList" style="max-height: 240px; overflow-y: auto;"></div>
+        
+        <div class="settings-section mt-3 mb-0">
+          <div class="settings-section-title">
+            Tambah / Edit Memori
+          </div>
+          <div class="flex gap-2 wrap">
+            <input id="agentMemoryKey" class="text-input grow" placeholder="Key (contoh: style_natural)" style="min-width: 140px;">
+            <select id="agentMemoryCategory" class="text-input" style="width: auto;">
+              <option value="style">style</option>
+              <option value="terminology">terminology</option>
+              <option value="character">character</option>
+              <option value="preference">preference</option>
+              <option value="note">note</option>
+            </select>
+            <select id="agentMemoryScope" class="text-input" style="width: auto;">
+              <option value="project">project</option>
+              <option value="global">global</option>
+            </select>
+          </div>
+          <textarea id="agentMemoryValue" class="mono input-area mt-2 w-full" placeholder="Isi memori (contoh: Gunakan bahasa santai dan natural)" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnAgentMemoryCancel" class="btn">Tutup</button>
+        <button id="btnAgentMemorySave" class="btn btn-primary">Simpan Memori</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lineEditorModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <div class="flex-between w-full">
+          <h3 id="lineEditorTitle" class="m-0">Edit Terjemahan</h3>
+          <button id="btnLineBookmark" class="btn btn-outline btn-xs" type="button" style="display: flex; align-items: center; gap: 5px;">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+            <span id="lineBookmarkBtnText">Bookmark</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+      <label class="section-label">Teks Asli</label>
+      <textarea id="lineOriginalView" class="mono input-area small" readonly></textarea>
+      <div id="lucaRefWrap" style="display:none;">
+        <label class="section-label mt-2 luca-ref-label">🇬🇧 English (Referensi)</label>
+        <textarea id="lineRefEnView" class="mono input-area small luca-ref" readonly></textarea>
+        <label class="section-label mt-2 luca-ref-label">🇨🇳 中文 (Referensi)</label>
+        <textarea id="lineRefZhView" class="mono input-area small luca-ref" readonly></textarea>
+      </div>
+      <div id="jsonRefLang1Wrap" style="display:none;">
+        <label class="section-label mt-2 luca-ref-label" id="lineRefLang1Label"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg> Referensi 1</label>
+        <textarea id="lineRefLang1View" class="mono input-area small luca-ref" readonly></textarea>
+      </div>
+      <div id="jsonRefLang2Wrap" style="display:none;">
+        <label class="section-label mt-2 luca-ref-label" id="lineRefLang2Label"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg> Referensi 2</label>
+        <textarea id="lineRefLang2View" class="mono input-area small luca-ref" readonly></textarea>
+      </div>
+      <div id="lineNameWrap">
+        <label class="section-label mt-2">Nama Karakter (Terjemahan)</label>
+        <input id="lineNameInput" class="mono text-input w-full" type="text" />
+      </div>
+      <label class="section-label mt-2">Terjemahan (Bisa di-replace)</label>
+      <textarea id="lineMessageInput" class="mono input-area"></textarea>
+      <label class="checkbox-line mt-2">
+        <input id="lineTranslatedCheck" type="checkbox" />
+        Tandai sebagai sudah diterjemahkan
+      </label>
+      </div><!-- end modal-body -->
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnLineCancel" class="btn">Batal</button>
+        <button id="btnLineSave" class="btn btn-primary">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="proofreadModal" class="modal-backdrop">
+    <div class="modal modal-xl">
+      <div class="modal-head">
+        <h3>Cari & Replace</h3>
+      </div>
+      <div class="modal-body">
+        <div class="card-box mb-2">
+          <div class="flex-col gap-10">
+            <label for="proofreadSearchInput" class="label-bold">Cari:</label>
+            <div class="flex-col gap-10">
+              <div class="flex gap-12 wrap">
+                <input id="proofreadSearchInput" class="mono text-input grow min-w-200" type="text" placeholder="Ketik kata atau pola regex..." />
+                <select id="proofreadScope" class="text-input select-sm" style="flex-shrink: 0;">
+                  <option value="all">All Text</option>
+                  <option value="name">Name Only</option>
+                  <option value="message">Message Only</option>
+                </select>
+              </div>
+              <div class="proofread-filters flex-center gap-12 wrap">
+                <label class="checkbox-line"><input id="proofreadRegexCheck" type="checkbox" />Regex</label>
+                <label class="checkbox-line"><input id="proofreadCaseCheck" type="checkbox" />Case Sensitive</label>
+                <label class="checkbox-line"><input id="proofreadPreserveCaseCheck" type="checkbox" checked />Preserve Case</label>
+                <label class="checkbox-line"><input id="proofreadExactCheck" type="checkbox" />Exact Match</label>
+                <label class="checkbox-line"><input id="proofreadTranslatedOnlyCheck" type="checkbox" checked />Translated Only</label>
+                <label class="checkbox-line"><input id="proofreadJumpCheck" type="checkbox" />Jump</label>
+              </div>
+              <button id="btnProofreadReset" class="btn">Reset</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-box mb-2">
+          <div class="flex-col gap-14">
+            <label for="proofreadReplaceInput" class="label-bold">Ganti dengan:</label>
+            <input id="proofreadReplaceInput" class="mono text-input w-full" type="text" placeholder="Teks pengganti untuk Replace All..." />
+            <div class="flex-center">
+              <button id="btnProofreadReplaceAll" class="btn btn-success btn-px-lg">Replace All</button>
+            </div>
+          </div>
+        </div>
+        <div class="proofread-status-bar flex-between flex-center wrap gap-8 mt-2">
+          <p id="proofreadStatus" class="hint m-0"></p>
+          <div id="proofreadExclusionActions" class="flex gap-8" style="display: none;">
+            <button id="btnProofreadIncludeAll" class="btn btn-sm btn-outline" type="button">Sertakan Semua</button>
+            <button id="btnProofreadExcludeAll" class="btn btn-sm btn-outline" type="button">Kecualikan Semua</button>
+          </div>
+        </div>
+        <div class="proofread-results-wrap mt-2">
+          <div id="proofreadContainer" class="preview-container"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnProofreadClose" class="btn btn-primary">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="qaModal" class="modal-backdrop">
+    <div class="modal modal-xl">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg> Validasi Quality Control (QC)</h3>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+            Filter Pengecekan
+          </div>
+          <div class="checkbox-grid">
+            <label class="checkbox-line"><input id="qaCheckGlossary" type="checkbox" checked /><span>Glossary Not Applied</span></label>
+            <label class="checkbox-line"><input id="qaCheckKana" type="checkbox" checked /><span>Kana/Kanji Residue</span></label>
+            <label class="checkbox-line"><input id="qaCheckSimilarity" type="checkbox" checked /><span>Similarity</span></label>
+            <label class="checkbox-line"><input id="qaCheckLinebreak" type="checkbox" checked /><span>Linebreak Mismatch</span></label>
+            <label class="checkbox-line"><input id="qaCheckLength" type="checkbox" checked /><span>Length Ratio</span></label>
+            <label class="checkbox-line"><input id="qaCheckLanguage" type="checkbox" checked /><span>Wrong Language</span></label>
+            <label class="checkbox-line"><input id="qaCheckPunctuation" type="checkbox" checked /><span>JP Punctuation Leak</span></label>
+            <label class="checkbox-line"><input id="qaCheckUncertain" type="checkbox" checked /><span>Uncertain [?]</span></label>
+            <label class="checkbox-line"><input id="qaCheckUntransName" type="checkbox" checked /><span>Untranslated Name</span></label>
+          </div>
+          <div class="flex gap-2 wrap mt-3">
+            <button id="btnRunQa" class="btn btn-primary">Jalankan Validasi</button>
+            <button id="btnQaReset" class="btn btn-outline">Reset</button>
+            <button id="btnRetranslateFlagged" class="btn btn-danger" style="display:none;">Retranslate Flagged</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Hasil Validasi
+          </div>
+          <div id="qaStats" class="mono text-muted mb-2">Status: Siap dijalankan.</div>
+          <div class="proofread-results-wrap">
+            <div id="qaResults" class="preview-container"></div>
+          </div>
+        </div>
+      </div><!-- end modal-body -->
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnQaClose" class="btn btn-primary">Tutup</button>
+      </div>
+    </div>
+  </div>
+  <button id="btnFloatingApiSettings" class="floating-btn" title="Pengaturan API Global" data-htl-hide="true">
+    <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>
+  </button>
+  
+  <button id="btnFloatingAiAgent" class="floating-btn" title="CSTL AI Agent" style="bottom: 70px; background-color: var(--primary);" data-htl-hide="true">
+    <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /></svg>
+  </button>
+
+  <button id="btnFloatingLogging" class="floating-btn" title="AI Request Log" style="bottom: 124px; background-color: #64748b; display: none;">
+    <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+  </button>
+
+  <div id="loggingPanel" class="agent-panel" style="display: none;">
+    <div class="agent-header">
+      <span style="font-weight: bold; color: var(--text-base);">AI Request Log</span>
+      <button id="btnLoggingClear" class="icon-btn" title="Hapus log"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
+      <button id="btnLoggingClose" class="icon-btn" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div id="loggingHistory" class="agent-history"></div>
+  </div>
+
+  <div id="aiAgentChatPanel" class="agent-panel" style="display: none;">
+    <div class="agent-header">
+      <span style="font-weight: bold; color: var(--text-base);">CSTL AI Agent</span>
+      <button id="btnAgentMemory" class="icon-btn" title="Memori Agent"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /><path d="M18 18a4 4 0 0 0 2-7.464" /><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /><path d="M6 18a4 4 0 0 1-2-7.464" /><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg></button>
+      <button id="btnAgentClear" class="icon-btn" title="Hapus riwayat chat"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+      <button id="btnAgentClose" class="icon-btn" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+    </div>
+    <div id="agentChatHistory" class="agent-history">
+      <div class="agent-msg system">
+        Halo! Saya CSTL Agent. Saya bisa menjawab pertanyaan seputar proyek ini atau membantu mengeksekusi terjemahan layaknya Vibecoding Agent.
+      </div>
+    </div>
+    <div class="agent-input-area">
+      <textarea id="agentInput" class="text-input w-full" style="resize: none; height: 60px; font-family: inherit;" placeholder="Tanyakan arti kata, atau suruh terjemahkan... (Tekan Enter untuk kirim)"></textarea>
+      <button id="btnAgentSend" class="btn btn-primary" style="margin-top: 8px; width: 100%;">Kirim</button>
+    </div>
+  </div>
+
+  <div id="apiSettingsModal" class="modal-backdrop">
+    <div class="modal modal-md">
+      <div class="modal-head">
+        <h3>Pengaturan API Global (AI)</h3>
+      </div>
+      <div class="modal-body">
+        
+        <!-- SECTION: Profil API -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+            Profil API
+          </div>
+          <div class="flex gap-2 mb-2 wrap">
+            <select id="apiProfileSelect" class="text-input grow" style="min-width: 160px;">
+              <option value="">-- Pilih profil tersimpan --</option>
+            </select>
+            <button id="btnLoadProfile" class="btn btn-sm btn-outline" disabled>Load</button>
+            <button id="btnDeleteProfile" class="btn btn-sm btn-danger" disabled>Hapus</button>
+          </div>
+          <div class="flex gap-2 wrap">
+            <input id="apiProfileNameInput" class="text-input grow" type="text" placeholder="Nama profil baru (mis. DeepSeek, Gemini)..." />
+            <button id="btnSaveProfile" class="btn btn-sm btn-success">Simpan Profil</button>
+          </div>
+        </div>
+
+        <!-- SECTION: Koneksi Model & Provider -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Koneksi API & Model
+          </div>
+          <div>
+            <label class="form-label" for="apiTypeSelect">Tipe API Provider</label>
+            <select id="apiTypeSelect" class="text-input w-full">
+              <option value="openai">OpenAI Compatible (GPT, DeepSeek, OpenRouter, Local LLM)</option>
+              <option value="anthropic">Anthropic Compatible (/v1/messages — Claude)</option>
+              <option value="gemini">Gemini API (Google AI Studio)</option>
+            </select>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label" for="apiUrlInput">API Base URL</label>
+            <input id="apiUrlInput" class="text-input w-full" type="text" placeholder="Kosongkan untuk default provider" />
+          </div>
+
+          <div class="mt-2">
+            <label class="checkbox-line">
+              <input id="apiMergeSystemCheck" type="checkbox" />
+              <span>Merge system prompt ke user message</span>
+            </label>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label" for="apiKeyInput">API Key Utama</label>
+            <input id="apiKeyInput" class="text-input w-full" type="password" placeholder="sk-..." />
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label" for="apiModelInput">Nama Model</label>
+            <div class="flex-center gap-2">
+              <select id="apiModelSelect" class="text-input grow" style="display:none;">
+                <option value="">-- Pilih model --</option>
+              </select>
+              <input id="apiModelInput" class="text-input grow" type="text" placeholder="gpt-4o-mini / gemini-2.0-flash / deepseek-chat" />
+              <button id="btnFetchModels" class="btn btn-sm btn-outline" title="Ambil daftar model dari API">&#8635; Fetch</button>
+            </div>
+            <p id="apiModelFetchStatus" class="hint-sm mt-1" style="display:none;"></p>
+          </div>
+        </div>
+
+        <!-- SECTION: Backup API Keys -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="m5 12-3 3 3 3"/></svg>
+            Backup API Keys & Strategi
+          </div>
+          <div>
+            <textarea id="apiBackupKeysInput" class="text-input w-full mono" style="height: 70px; font-size: 12px; resize: vertical;" placeholder="1 key per baris (atau format: key|url|model)"></textarea>
+          </div>
+          <div class="flex-center gap-2 mt-2">
+            <label class="form-label m-0" for="apiKeyStrategySelect">Strategi Rotasi:</label>
+            <select id="apiKeyStrategySelect" class="text-input" style="width: auto;">
+              <option value="fallback">Fallback (Gunakan utama dulu)</option>
+              <option value="random">Random (Acak antar key)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- SECTION: Parameter Model & Rate Limit -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Parameter & Rate Limit
+          </div>
+          <div class="flex-center gap-4 wrap">
+            <div class="flex-col grow">
+              <label class="form-label" for="apiTemperatureInput">Temperature</label>
+              <input id="apiTemperatureInput" type="number" class="text-input w-full" min="0" max="2" step="0.1" value="1.0" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiTopPInput">Top-P</label>
+              <input id="apiTopPInput" type="number" class="text-input w-full" min="0" max="1" step="0.05" value="1.0" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiMaxTokensInput">Max Output Tokens</label>
+              <input id="apiMaxTokensInput" type="number" class="text-input w-full" min="1" max="1048576" step="1" value="8192" />
+            </div>
+          </div>
+
+          <div class="flex-center gap-4 wrap mt-2">
+            <div class="flex-col grow">
+              <label class="form-label" for="apiRpmInput">Limit RPM (Requests / Min)</label>
+              <input id="apiRpmInput" type="number" class="text-input w-full" min="1" max="1000" value="10" />
+              <span class="hint-sm">Delay: <span id="apiDelayPreview">6000</span>ms / req</span>
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiSeedInput">Seed (Opsional)</label>
+              <input id="apiSeedInput" type="number" class="text-input w-full" step="1" placeholder="Acak" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiFrequencyPenaltyInput">Freq Penalty</label>
+              <input id="apiFrequencyPenaltyInput" type="number" class="text-input w-full" min="-2" max="2" step="0.1" value="0" />
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiPresencePenaltyInput">Presence Penalty</label>
+              <input id="apiPresencePenaltyInput" type="number" class="text-input w-full" min="-2" max="2" step="0.1" value="0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: Reasoning & Streaming -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 18v4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M18 12h4"/><path d="m19.07 4.93-2.83 2.83"/></svg>
+            Reasoning & Streaming
+          </div>
+          <div class="flex-center gap-4 wrap">
+            <div class="flex-col grow">
+              <label class="form-label" for="apiReasoningEffortSelect">Reasoning Effort</label>
+              <select id="apiReasoningEffortSelect" class="text-input w-full">
+                <option value="default">Default Model</option>
+                <option value="minimal">Minimal</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Extra High</option>
+              </select>
+            </div>
+            <div class="flex-col grow">
+              <label class="form-label" for="apiThinkingSelect">Thinking Mode</label>
+              <select id="apiThinkingSelect" class="text-input w-full">
+                <option value="default">Default Model</option>
+                <option value="off">Off (Hemat Token / Cepat)</option>
+                <option value="on">On (Lebih Akurat)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex-center gap-4 wrap mt-2">
+            <label class="checkbox-line grow">
+              <input id="apiStreamingCheck" type="checkbox" />
+              <span>Streaming output (Auto Translate)</span>
+            </label>
+            <label class="checkbox-line grow">
+              <input id="apiFilterThinkingCheck" type="checkbox" checked />
+              <span>Filter tag &lt;think&gt;...&lt;/think&gt; dari output</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION: Web Search Tool -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            Web Search (AI Agent)
+          </div>
+          <div>
+            <label class="form-label" for="tavilyKeyInput">Tavily API Key</label>
+            <input id="tavilyKeyInput" class="text-input w-full" type="password" placeholder="tvly-... (Opsional untuk web search)" />
+          </div>
+        </div>
+
+      </div><!-- end modal-body -->
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnApiSettingsCancel" class="btn">Batal</button>
+        <button id="btnApiSettingsSave" class="btn btn-primary">Simpan API</button>
+      </div>
+    </div>
+  </div>
+  <!-- Dictionary History Modal -->
+  <div id="dictHistoryModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3>Riwayat Kamus</h3>
+      </div>
+      <div class="modal-body">
+        <div id="dictHistoryList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+          <!-- History items will be populated here -->
+        </div>
+      </div>
+      <div class="modal-actions" style="justify-content: space-between;">
+        <button id="btnDictHistoryClear" class="btn btn-danger">Hapus Riwayat</button>
+        <button id="btnDictHistoryClose" class="btn btn-outline">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Text Replacer Modal -->
+  <div id="textReplacerModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> Text Replacer</h3>
+      </div>
+      <div class="modal-body">
+        <div class="replacer-grid">
+          <div class="settings-section mb-0">
+            <div class="settings-section-title">
+              Pra-Terjemahan (Sebelum AI)
+            </div>
+            <textarea id="replacerPreInput" class="mono input-area w-full" style="height: 230px; font-size: 13px;" placeholder="TeksAsli = Pengganti&#10;/\s+/g = "></textarea>
+          </div>
+          <div class="settings-section mb-0">
+            <div class="settings-section-title">
+              Pasca-Terjemahan (Setelah AI)
+            </div>
+            <textarea id="replacerPostInput" class="mono input-area w-full" style="height: 230px; font-size: 13px;" placeholder="Aku = Saya&#10;/&quot;\s*([^&quot;]+?)\s*&quot;/g = &quot;$1&quot;"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnTextReplacerCancel" class="btn">Batal</button>
+        <button id="btnTextReplacerSave" class="btn btn-primary">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Parser Modal -->
+  <div id="customParserModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Parser Custom (JS/Python)</h3>
+      </div>
+      <div class="modal-body">
+        <div id="cpListView">
+          <div class="settings-section mb-2">
+            <div class="flex gap-2 wrap">
+              <button id="btnCpNew" class="btn btn-primary"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Parser Baru</button>
+              <button id="btnCpImportNow" class="btn btn-outline" title="Impor file game menggunakan parser yang cocok"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>Impor File</button>
+              <button id="btnCpImportFolderNow" class="btn btn-outline" title="Impor satu folder file game menggunakan parser yang cocok"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>Impor Folder</button>
+              <button id="btnCpExportAll" class="btn btn-outline" title="Semua parser dalam satu file JSON (aset base64)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>Ekspor Semua</button>
+              <button id="btnCpImportParsers" class="btn btn-outline" title="Impor parser dari file JSON atau zip hasil Ekspor Parser"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Impor Parser…</button>
+              <span class="toolbar-sep"></span>
+              <button id="btnImportLucaTxt" class="btn btn-outline text-luca" title="Impor file TXT LucaSystem (Summer Pockets, CLANNAD, Tomoyo After) — mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>TXT (Luca)</button>
+              <button id="btnImportLucaTxtFolder" class="btn btn-outline text-luca" title="Impor satu folder file TXT LucaSystem — mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>TXT Folder (Luca)</button>
+              <input id="cpParserImportInput" type="file" accept=".json,.zip" hidden />
+            </div>
+          </div>
+          <div id="cpParserList" class="cp-parser-list"></div>
+          <details class="cp-help">
+            <summary>Pengaturan LucaSystem</summary>
+            <div class="cp-help-body">
+              <p class="mb-2">Profil untuk impor TXT (Luca) di atas. Profil terkunci setelah proyek berisi baris.</p>
+              <div class="flex-center gap-4 wrap">
+                <div class="flex-col grow">
+                  <select id="settingsLucaProfileSelect" class="text-input w-full">
+                    <option value="summer-pockets-steam">Summer Pockets Steam (MESSAGE 4-slot)</option>
+                    <option value="clannad-switch">CLANNAD Switch (MESSAGE JP+EN)</option>
+                    <option value="tomoyo-switch">Tomoyo After Switch (MESSAGE voice+text)</option>
+                    <option value="clannad-ss">CLANNAD Side Stories (MESSAGE_WAIT)</option>
+                  </select>
+                </div>
+                <div class="flex-col grow" id="settingsLucaExportLangWrap">
+                  <select id="settingsLucaExportLangSelect" class="text-input w-full"></select>
+                </div>
+              </div>
+              <div class="mt-2" id="settingsLucaMcWrap">
+                <input id="settingsLucaMcDisplayNameInput" class="text-input w-full" type="text" placeholder="Nama MC tampilan (mis. Tomoya)" />
+              </div>
+            </div>
+          </details>
+          <div id="cpSettingsEditor" class="settings-section mb-2" style="display:none;"></div>
+          <details class="cp-help">
+            <summary>Cara kerja parser custom?</summary>
+            <div class="cp-help-body">
+              <p>Tulis fungsi <code>parse(ctx)</code> untuk impor dan (opsional) <code>serialize(ctx)</code> untuk ekspor round-trip. JavaScript jalan di Web Worker, Python jalan di pyodide (unduhan pertama ~10MB, butuh internet sekali).</p>
+              <p><b>parse(ctx)</b> — <code>ctx = { fileName, text, bytes, startLineNum }</code>. Return array <code>[{ name?, message, raw?, index? }</code>; field <code>message</code> wajib, <code>raw</code> = potongan baris asli yang disimpan untuk dipatch saat ekspor, dan <code>index</code> (angka, opsional) = penanda posisi bebas buatan parser — dikembalikan di serialize() sebagai <code>line.index</code>, berguna saat raw bisa duplikat.</p>
+              <p><b>serialize(ctx)</b> — <code>ctx = { fileName, text, bytes, lines }</code> berisi file asli + baris proyek (<code>name, message, trans_name, trans_message, is_translated, raw, index</code>). Return string (atau bytes untuk format biner). Tanpa serialize(), ekspor jatuh ke JSON generik.</p>
+              <p>Satu proyek terkunci ke satu parser. Parser tersimpan global di browser dan bisa dipakai lintas proyek.</p>
+            </div>
+          </details>
+        </div>
+        <div id="cpEditView" style="display:none;">
+          <div class="settings-section mb-2">
+            <div class="flex gap-2 wrap">
+              <input id="cpNameInput" class="text-input" style="flex:1;min-width:160px;" placeholder="Nama parser (mis. Script MGS)" />
+              <select id="cpLanguageSelect" class="text-input" style="max-width:150px;">
+                <option value="js">JavaScript</option>
+                <option value="python">Python</option>
+              </select>
+              <input id="cpExtensionsInput" class="text-input" style="flex:1;min-width:160px;" placeholder="Ekstensi: .mgs, .scp" />
+            </div>
+            <div class="flex gap-2 wrap mt-2">
+              <select id="cpMatchSelect" class="text-input" style="max-width:230px;" title="Cara CSTL mencocokkan file dengan parser ini">
+                <option value="extension" selected>Cocok ekstensi</option>
+                <option value="magic">Cocok magic bytes</option>
+                <option value="filename">Cocok nama file (regex)</option>
+              </select>
+              <input id="cpMagicInput" class="text-input mono" style="flex:1;min-width:200px;" placeholder='Magic bytes (hex@offset, koma utk multi): 4D41@0, 00FF@4' />
+              <input id="cpFilenameRegexInput" class="text-input mono" style="flex:1;min-width:160px;" placeholder="Regex nama file: ^scene_\w+" />
+            </div>
+          </div>
+          <div class="replacer-grid">
+            <div class="settings-section mb-0">
+              <div class="settings-section-title">
+                parse(ctx) — Impor <button id="btnCpParseTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
+              </div>
+              <textarea id="cpParseInput" class="mono input-area w-full" style="height: 250px; font-size: 13px;" placeholder="async function parse(ctx) { ... return [{ name, message, raw }] }"></textarea>
+            </div>
+            <div class="settings-section mb-0">
+              <div class="settings-section-title">
+                serialize(ctx) — Ekspor (opsional) <button id="btnCpSerializeTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
+              </div>
+              <textarea id="cpSerializeInput" class="mono input-area w-full" style="height: 250px; font-size: 13px;" placeholder="async function serialize(ctx) { ... return teksHasil }"></textarea>
+            </div>
+          </div>
+          <div class="settings-section mb-2">
+            <div class="settings-section-title">Uji Parser</div>
+            <div class="flex gap-2 wrap">
+              <button id="btnCpTestFile" class="btn btn-outline btn-sm" type="button">Pilih File Uji…</button>
+              <button id="btnCpTestRun" class="btn btn-outline btn-sm" type="button" disabled>Uji parse()</button>
+              <span id="cpTestFileName" class="cp-test-file"></span>
+            </div>
+            <input id="cpTestFileInput" type="file" hidden />
+            <div id="cpTestResult" class="cp-test-result"></div>
+          </div>
+          <div class="settings-section mb-2">
+            <div class="settings-section-title">Aset Parser <span id="cpAssetsSize" style="font-weight:normal;opacity:.7;"></span></div>
+            <div class="flex gap-2 wrap">
+              <button id="btnCpAddAssets" class="btn btn-outline btn-sm" type="button">Tambah File Aset…</button>
+              <input id="cpAssetsInput" type="file" multiple hidden />
+            </div>
+            <div id="cpAssetList" class="cp-asset-list"></div>
+          </div>
+          <div class="settings-section mb-2">
+            <div class="settings-section-title">Setelan Parser (opsional)</div>
+            <textarea id="cpSettingsInput" class="mono input-area w-full" style="height:140px; font-size:12.5px;" placeholder='[]  — atau contoh:
+[
+  {"key":"encoding","label":"Encoding","type":"select","default":"auto",
+   "options":[{"value":"auto","label":"Auto"},{"value":"sjis","label":"Shift_JIS"}]},
+  {"key":"skipComments","label":"Lewati komentar #","type":"boolean","default":true}
+]'></textarea>
+            <div style="opacity:.65;font-size:12px;margin-top:4px;">
+              Dibaca parser lewat <code>ctx.options.&lt;key&gt;</code>. Tipe: string/number/boolean/select/textarea.
+              Nilai yang dipilih user diedit lewat tombol <b>Setelan</b> di daftar parser.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnCpCancel" class="btn">Batal</button>
+        <button id="btnCpSave" class="btn btn-primary">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File List Modal -->
+  <div id="fileListModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Daftar File Proyek</h3>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section mb-2">
+          <div class="flex gap-2 wrap">
+            <button id="btnFileListAdd" class="btn btn-outline">Tambah File</button>
+            <button id="btnFileListDelete" class="btn btn-danger" disabled>Hapus</button>
+          </div>
+        </div>
+        <div id="fileListContainer" class="file-list-container">
+          <!-- di-render dinamis oleh file-list.ts -->
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnFileListClose" class="btn btn-primary">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dictionary Popup -->
+  <div id="dictionaryPopup" class="dict-popup" style="display: none;">
+    <div id="dictPopupHeader" class="dict-popup-header">
+      <span id="dictPopupWord" class="dict-popup-word"></span>
+      <button id="dictPopupClose" class="icon-btn dict-popup-close" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+    </div>
+    <div id="dictPopupContent" class="dict-popup-content"></div>
+  </div>
+
+  <!-- Bookmark Modal -->
+  <div id="bookmarkModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head flex-between">
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg> Daftar Bookmark (<span id="bookmarkModalCount">0</span>)</h3>
+        <button id="btnBookmarkModalCloseIcon" class="icon-btn btn-xs" title="Tutup" type="button"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="card-box mb-2">
+          <div class="flex-center gap-2">
+            <input id="bookmarkSearchInput" class="text-input grow" type="search" placeholder="Cari bookmark (no baris, nama file, atau isi teks)..." />
+            <button id="btnClearAllBookmarks" class="btn btn-danger btn-sm" disabled title="Hapus semua bookmark di proyek ini" type="button">Hapus Semua</button>
+          </div>
+        </div>
+        <div id="bookmarkListContainer" class="bookmark-list-container">
+          <!-- dynamically populated by bookmark.ts -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnBookmarkClose" class="btn btn-primary" type="button">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EPUB Image Lightbox Modal -->
+  <div id="imageLightboxModal" class="modal-backdrop image-lightbox-backdrop">
+    <div class="image-lightbox-container">
+      <button id="btnImageLightboxClose" class="image-lightbox-close" title="Tutup preview" type="button">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <img id="imageLightboxImg" class="image-lightbox-img" src="" alt="EPUB Image Full Preview" />
+    </div>
+  </div>
+
+  <!-- OPFS Explorer Modal -->
+  <div id="opfsExplorerModal" class="modal-backdrop backdrop">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="opfsTitle">
+      <div class="modal-head flex-between">
+        <div class="flex-center gap-2">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <h3 id="opfsTitle" class="m-0">File Explorer (OPFS)</h3>
+        </div>
+        <button id="btnOpfsRefresh" class="btn btn-outline btn-xs" title="Muat ulang daftar file">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="hint hint-danger m-0 mt-1 mb-2">Hati-hati, menghapus file atau folder sistem di sini dapat membuat proyek tidak bisa dibuka. Hanya hapus file yang Anda kenali.</p>
+        <div class="opfs-explorer">
+          <div id="opfsCrumbs" class="opfs-crumbs" hidden></div>
+          <div id="opfsList" class="opfs-list" role="list"></div>
+          <div id="opfsEmpty" class="opfs-empty" hidden>
+            <svg class="lucide-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span id="opfsEmptyText">Belum ada file di OPFS.</span>
+          </div>
+          <div id="opfsLoading" class="opfs-loading" hidden>
+            <div class="busy-spinner busy-spinner-sm"></div>
+            <span>Memuat...</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnOpfsExplorerClose" class="btn btn-primary" type="button">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plugin & Parser Manager Modal -->
+  <div id="pluginManagerModal" class="modal-backdrop backdrop">
+    <div class="modal modal-wide" role="dialog" aria-modal="true">
+      <div class="modal-head flex-between">
+        <div class="flex-center gap-2">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
+          <h3 class="m-0">Plugin &amp; Parser Manager</h3>
+        </div>
+        <button id="btnPluginRefresh" class="btn btn-outline btn-xs" title="Muat ulang daftar plugin &amp; parser">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="hint m-0 mt-1 mb-2">Kelola paket plugin (.zip) dan script custom parser (JavaScript/Python) untuk membaca dan mengekspor berbagai format game visual novel.</p>
+        <div class="flex gap-2 wrap mb-2">
+          <button id="btnInstallPlugin" class="btn btn-primary grow">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>+ Pasang Plugin (.zip)</span>
+          </button>
+          <button id="btnCreateCustomParser" type="button" style="display:none;" hidden></button>
+        </div>
+        <input type="file" id="pluginFileInput" accept=".zip" style="display:none;" />
+        <div class="plugin-filters flex gap-1 mb-2">
+          <button id="btnPluginFilterAll" class="btn btn-xs btn-outline is-active" type="button">Semua (<span id="pluginCountAll">0</span>)</button>
+          <button id="btnPluginFilterPlugins" class="btn btn-xs btn-ghost" type="button">Paket Plugin (<span id="pluginCountPlugins">0</span>)</button>
+          <button id="btnPluginFilterParsers" class="btn btn-xs btn-ghost" type="button">Script Parser (<span id="pluginCountParsers">0</span>)</button>
+        </div>
+        <div id="pluginList" class="plugin-list"></div>
+      </div>
+      <div class="modal-actions">
+        <span class="grow"></span>
+        <button id="btnPluginManagerClose" class="btn btn-primary" type="button">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shortcut Keyboard Modal Fallback -->
+  <div id="shortcutModal" style="display:none;" hidden>
+    <button id="btnShortcutsClose" type="button" style="display:none;"></button>
+  </div>
+
+</body>
+</html>
+
