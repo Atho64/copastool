@@ -55,17 +55,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK
+      - name: Setup Android NDK
         run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -d "$ANDROID_HOME/ndk" ] && [ "$(ls -A $ANDROID_HOME/ndk 2>/dev/null)" ]; then
+            NDK_PATH=$(ls -d $ANDROID_HOME/ndk/* | sort -V | tail -n 1)
+          else
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.3.11579264"
+            NDK_PATH="$ANDROID_HOME/ndk/26.3.11579264"
+          fi
+          echo "Using NDK at $NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -82,11 +88,9 @@ jobs:
         run: npm ci
 
       - name: Initialize & Build Android APK
-        env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
-          npx tauri android init --ci || true
-          npm run tauri android build -- --apk --target aarch64 --target armv7 --target x86_64
+          npx tauri android init --ci --skip-targets-install || true
+          npm run tauri android build -- --apk --ci --target aarch64 --target armv7 --target x86_64
 
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
