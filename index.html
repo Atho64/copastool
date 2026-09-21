@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" href="./icon.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=24" />
+  <link rel="stylesheet" href="./styles.css?v=25" />
 
   <script type="module" src="./src/app.ts"></script>
 </head>
@@ -184,6 +184,21 @@
       </div>
       <span id="projectNameDisplay" class="toolbar-label toolbar-project-name desktop-only"></span>
     </header>
+    <div id="mobileViewSwitcher" class="mobile-view-switcher mobile-only" role="tablist" aria-label="Tampilan Layar">
+      <button type="button" class="mobile-view-btn" data-view="text" id="btnMobileViewText" role="tab" aria-selected="false" title="Tampilkan Teks Layar Penuh">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Daftar Teks</span>
+      </button>
+      <button type="button" class="mobile-view-btn active" data-view="split" id="btnMobileViewSplit" role="tab" aria-selected="true" title="Tampilkan Keduanya (Bagi Layar)">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+        <span>Split</span>
+      </button>
+      <button type="button" class="mobile-view-btn" data-view="tools" id="btnMobileViewTools" role="tab" aria-selected="false" title="Tampilkan Area Kerja / Terjemahan Penuh">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>Area Kerja</span>
+        <span id="mobileSelectedBadge" class="bubble-badge is-zero" style="display:none">0</span>
+      </button>
+    </div>
     <main class="split-layout">
       <section class="panel panel-left">
         <div class="panel-header">

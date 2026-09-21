@@ -1543,6 +1543,47 @@ export async function init(): Promise<void> {
 
   // Initialize OPFS Explorer
   OpfsExplorer.init();
+
+  // Initialize Mobile View Switcher
+  initMobileViewSwitcher();
 }
+
+export function initMobileViewSwitcher(): void {
+  const switcher = document.getElementById('mobileViewSwitcher');
+  const splitLayout = document.querySelector('.split-layout');
+  if (!switcher || !splitLayout) return;
+
+  const buttons = switcher.querySelectorAll<HTMLButtonElement>('.mobile-view-btn');
+  const setViewMode = (mode: 'split' | 'text' | 'tools') => {
+    splitLayout.classList.remove('mobile-view-split', 'mobile-view-text', 'mobile-view-tools');
+    splitLayout.classList.add(`mobile-view-${mode}`);
+    buttons.forEach(btn => {
+      const isMatch = btn.dataset.view === mode;
+      btn.classList.toggle('active', isMatch);
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+    });
+    try {
+      localStorage.setItem('cstl_mobile_view_mode', mode);
+    } catch (_) {}
+    window.dispatchEvent(new Event('resize'));
+  };
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = (btn.dataset.view as 'split' | 'text' | 'tools') || 'split';
+      setViewMode(mode);
+    });
+  });
+
+  let initialMode: 'split' | 'text' | 'tools' = 'split';
+  try {
+    const saved = localStorage.getItem('cstl_mobile_view_mode') as 'split' | 'text' | 'tools' | null;
+    if (saved && (saved === 'split' || saved === 'text' || saved === 'tools')) {
+      initialMode = saved;
+    }
+  } catch (_) {}
+  setViewMode(initialMode);
+}
+
 
 

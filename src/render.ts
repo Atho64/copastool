@@ -583,6 +583,15 @@ export function updateButtonStates(): void {
   setDisabled('rangeToInput', !hasData);
   setDisabled('btnSelectRange', !hasData);
   if (ui.copyCount) (ui.copyCount as HTMLElement).textContent = String(untranslatedSelectionCount);
+  const mobileBadge = document.getElementById('mobileSelectedBadge');
+  if (mobileBadge) {
+    if (untranslatedSelectionCount > 0) {
+      mobileBadge.textContent = String(untranslatedSelectionCount);
+      mobileBadge.style.display = 'inline-flex';
+    } else {
+      mobileBadge.style.display = 'none';
+    }
+  }
   if (ui.copyNameCount) (ui.copyNameCount as HTMLElement).textContent = String(nameCount);
   if (ui.copyGlossaryCount) (ui.copyGlossaryCount as HTMLElement).textContent = String(glossarySelectionCount);
   if (ui.deleteTranslationCount) (ui.deleteTranslationCount as HTMLElement).textContent = String(translatedSelectionCount);
