@@ -93,11 +93,42 @@ jobs:
           npx tauri android init --ci --skip-targets-install || true
           npm run tauri android build -- --apk --ci --target aarch64 --target armv7 --target x86_64
 
+      - name: Sign & Align Android APK
+        run: |
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          echo "Using Android build-tools at $BUILD_TOOLS_DIR"
+          
+          keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias copastool -storepass copastool123 -keypass copastool123 \
+            -dname "CN=CopasTool, OU=Mobile, O=CopasTool, L=Jakarta, S=Indonesia, C=ID"
+          
+          mkdir -p signed-apk
+          
+          for apk in $(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk"); do
+            echo "Processing APK: $apk"
+            base=$(basename "$apk" .apk)
+            
+            $BUILD_TOOLS_DIR/zipalign -v -p 4 "$apk" "signed-apk/${base}-aligned.apk" || cp "$apk" "signed-apk/${base}-aligned.apk"
+            
+            $BUILD_TOOLS_DIR/apksigner sign --ks release.jks --ks-pass pass:copastool123 --key-pass pass:copastool123 \
+              --out "signed-apk/${base}-signed.apk" "signed-apk/${base}-aligned.apk"
+            
+            $BUILD_TOOLS_DIR/apksigner verify "signed-apk/${base}-signed.apk"
+            rm -f "signed-apk/${base}-aligned.apk"
+          done
+          
+          if [ -f "signed-apk/app-universal-release-unsigned-signed.apk" ]; then
+            cp "signed-apk/app-universal-release-unsigned-signed.apk" "signed-apk/CopasTool_universal.apk"
+          fi
+          
+          echo "Signed APKs:"
+          ls -la signed-apk/
+
       - name: Upload Android APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: CopasTool-Android-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: signed-apk/*.apk
 
   publish-release:
     needs: [build-windows, build-android]
@@ -128,4 +159,5 @@ jobs:
           files: |
             release-assets/windows/*.exe
             release-assets/windows/*.msi
+            release-assets/android/*.apk
             release-assets/android/**/*.apk
