@@ -344,7 +344,8 @@ export const DEFAULT_GLOSSARY_BATCH_SIZE = 500;
 export const DEFAULT_AI_CHECK_BATCH_SIZE = 250;
 export const DEFAULT_SELECTION_BATCH_PREV_SHORTCUT = 'Alt+ArrowUp';
 export const DEFAULT_SELECTION_BATCH_NEXT_SHORTCUT = 'Alt+ArrowDown';
-export const PROJECT_EXT = '.cstl';
+export const PROJECT_EXT = '.copas';
+export const LEGACY_PROJECT_EXT = '.cstl';
 export const WINDOWS_FILE_ORDER_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: 'base',

@@ -10,7 +10,7 @@
 // (lihat isFolderBackupSupported + wiring di ui-init).
 
 import { state } from './state';
-import { PROJECT_EXT } from './constants';
+import { PROJECT_EXT, LEGACY_PROJECT_EXT } from './constants';
 import {
   fetchProjectData, prepareProjectBackupData, restoreProjectFromFile,
   openModal, closeModal,
@@ -121,11 +121,11 @@ export async function openFolderRestorePicker(): Promise<void> {
   if (!dir) return;
   const backups: { name: string; file: File }[] = [];
   for await (const [name, handle] of (dir as any).entries()) {
-    if (name.toLowerCase().endsWith(PROJECT_EXT) && handle.kind === 'file') {
+    if ((name.toLowerCase().endsWith(PROJECT_EXT) || name.toLowerCase().endsWith(LEGACY_PROJECT_EXT)) && handle.kind === 'file') {
       backups.push({ name, file: await handle.getFile() });
     }
   }
-  if (!backups.length) { alert('Tidak ada file .cstl di folder backup.'); return; }
+  if (!backups.length) { alert('Tidak ada file backup (.copas / .cstl) di folder backup.'); return; }
   backups.sort((a, b) => b.file.lastModified - a.file.lastModified);
   showFolderRestoreModal(backups);
 }

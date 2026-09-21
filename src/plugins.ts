@@ -50,7 +50,7 @@ const RATE_FETCH_PER_MIN = 60;
 const NET_TIMEOUT_DEFAULT_MS = 30000;
 const NET_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
 
-const BUILTIN_EXTENSIONS = new Set(['.cstl']);
+const BUILTIN_EXTENSIONS = new Set(['.copas', '.cstl']);
 
 const FRAME_CSP = [
   "default-src 'none'",
@@ -2508,7 +2508,7 @@ export const Runtime = {
   },
 
   activeParserInfo(): { extensions: Set<string>; magic: boolean } {
-    const exts = new Set(['.json', '.epub', '.cstl', '.txt']);
+    const exts = new Set(['.json', '.epub', '.copas', '.cstl', '.txt']);
     let magic = false;
     for (const p of Runtime._index) {
       if (p.enabled !== true) continue;

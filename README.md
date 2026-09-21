@@ -8,7 +8,7 @@
 
 </div>
 
-Tool bantu penerjemahan visual novel dan novel (EPUB) yang ditenagai oleh **Tauri v2** untuk platform **Windows (Desktop)** dan **Android (Mobile)**. Semua workflow dari impor script, terjemah otomatis via AI (OpenAI & Gemini API), glosarium karakter, story context chaining, hingga ekspor kembali naskah game dilakukan dalam satu aplikasi native yang ringan dan cepat.
+Tool bantu penerjemahan visual novel dan novel (EPUB) yang ditenagai oleh **Tauri v2** untuk platform **Windows (Desktop)** dan **Android (Mobile)**. Alur kerja utamanya berbasis **Copy-Paste cerdas** ke Web AI (Gemini, ChatGPT, Claude, DeepSeek, dll.) maupun terjemahan otomatis, dilengkapi injeksi glosarium karakter, story context chaining, jendela Web AI companion bawaan, hingga ekspor kembali naskah game dalam satu aplikasi native yang ringan dan cepat.
 
 ---
 
@@ -123,9 +123,9 @@ Klik baris manapun untuk buka editor individual. Di sini bisa edit nama karakter
 - Tag HTML untuk parsing EPUB
 
 ### Penyimpanan
-Semua proyek disimpan langsung di browser pakai **OPFS** (Origin Private File System) — tidak ada server, tidak ada akun. Proyek bisa di-backup dan dipulihkan lewat file `.cstl`. Di desktop Chrome/Edge ada juga **Backup ke Folder** yang menulis backup langsung ke folder lokal pilihan (bisa disinkronkan ke cloud — lihat [di bawah](#backup-ke-folder-desktop)).
+Semua proyek disimpan langsung di penyimpanan native OS (bebas batas kuota browser) atau browser **OPFS**. Proyek bisa di-backup dan dipulihkan lewat file `.copas` (format `.cstl` tetap didukung penuh). Di desktop ada juga **Backup ke Folder** yang menulis backup langsung ke folder lokal pilihan (bisa disinkronkan ke cloud — lihat [di bawah](#backup-ke-folder-desktop)).
 
-Data biner besar (file mentah LucaSystem) disimpan di file OPFS terpisah supaya auto-save tetap ringan. Dashboard hanya memuat metadata proyek, bukan seluruh isi data — jadi tetap cepat meski proyek sudah banyak.
+Data biner besar (file mentah LucaSystem) disimpan di file penyimpanan terpisah supaya auto-save tetap ringan. Dashboard hanya memuat metadata proyek, bukan seluruh isi data — jadi tetap cepat meski proyek sudah banyak.
 
 #### Backup ke Folder (Desktop)
 
@@ -135,9 +135,9 @@ CSTL bisa menulis file backup **langsung ke satu folder di komputer kamu** yang 
 
 **Cara pakai:**
 
-1. Klik **Backup ke Folder** di dashboard → muncul dialog pemilih folder bawaan Windows → pilih foldernya (misal `D:\CSTL Backups`).
-2. Semua proyek ditulis ke folder itu sebagai file `nama_proyek_backup.cstl` — isinya sama persis dengan backup download (termasuk data mentah Luca dan file EPUB asli). Klik tombol yang sama lain kali untuk menimpa dengan versi terbaru.
-3. Klik **Pulihkan dari Folder** untuk melihat daftar file `.cstl` di folder itu beserta ukuran dan tanggalnya, lalu pulihkan yang kamu mau. Hasil pemulihan selalu jadi proyek baru — proyek yang sekarang tidak tertimpa.
+1. Klik **Backup ke Folder** di dashboard → muncul dialog pemilih folder bawaan Windows → pilih foldernya (misal `D:\CopasTool Backups`).
+2. Semua proyek ditulis ke folder itu sebagai file `nama_proyek_backup.copas` — isinya sama persis dengan backup download (termasuk data mentah Luca dan file EPUB asli). Klik tombol yang sama lain kali untuk menimpa dengan versi terbaru.
+3. Klik **Pulihkan dari Folder** untuk melihat daftar file backup (`.copas` dan `.cstl`) di folder itu beserta ukuran dan tanggalnya, lalu pulihkan yang kamu mau. Hasil pemulihan selalu jadi proyek baru — proyek yang sekarang tidak tertimpa.
 
 **Soal izin "Allow":** selama browser masih jalan, izin diingat dan backup berjalan tanpa popup. Setelah browser ditutup dan dibuka lagi, klik backup pertama memunculkan satu popup kecil konfirmasi — pilih **Allow on every visit** supaya tidak ditanya lagi selamanya.
 
@@ -253,7 +253,7 @@ Gunakan tab **Proofread** untuk cari dan ganti teks secara massal:
 
 Kalau sudah selesai, klik **Ekspor** di toolbar. File hasil terjemahan akan didownload dalam format aslinya (`.json`, `.epub`, atau `.txt` LucaSystem). Untuk format game lain, ekspor round-trip dijalankan oleh plugin parser terpasang (`pack()`) — termasuk format biner dan multi-file arsip.
 
-Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard — file `.cstl` akan tersimpan dan bisa dipulihkan kapanpun lewat tombol **Pulihkan**.
+Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard — file `.copas` akan tersimpan dan bisa dipulihkan kapanpun lewat tombol **Pulihkan** (file format lama `.cstl` juga tetap didukung).
 
 
 ## Format yang Didukung
@@ -263,7 +263,7 @@ Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard 
 | `.json` | ✅ | ✅ | |
 | `.epub` | ✅ | ✅ | |
 | `.zip` | ✅ | — | Berisi banyak file |
-| `.cstl` | ✅ | ✅ | Backup proyek |
+| `.copas` / `.cstl` | ✅ | ✅ | Backup proyek (format baru `.copas`, legacy `.cstl` tetap didukung) |
 | LucaSystem `.txt` | ✅ | ✅ | Format script khusus LucaSystem |
 
 ---

@@ -2,7 +2,7 @@
 
 import { state, ui, setSaveTimeout, getSaveTimeout, getOpfsRoot } from './state';
 import {
-  APP_VERSION, PROJECT_EXT,
+  APP_VERSION, PROJECT_EXT, LEGACY_PROJECT_EXT,
   DEFAULT_PROMPT_HEADER, DEFAULT_GLOSSARY_PROMPT, DEFAULT_AI_CHECK_PROMPT,
   DEFAULT_AGENT_PROMPT, DEFAULT_SUMMARY_PROMPT,
   DEFAULT_LUCA_MC_DISPLAY_NAME,
@@ -23,6 +23,22 @@ import { icon } from './icons';
 import { preloadEpubImages, clearEpubImageCache } from './epub-images';
 import { getCustomParser, isValidCustomParser, upsertCustomParser } from './custom-parsers';
 import { prefillIncrement } from './increment';
+
+export function isProjectFile(name: string): boolean {
+  return name.endsWith(PROJECT_EXT) || name.endsWith(LEGACY_PROJECT_EXT);
+}
+
+export function stripProjectExt(idOrName: string): string {
+  if (idOrName.endsWith(PROJECT_EXT)) return idOrName.slice(0, -PROJECT_EXT.length);
+  if (idOrName.endsWith(LEGACY_PROJECT_EXT)) return idOrName.slice(0, -LEGACY_PROJECT_EXT.length);
+  return idOrName;
+}
+
+export function getProjectSidecarId(id: string, suffix: string): string {
+  if (id.endsWith(PROJECT_EXT)) return id.slice(0, -PROJECT_EXT.length) + suffix;
+  if (id.endsWith(LEGACY_PROJECT_EXT)) return id.slice(0, -LEGACY_PROJECT_EXT.length) + suffix;
+  return id + suffix;
+}
 
 // ─── Luca raw-field recovery (migration for saves made before the luca_raw_index fix) ───
 function recoverLucaRawFields(): void {
@@ -398,7 +414,7 @@ export async function loadDashboardProjects(): Promise<void> {
     const root = await getOpfsRoot();
     const projects: any[] = [];
     for await (const [name, handle] of (root as any).entries()) {
-      if (name.endsWith(PROJECT_EXT) && handle.kind === 'file') {
+      if (isProjectFile(name) && handle.kind === 'file') {
         const file = await handle.getFile();
         let data: any = null;
         try {
@@ -411,7 +427,7 @@ export async function loadDashboardProjects(): Promise<void> {
           // and can be replaced by restoring a backup.
           projects.push({
             id: name,
-            name: name.replace(PROJECT_EXT, ''),
+            name: stripProjectExt(name),
             updatedAt: file.lastModified,
             fileCount: 0,
             lineCount: 0,
@@ -438,7 +454,7 @@ export async function loadDashboardProjects(): Promise<void> {
 
         projects.push({
           id: name,
-          name: data.projectName || name.replace(PROJECT_EXT, ''),
+          name: data.projectName || stripProjectExt(name),
           updatedAt: data.updatedAt || file.lastModified,
           fileCount,
           lineCount: totalLines,
@@ -815,11 +831,11 @@ export async function deleteProject(id: string, data: any): Promise<void> {
       try { await root.removeEntry(data.epubSourceId); } catch (_) {}
     }
     try {
-      const lucaId = id.replace(PROJECT_EXT, '_luca.json');
+      const lucaId = getProjectSidecarId(id, '_luca.json');
       await root.removeEntry(lucaId);
     } catch (_) {}
     try {
-      const customId = id.replace(PROJECT_EXT, '_custom_src.json');
+      const customId = getProjectSidecarId(id, '_custom_src.json');
       await root.removeEntry(customId);
     } catch (_) {}
     try {
@@ -867,7 +883,7 @@ export async function tryRepairProject(id: string): Promise<{ repaired: boolean;
   }
   salvaged.lines = lines;
   if (typeof salvaged.projectName !== 'string' || !salvaged.projectName) {
-    salvaged.projectName = id.replace(PROJECT_EXT, '');
+    salvaged.projectName = stripProjectExt(id);
   }
 
   // Preserve the original damaged bytes before overwriting, so a manual /
@@ -914,7 +930,7 @@ export async function prepareProjectBackupData(data: any, id: string): Promise<R
     const lucaData = await loadLucaDataFromOpfs(id);
     if (!lucaData) {
       const sidecarExists = await (async () => {
-        try { const root = await getOpfsRoot(); await root.getFileHandle(id.replace(PROJECT_EXT, '_luca.json')); return true; } catch { return false; }
+        try { const root = await getOpfsRoot(); await root.getFileHandle(getProjectSidecarId(id, '_luca.json')); return true; } catch { return false; }
       })();
       if (sidecarExists) {
         alert('Backup Luca dibatalkan: sidecar corrupt dan tidak dapat dibaca.');
@@ -1239,7 +1255,7 @@ export async function saveProjectToOpfs(id: string, dataObj: any): Promise<void>
 }
 export async function saveLucaDataToOpfs(id: string, lucaData: any): Promise<void> {
   const root = await getOpfsRoot();
-  const lucaId = id.replace(PROJECT_EXT, '_luca.json');
+  const lucaId = getProjectSidecarId(id, '_luca.json');
   const fileHandle = await root.getFileHandle(lucaId, { create: true });
   const writable = await fileHandle.createWritable();
   try {
@@ -1257,7 +1273,7 @@ export async function saveLucaDataToOpfs(id: string, lucaData: any): Promise<voi
 export async function loadLucaDataFromOpfs(id: string): Promise<any> {
   try {
     const root = await getOpfsRoot();
-    const lucaId = id.replace(PROJECT_EXT, '_luca.json');
+    const lucaId = getProjectSidecarId(id, '_luca.json');
     const fileHandle = await root.getFileHandle(lucaId);
     const file = await fileHandle.getFile();
     const text = await file.text();
@@ -1269,7 +1285,7 @@ export async function loadLucaDataFromOpfs(id: string): Promise<any> {
 
 // ─── Custom parser source sidecar (round-trip export) ────────────────────────
 /** Simpan file asli proyek parser custom (teks + base64 bytes) ke OPFS sidecar,
- *  mengikuti pola sidecar Luca — biar file .cstl utama tetap ramping. */
+ *  mengikuti pola sidecar Luca — biar file proyek utama tetap ramping. */
 /**
  * Sidecar sumber custom — dua format:
  * - LAMA (kompatibilitas baca): satu JSON `_custom_src.json` berisi
@@ -1284,7 +1300,7 @@ const CUSTOM_SRC_DIR = '_custom_src';
 const CUSTOM_SRC_INDEX = '_custom_src_index.json';
 
 function customSrcBaseId(id: string): string {
-  return id.replace(PROJECT_EXT, '');
+  return stripProjectExt(id);
 }
 
 export async function saveCustomSourcesToOpfs(id: string, customData: any): Promise<void> {
@@ -1320,7 +1336,7 @@ export async function saveCustomSourcesToOpfs(id: string, customData: any): Prom
   const b64Len = Object.values(buffers).reduce((n: number, v) => n + String(v).length, 0) as number;
   const txtLen = Object.values(files).reduce((n: number, v) => n + String(v).length, 0) as number;
   if (b64Len + txtLen < 8 * 1024 * 1024) {
-    const customId = id.replace(PROJECT_EXT, '_custom_src.json');
+    const customId = getProjectSidecarId(id, '_custom_src.json');
     const fileHandle = await root.getFileHandle(customId, { create: true });
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(customData));
@@ -1386,7 +1402,7 @@ export async function loadCustomSourcesFromOpfs(id: string): Promise<any> {
       };
     } catch (_) { /* tidak ada format baru -> jatuh ke lama */ }
     // Format LAMA.
-    const customId = id.replace(PROJECT_EXT, '_custom_src.json');
+    const customId = getProjectSidecarId(id, '_custom_src.json');
     const fileHandle = await root.getFileHandle(customId);
     const file = await fileHandle.getFile();
     const text = await file.text();
@@ -1781,7 +1797,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
   let createdEpubSourceId: string | null = null;
   try {
     // Backup proyek besar = container ZIP (project.json + custom_sources/).
-    const isZipBackup = f.name.toLowerCase().endsWith(PROJECT_EXT + '.zip');
+    const isZipBackup = f.name.toLowerCase().endsWith(PROJECT_EXT + '.zip') || f.name.toLowerCase().endsWith(LEGACY_PROJECT_EXT + '.zip');
     let p: any;
     let zipSources: Record<string, Uint8Array> | null = null;
     if (isZipBackup) {
@@ -1811,7 +1827,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
     } else {
       p = JSON.parse(await f.text());
     }
-    const name = p.projectName || f.name.replace(PROJECT_EXT, '');
+    const name = p.projectName || stripProjectExt(f.name);
     const id = 'proj_' + Date.now() + PROJECT_EXT;
     restoreProjectId = id;
     let restoredEpubSourceId = p.epubSourceId || null;
@@ -1913,8 +1929,8 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
       const root = await getOpfsRoot();
       if (restoreProjectId) {
         try { await root.removeEntry(restoreProjectId); } catch (_) {}
-        try { await root.removeEntry(restoreProjectId.replace(PROJECT_EXT, '_luca.json')); } catch (_) {}
-        try { await root.removeEntry(restoreProjectId.replace(PROJECT_EXT, '_custom_src.json')); } catch (_) {}
+        try { await root.removeEntry(getProjectSidecarId(restoreProjectId, '_luca.json')); } catch (_) {}
+        try { await root.removeEntry(getProjectSidecarId(restoreProjectId, '_custom_src.json')); } catch (_) {}
       }
       if (createdEpubSourceId) {
         try { await root.removeEntry(createdEpubSourceId); } catch (_) {}
