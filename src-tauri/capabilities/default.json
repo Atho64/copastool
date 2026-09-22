@@ -1,11 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default permissions for CopasTool",
-  "windows": ["*"],
+  "description": "Permissions for the trusted main CopasTool window only. The remote 'ai-companion' webview is deliberately left without any capability, so third-party AI pages cannot reach the Tauri IPC bridge.",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "opener:default",
-    "clipboard-manager:default"
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-clear",
+    "notification:default"
   ]
 }

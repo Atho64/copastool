@@ -17,6 +17,7 @@ import { getOpfsRoot } from './state';
 import { waitForLucaDataLoad, waitForCustomSourcesLoad, readCustomSourceFile, customLazySourceHas } from './project';
 import { getCustomParser, buildParserOptions } from './custom-parsers';
 import { runCustomSerialize } from './custom-parser-runner';
+import { saveOrDownloadBlob } from './download-helper';
 import type { Line } from './types';
 
 function writeTextNodeWithBreaks(node: Text, text: string): void {
@@ -187,11 +188,8 @@ export async function onExport(): Promise<void> {
       });
 
       if (!exportStillActive()) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
       const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
-      a.download = `${safeName}_tl.epub`;
-      a.click();
+      await saveOrDownloadBlob(blob, `${safeName}_tl.epub`);
       flashHint('Berhasil mengekspor EPUB!');
     } catch (err: any) {
       alert('Gagal mengekspor EPUB: ' + err.message);
@@ -333,20 +331,14 @@ export async function onExport(): Promise<void> {
         res.forEach(f => zip.file(`SCRIPT.PAK/${f.fn}`, f.content));
         const b = await zip.generateAsync({ type: 'blob' });
         if (!exportStillActive()) return;
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(b);
         const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
-        a.download = `${safeName}_luca_export.zip`;
-        a.click();
+        await saveOrDownloadBlob(b, `${safeName}_luca_export.zip`);
         flashHint('Berhasil mengekspor ZIP Luca!');
       } else {
         for (const f of res) {
           if (!exportStillActive()) return;
           const b = new Blob([f.content], { type: f.binary ? 'application/octet-stream' : 'text/plain;charset=utf-8' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(b);
-          a.download = f.fn;
-          a.click();
+          await saveOrDownloadBlob(b, f.fn);
         }
         flashHint('Berhasil mengekspor TXT Luca!');
       }
@@ -382,19 +374,13 @@ export async function onExport(): Promise<void> {
         res.forEach(f => zip.file(f.fn, f.content));
         const b = await zip.generateAsync({ type: 'blob' });
         if (!exportStillActive()) return;
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(b);
         const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
-        a.download = `${safeName}_export.zip`;
-        a.click();
+        await saveOrDownloadBlob(b, `${safeName}_export.zip`);
       } else {
         for (const f of res) {
           if (!exportStillActive()) return;
           const b = new Blob([f.content], { type: 'application/json;charset=utf-8' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(b);
-          a.download = f.fn;
-          a.click();
+          await saveOrDownloadBlob(b, f.fn);
         }
       }
     };
@@ -538,20 +524,14 @@ export async function onExport(): Promise<void> {
           for (const f of res) zip.file(f.fn, f.content);
           const b = await zip.generateAsync({ type: 'blob' });
           if (!exportStillActive()) return;
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(b);
           const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
-          a.download = `${safeName}_custom_export.zip`;
-          a.click();
+          await saveOrDownloadBlob(b, `${safeName}_custom_export.zip`);
         } else {
           for (const f of res) {
             if (!exportStillActive()) return;
             const isBytes = f.content instanceof Uint8Array;
             const b = new Blob([f.content as unknown as BlobPart], { type: isBytes ? 'application/octet-stream' : 'text/plain;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(b);
-            a.download = f.fn;
-            a.click();
+            await saveOrDownloadBlob(b, f.fn);
           }
         }
         flashHint(`Berhasil ekspor dengan parser "${parser.name}"!`);

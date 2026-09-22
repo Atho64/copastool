@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.0-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.7-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -268,31 +268,103 @@ Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard 
 
 ---
 
-## Shortcut Keyboard
+## Keamanan (Security)
 
-| Shortcut | Fungsi |
-|----------|--------|
-| `Alt + ↑` | Batch seleksi sebelumnya |
-| `Alt + ↓` | Batch seleksi berikutnya |
+CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga di jendela terpisah. Batas kepercayaannya diatur eksplisit:
 
-Shortcut bisa diubah di **Setting → Shortcut Keyboard**.
+- **Hanya jendela utama yang punya akses IPC.** `src-tauri/capabilities/default.json` membatasi izin ke `"windows": ["main"]`. Jendela `ai-companion` yang memuat situs AI pihak ketiga sengaja tidak diberi capability sama sekali.
+- **Setiap perintah native memverifikasi pemanggilnya.** Semua command di `src-tauri/src/lib.rs` menerima parameter `tauri::WebviewWindow` dan menolak panggilan dari jendela selain `main`, jadi halaman AI tidak bisa menyentuh filesystem walau konfigurasi capability diubah.
+- **Allowlist host untuk jendela AI.** `open_ai_window` hanya menerima URL `https` ke host di `ALLOWED_AI_HOSTS` (gemini.google.com, chatgpt.com, chat.deepseek.com, meta.ai, claude.ai, chat.qwenlm.ai, lmarena.ai, freebuff.chat, …). Kalau kamu menambah target baru di `AI_TARGET_URLS` (`src/ai-webview-controller.ts`), tambahkan juga host-nya di `ALLOWED_AI_HOSTS`.
+- **`eval_ai_script` hanya menyuntik ke host yang diizinkan.** Script automasi ditolak bila jendela AI ternyata sudah bernavigasi ke host lain. URL dipindahkan ke `window.location.href` lewat `serde_json`, jadi tidak bisa keluar dari string literal JS.
+- **`withGlobalTauri: false`.** Objek `window.__TAURI__` tidak lagi disuntikkan ke setiap webview. Frontend memakai import `@tauri-apps/api` yang di-bundle, sedangkan deteksi runtime memakai `window.__TAURI_INTERNALS__`.
+- **Path penyimpanan disanitasi.** `native_save_file` / `native_read_file` / `native_delete_file` / `native_list_files` menolak path absolut dan `..` (path traversal), lalu memastikan target tetap berada di dalam folder data aplikasi.
+- **`csp: null` dipertahankan dengan sengaja.** CSP ketat di jendela utama juga akan membatasi jendela AI yang memuat konten pihak ketiga, sementara aplikasi butuh inline style/script, Web Worker, dan koneksi ke API AI pilihanmu. Batas keamanan yang sebenarnya ada pada capability + guard Rust di atas.
 
 ---
 
 ## Stack
 
-**TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework. Dependencies:
+**TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework berat. Dependensi utama:
+- **Tauri v2** — runtime desktop (Windows NSIS & MSI) dan mobile (Android APK)
+- **@tauri-apps/plugin-notification** — notifikasi sistem native (Windows Action Center & status toast)
+- **@tauri-apps/plugin-clipboard-manager** — sinkronisasi clipboard background untuk Auto Copas
+- **Web Worker Storage** — isolasi parsing dan commit IndexedDB/OPFS di thread terpisah agar UI tetap responsif 60fps
+- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, dan penyimpanan file langsung ke folder `Download`
 - **JSZip** — parsing file `.zip`
 - **Kuroshiro + Kuromoji** — konversi furigana (hiragana/romaji) untuk teks Jepang
 - **Pako** — kompresi/dekompresi data (dipakai untuk format LucaSystem)
-- **OPFS API** — penyimpanan lokal browser
+- **OPFS API & IndexedDB** — penyimpanan lokal file & database proyek
 - **vite-plugin-pwa** — PWA support (install ke homescreen, offline cache)
 
 ---
 
-## Browser
+## Pengembangan & Build (Developer)
 
-Butuh browser yang support OPFS (`navigator.storage.getDirectory()`). Chrome/Edge 102+ dan Firefox 111+ sudah pasti jalan. Safari agak terbatas.
+### Prasyarat
+
+- **Node.js 20+** dan npm
+- **Rust stable** + dependensi Tauri
+- Untuk Android: **Android SDK + NDK 26.3.11579264** dan **JDK 17**
+- Untuk Icon Asset: **Python 3** + `Pillow`
+
+### Perintah
+
+| Perintah | Fungsi |
+|----------|--------|
+| `npm run dev` | Jalankan versi web (Vite dev server, port 5173) |
+| `npm run build` | Type-check (`tsc`) lalu build produksi ke `dist/` |
+| `npm run typecheck` | Type-check saja, tanpa emit |
+| `npm run version:check` | Pastikan semua penanda versi sama dengan `package.json` |
+| `npm run tauri:dev` | Jalankan aplikasi desktop Tauri (mode dev) |
+| `npm run tauri:build` | Build installer Windows (NSIS/MSI) |
+| `npm run android:init` | Buat scaffold Android di `src-tauri/gen/` (sekali per clone) |
+| `npm run android:build` | Build APK Android |
+| `python scripts/generate-icons.py` | Generate icon karakter anime, varian tema SVG, dan multi-resolution ICO/PNG |
+| `scripts\gen-android-keystore.ps1` | Generate keystore rilis Android + file kredensial lokal |
+| `scripts\build-and-install-android.ps1` | Build, align, sign & install langsung ke HP Android via ADB |
+
+> `src-tauri/gen/` masuk `.gitignore`, jadi **clone baru wajib menjalankan `npm run android:init`** sebelum build Android. Build desktop tidak butuh langkah ini.
+
+### Versi aplikasi
+
+`package.json → "version"` adalah satu-satunya sumber kebenaran. Saat build/dev, versi diinjeksi ke frontend sebagai `__APP_VERSION__` oleh `vite.config.ts` (badge dashboard + status bar). `npm run version:check` — juga jadi gate pertama di CI sebelum semua job build — memverifikasi `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, badge README, dan placeholder `index.html` sudah sinkron. Untuk menaikkan versi, ubah keempat tempat itu sekaligus lalu jalankan `npm run version:check`.
+
+### CI (`.github/workflows/build-tauri.yml`)
+
+- `version-check` — gate verifikasi versi + memastikan tag rilis cocok dengan `package.json`.
+- `build-windows` — menghasilkan installer Windows:
+  - `CopasTool_<version>_x64-setup.exe` (NSIS)
+  - `CopasTool_<version>_x64_en-US.msi` (MSI)
+- `build-android` — menghasilkan APK Android yang sudah di-align dan di-sign:
+  - `CopasTool_universal.apk` (APK universal untuk semua arsitektur: arm64-v8a, armeabi-v7a, x86_64)
+- `publish-release` — mengunggah installer `.exe`, `.msi`, dan `.apk` ke GitHub Release saat tag `v*` di-push.
+
+Cache yang dipakai: `Swatinem/rust-cache` (Cargo registry + `src-tauri/target`) untuk job Windows dan Android, `actions/cache` untuk `~/.gradle`, serta cache npm bawaan `actions/setup-node`. NDK tidak di-cache karena runner GitHub sudah menyediakannya dan ukurannya terlalu besar untuk batas cache repo.
+
+> **Catatan ukuran:** kamus Kuromoji di `public/dict/` berukuran ±**17 MB**. Item ini tetap dibundle ke APK (dibutuhkan furigana), tetapi **tidak lagi di-precache** oleh service worker — pembukaan pertama hanya mengunduh shell aplikasi (±1 MB) dan kamus masuk cache saat furigana dipakai pertama kali, setelah itu tetap tersedia offline.
+
+---
+
+## Platform & Kompatibilitas
+
+CopasTool dapat dijalankan sebagai aplikasi native maupun aplikasi web (PWA):
+
+- **Windows Desktop (Native):**
+  - Mendukung Windows 10 dan Windows 11 (64-bit).
+  - Tersedia pilihan installer NSIS (`.exe`) dan Windows Installer (`.msi`).
+  - Menggunakan penyimpanan filesystem native (bebas kuota browser), Action Center notification, dan jendela pendamping AI terpisah.
+
+- **Android (Native):**
+  - Mendukung Android 8.0 (Oreo / API level 26) ke atas.
+  - APK Universal (`CopasTool_universal.apk`) mendukung arsitektur `arm64-v8a`, `armeabi-v7a`, dan `x86_64`.
+  - Dilengkapi in-app AI companion WebView overlay, background lifecycle keep-alive saat multitasking, dan penyimpanan langsung ke folder `Download`.
+
+- **Web Browser & PWA:**
+  - Dapat diinstall sebagai PWA ke homescreen/desktop dengan dukungan offline cache.
+  - Penyimpanan menggunakan OPFS (`navigator.storage.getDirectory()`) dengan fallback otomatis ke IndexedDB:
+    - **Chrome / Edge 102+** (Sangat disarankan)
+    - **Firefox 111+**
+    - **Safari 15.2+** (menggunakan IndexedDB fallback)
 
 ---
 

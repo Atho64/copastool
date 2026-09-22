@@ -32,7 +32,12 @@ import {
 import { queueAutoSave } from './project';
 import { getDisplayOrderedLines } from './selection';
 import { isTauri } from './native-storage';
-import { executeAiWorkflow, openAiCompanion, fetchCurrentAiResult } from './ai-webview-controller';
+import {
+  executeAiWorkflow,
+  openAiCompanion,
+  fetchCurrentAiResult,
+  setOverlayBackgroundWork,
+} from './ai-webview-controller';
 import { readClipboardText } from './native-clipboard';
 import JSZip from 'jszip';
 
@@ -119,8 +124,8 @@ function ensureWorkflowAvailable(workflow: CopasWorkflow): boolean {
 function restoreSelection(selection: Set<number>): void {
   state.selectedLines.clear();
   for (const num of selection) state.selectedLines.add(num);
+  // syncCheckboxUI() already ends with updateButtonStates() — no second scan.
   syncCheckboxUI();
-  updateButtonStates();
 }
 
 function retryLabel(): string {
@@ -204,7 +209,9 @@ function selectNextFullAutoBatch(scope: Set<number>): number {
   state.selectedLines.clear();
   for (const line of batch) state.selectedLines.add(line.line_num);
   syncCheckboxUI();
-  if (batch.length > 0) {
+  // Scrolling every batch forces layout + smooth-scroll churn; skip it while
+  // the app is hidden (background Full Auto) where nobody can see it.
+  if (batch.length > 0 && !document.hidden) {
     import('./selection').then(m => m.scrollPreviewToLine(batch[0].line_num));
   }
   return batch.length;
@@ -554,6 +561,8 @@ async function runFullAutoBatches(): Promise<void> {
   }
   await applyLocalSettingsToExtension();
   isFullAutoRunning = true;
+  // Keep the main WebView's JS timers alive when the app is backgrounded.
+  setOverlayBackgroundWork(true);
   let appliedCount = 0;
   let retryCount = 0;
   try {
@@ -566,7 +575,6 @@ async function runFullAutoBatches(): Promise<void> {
       const reqId = rid();
       translateRequestId = reqId;
       setStatus(`Full auto: mengirim ${n} baris ke ${lastSettings.target}${retryCount ? ` (${retryLabel()})` : ''}…`);
-      flashHint(`Full auto → ${lastSettings.target}: batch ${appliedCount + 1}–${appliedCount + n}${retryCount ? ` (${retryLabel()})` : ''}`);
       showCancelButton(true);
 
       const res = await request({
@@ -654,6 +662,7 @@ async function runFullAutoBatches(): Promise<void> {
     isFullAutoRunning = false;
     translateRequestId = null;
     showCancelButton(false);
+    setOverlayBackgroundWork(false);
     restoreSelection(originalSelection);
     updateButtonStates();
   }
@@ -725,6 +734,7 @@ async function runGlossaryFullAuto(): Promise<void> {
 
   const originalSelection = new Set(state.selectedLines);
   isGlossaryAutoRunning = true;
+  setOverlayBackgroundWork(true);
   let processed = 0;
   let totalAdded = 0;
   let totalUpdated = 0;
@@ -797,6 +807,7 @@ async function runGlossaryFullAuto(): Promise<void> {
     isGlossaryAutoRunning = false;
     glossaryRequestId = null;
     showGlossaryCancelButton(false);
+    setOverlayBackgroundWork(false);
     restoreSelection(originalSelection);
   }
 }
@@ -808,8 +819,21 @@ export async function sendGlossaryAutoCopas(): Promise<void> {
     await runGlossaryFullAuto();
     return;
   }
+  // Auto-select next batch if no lines are currently selected
+  if (state.selectedLines.size === 0) {
+    const batchSize = Math.max(1, state.glossaryBatchSize || 100);
+    const unextracted = getDisplayOrderedLines()
+      .filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l))
+      .slice(0, batchSize);
+    for (const l of unextracted) state.selectedLines.add(l.line_num);
+    syncCheckboxUI();
+    if (unextracted.length > 0) {
+      import('./selection').then(m => m.scrollPreviewToLine(unextracted[0].line_num));
+    }
+  }
+
   const payload = buildGlossaryPrompt();
-  if (!payload) { flashHint('Pilih baris dengan terjemahan dulu.'); return; }
+  if (!payload) { flashHint('Tidak ada baris untuk ekstraksi glosarium.'); return; }
   if (!available && !(await pingExtension())) {
     flashHint('Extension belum terpasang.');
     return;
@@ -940,6 +964,7 @@ async function runAiCheckFullAuto(): Promise<void> {
 
   const originalSelection = new Set(state.selectedLines);
   isAiCheckAutoRunning = true;
+  setOverlayBackgroundWork(true);
   let processed = 0;
   let totalApplied = 0;
   let retryCount = 0;
@@ -1069,6 +1094,7 @@ async function runAiCheckFullAuto(): Promise<void> {
     isAiCheckAutoRunning = false;
     aiCheckRequestId = null;
     showAiCheckCancelButton(false);
+    setOverlayBackgroundWork(false);
     const reviewActions = ui.aiCheckReviewActions as HTMLElement | undefined;
     if (reviewActions) reviewActions.style.display = 'none';
     restoreSelection(originalSelection);
@@ -1083,8 +1109,21 @@ export async function sendAiCheckAutoCopas(): Promise<void> {
     await runAiCheckFullAuto();
     return;
   }
+  // Auto-select next translated batch if no lines are currently selected
+  if (state.selectedLines.size === 0) {
+    const batchSize = Math.max(1, state.aiCheckBatchSize || 50);
+    const transLines = getDisplayOrderedLines()
+      .filter(l => isTranslated(l) && !l._hidden && !l._ai_checked)
+      .slice(0, batchSize);
+    for (const l of transLines) state.selectedLines.add(l.line_num);
+    syncCheckboxUI();
+    if (transLines.length > 0) {
+      import('./selection').then(m => m.scrollPreviewToLine(transLines[0].line_num));
+    }
+  }
+
   const payload = buildAiCheckPrompt(getSelectedTranslatedLines());
-  if (!payload) { flashHint('Pilih baris terjemahan dulu.'); return; }
+  if (!payload) { flashHint('Tidak ada baris terjemahan untuk dicek.'); return; }
   if (!available && !(await pingExtension())) {
     flashHint('Extension belum terpasang.');
     return;
@@ -1143,9 +1182,17 @@ export async function sendAutoCopas(): Promise<void> {
     return;
   }
 
+  // Auto-select next untranslated batch if no lines are currently selected
+  if (state.selectedLines.size === 0) {
+    const allUntranslated = new Set(
+      state.lines.filter(l => !isTranslated(l) && !l._hidden && !isIlustrasiLine(l)).map(l => l.line_num)
+    );
+    selectNextFullAutoBatch(allUntranslated);
+  }
+
   const payload = buildCopyForAiPrompt();
   if (!payload) {
-    flashHint('Pilih baris yang belum diterjemahkan dulu.');
+    flashHint('Tidak ada baris yang belum diterjemahkan.');
     return;
   }
   if (!available && !(await pingExtension())) {
@@ -1190,18 +1237,13 @@ export async function cancelAutoCopas(): Promise<void> {
 }
 
 export async function requestFetchResult(): Promise<void> {
-  // Check clipboard first: if user already has translated lines or clicked copy in Gemini/browser
-  try {
-    const clipText = await readClipboardText();
-    const trimmed = clipText ? clipText.trim() : '';
-    if (trimmed.length > 0 && !trimmed.startsWith('You are a visual novel translator')) {
-      applyReceivedResult(trimmed);
-      flashHint(`Hasil diambil dari clipboard (${trimmed.length} karakter). Cek lalu Terapkan.`);
-      setStatus(`Clipboard OK (${trimmed.length} char) — siap Terapkan`);
-      updateButtonStates();
-      return;
-    }
-  } catch (_) {}
+  // In Tauri the AI companion window can be read directly (focus-independent),
+  // so that authoritative path is tried first. On the browser/extension flow
+  // the clipboard is the only channel and is checked immediately.
+  if (!isTauri()) {
+    const clipboardFirst = await readClipboardAsResult();
+    if (clipboardFirst) return;
+  }
 
   if (!available) {
     const ok = await pingExtension();
@@ -1227,6 +1269,18 @@ export async function requestFetchResult(): Promise<void> {
   }
 
   // Fallback: Check clipboard directly using focus-independent native clipboard
+  if (await readClipboardAsResult()) return;
+
+  const err = res.error || (res.type === 'TIMEOUT' ? 'timeout' : 'Belum ada hasil yang tersalin dari AI.');
+  flashHint(`Ambil hasil: ${err}`);
+  setStatus(`Gagal: ${err}`);
+}
+
+/**
+ * Applies the clipboard content as the fetched result when it looks like a
+ * translation (never the prompt we just copied ourselves).
+ */
+async function readClipboardAsResult(): Promise<boolean> {
   try {
     const clipText = await readClipboardText();
     const trimmed = clipText ? clipText.trim() : '';
@@ -1235,13 +1289,10 @@ export async function requestFetchResult(): Promise<void> {
       flashHint(`Hasil diambil dari clipboard (${trimmed.length} karakter). Cek lalu Terapkan.`);
       setStatus(`Clipboard OK (${trimmed.length} char) — siap Terapkan`);
       updateButtonStates();
-      return;
+      return true;
     }
   } catch (_) {}
-
-  const err = res.error || (res.type === 'TIMEOUT' ? 'timeout' : 'Belum ada hasil yang tersalin dari AI.');
-  flashHint(`Ambil hasil: ${err}`);
-  setStatus(`Gagal: ${err}`);
+  return false;
 }
 
 export function initExtensionBridge(): void {

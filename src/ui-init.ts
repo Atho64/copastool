@@ -60,6 +60,7 @@ import { applyProjectLoggingVisibility, appendProjectLog, updateStreamingLog, fi
 import './plugins';
 import { createPluginHostBridge } from './plugin-host-bridge';
 import { ensureStoragePersistence, checkStorageQuota } from './project';
+import { isTauri } from './native-storage';
 
 // ─── Debounce Utility ─────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ export function cacheElements(): void {
     'btnShortcutsOpen', 'btnWorkspaceShortcutsOpen', 'shortcutModal', 'shortcutList', 'shortcutStatus', 'btnShortcutsResetAll', 'btnShortcutsClose',
     'settingsIncrementCheck', 'dsIncrementCheck',
     'opfsExplorerModal', 'btnOpfsExplorerOpen', 'btnWorkspaceOpfsExplorerOpen', 'btnOpfsExplorerClose', 'btnOpfsRefresh', 'opfsCrumbs', 'opfsList', 'opfsEmpty', 'opfsEmptyText', 'opfsLoading',
-    'btnTabSettingsGeneral', 'btnTabSettingsPrompts', 'btnTabSettingsGlossary', 'btnTabSettingsShortcuts'
+    'btnTabSettingsGeneral', 'btnTabSettingsPrompts', 'btnTabSettingsGlossary', 'btnTabSettingsShortcuts', 'btnTabSettingsPlugins'
   ];
   for (const id of ids) {
     ui[id] = document.getElementById(id);
@@ -399,9 +400,12 @@ export function bindEvents(): void {
     document.querySelectorAll('.dropdown-toggle[aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
   });
   window.addEventListener('scroll', () => {
-    document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
-    document.querySelectorAll('.dropdown-toggle[aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
-  }, true);
+    const openMenu = document.querySelector('.dropdown-content.show');
+    if (openMenu) {
+      document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
+      document.querySelectorAll('.dropdown-toggle[aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
+    }
+  }, { capture: true, passive: true });
   document.addEventListener('keydown', onSelectionHistoryKeydown);
   document.addEventListener('keydown', (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
@@ -441,6 +445,16 @@ export function bindEvents(): void {
   // flush it best-effort on pagehide (OPFS writes are atomic-swap, so a write
   // that does not finish leaves the previous file intact).
   window.addEventListener('pagehide', flushAutoSaveNow);
+
+  // Returning from background: make sure the main WebView's timers are running
+  // again (Android may have frozen them while hidden) so a Full Auto loop
+  // resumes polling without needing an app restart.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    try {
+      (window as any).AndroidAiOverlay?.resumeMainWebView?.();
+    } catch (_) {}
+  });
 
   ui.btnDashboardSettings?.addEventListener('click', openDashboardSettings);
   const paletteSel = document.getElementById('paletteSelect');
@@ -542,7 +556,11 @@ export function bindEvents(): void {
   ui.btnApply?.addEventListener('click', () => { try { onApplyTranslation(); } catch (_) {} });
   ui.btnApplyNameTranslations?.addEventListener('click', onApplyNameTranslations);
   ui.btnResetNameTranslations?.addEventListener('click', onResetNameTranslations);
-  ui.pasteNameArea?.addEventListener('input', updateButtonStates);
+  ui.pasteNameArea?.addEventListener('input', () => {
+    if (ui.btnApplyNameTranslations) {
+      (ui.btnApplyNameTranslations as HTMLButtonElement).disabled = !(ui.pasteNameArea as HTMLTextAreaElement).value.trim();
+    }
+  });
   ui.btnSaveGlossary?.addEventListener('click', onSaveGlossary);
   ui.btnImportGlossaryFile?.addEventListener('click', () => (ui.glossaryFileInput as HTMLInputElement).click());
   ui.btnExportGlossaryFile?.addEventListener('click', onExportGlossaryFile);
@@ -574,7 +592,11 @@ export function bindEvents(): void {
   ui.btnParseAiCheck?.addEventListener('click', () => onParseAiCheck());
   ui.btnApplyAiCheck?.addEventListener('click', onApplyAiCheckCorrections);
   ui.btnClearAiCheck?.addEventListener('click', onClearAiCheck);
-  ui.pasteAiCheckArea?.addEventListener('input', updateButtonStates);
+  ui.pasteAiCheckArea?.addEventListener('input', () => {
+    if (ui.btnParseAiCheck) {
+      (ui.btnParseAiCheck as HTMLButtonElement).disabled = !(ui.pasteAiCheckArea as HTMLTextAreaElement).value.trim();
+    }
+  });
 
   ui.aiCheckEnableChainingCheck?.addEventListener('change', (e: Event) => {
     state.enableAiCheckChaining = (e.target as HTMLInputElement).checked;
@@ -1489,8 +1511,10 @@ export async function init(): Promise<void> {
   if (globalWindow.__cstlInitialized) return;
   globalWindow.__cstlInitialized = true;
 
-  // Register PWA service worker
-  if ('serviceWorker' in navigator) {
+  // Register PWA service worker — web build only. Inside Tauri the app already
+  // ships its own assets; a service worker just adds cache interception and
+  // update checks that slow down startup on Windows and Android.
+  if ('serviceWorker' in navigator && !isTauri()) {
     import('virtual:pwa-register').then(({ registerSW }) => {
       registerSW({ immediate: true });
     }).catch(console.error);

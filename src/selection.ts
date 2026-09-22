@@ -43,24 +43,66 @@ export function pruneSelectionForActiveTab(): void {
 
 export function getDisplayOrderedLines(): Line[] {
   const order = getFileDisplayOrder();
+  const fileKey = order.join('\0');
+  // The sorted order only depends on (file, line_num) per line, so the result
+  // stays valid while the line array identity, its length, and the file order
+  // are unchanged. Translation applies mutate line contents (not order), so a
+  // Full Auto loop over 60k+ lines sorts once instead of once per batch.
+  if (
+    orderedCacheSrc === state.lines &&
+    orderedCacheKey === fileKey &&
+    orderedCacheLen === state.lines.length &&
+    orderedCacheOut.length === state.lines.length
+  ) {
+    return orderedCacheOut;
+  }
   const fileRank = new Map<string, number>();
   order.forEach((f, i) => fileRank.set(f, i));
   const tail = order.length; // unknown files sort after known ones
-  return [...state.lines].sort((a, b) => {
+  orderedCacheOut = [...state.lines].sort((a, b) => {
     const ra = fileRank.has(a.file) ? fileRank.get(a.file)! : tail;
     const rb = fileRank.has(b.file) ? fileRank.get(b.file)! : tail;
     if (ra !== rb) return ra - rb;
     return a.line_num - b.line_num;
   });
+  orderedCacheSrc = state.lines;
+  orderedCacheKey = fileKey;
+  orderedCacheLen = state.lines.length;
+  return orderedCacheOut;
+}
+
+/** Force the next getDisplayOrderedLines() call to re-sort. */
+export function invalidateDisplayOrderCache(): void {
+  orderedCacheSrc = null;
+  orderRankCacheSrc = null;
+  orderRankCache = null;
+}
+
+let orderedCacheSrc: Line[] | null = null;
+let orderedCacheKey = '';
+let orderedCacheLen = -1;
+let orderedCacheOut: Line[] = [];
+
+let orderRankCacheSrc: Line[] | null = null;
+let orderRankCache: Map<number, number> | null = null;
+
+function getOrderRankMap(): Map<number, number> {
+  const ordered = getDisplayOrderedLines();
+  if (orderRankCacheSrc === ordered && orderRankCache) {
+    return orderRankCache;
+  }
+  const rank = new Map<number, number>();
+  ordered.forEach((l, i) => rank.set(l.line_num, i));
+  orderRankCache = rank;
+  orderRankCacheSrc = ordered;
+  return rank;
 }
 
 export function getSelectionHistorySnapshot(): number[] {
   // Sort by display order (fileOrder) so selection history reflects what the
   // user sees, not the internal line_num order. Falls back to line_num for any
   // line not present in the ordered list.
-  const ordered = getDisplayOrderedLines();
-  const orderRank = new Map<number, number>();
-  ordered.forEach((l, i) => orderRank.set(l.line_num, i));
+  const orderRank = getOrderRankMap();
   return Array.from(state.selectedLines)
     .map(Number)
     .filter(num => Number.isFinite(num) && isSelectableForActiveTab(state.lineByNum.get(num)!))

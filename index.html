@@ -14,10 +14,11 @@
   <meta name="theme-color" content="#161412" />
   <title>Copas Tool</title>
   <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icon.png" />
   <link rel="apple-touch-icon" href="./icon.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=25" />
+  <link rel="stylesheet" href="./styles.css?v=26" />
 
   <script type="module" src="./src/app.ts"></script>
 </head>
@@ -38,7 +39,7 @@
         <img src="./icon.svg" alt="Copas Tool" class="hero-logo-img" width="64" height="64" />
         <div class="hero-title-group">
           <h1 class="hero-title">Copas Tool</h1>
-          <span class="hero-badge">vM15</span>
+          <span class="hero-badge">__APP_VERSION__</span>
         </div>
       </div>
       <div class="hero-actions">
@@ -250,24 +251,10 @@
             <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
             <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
             <div id="autoCopasControls">
-              <div class="flex gap-2 wrap mb-1 mt-1" id="autoCopasConfigRow">
-                <select id="autoCopasTargetSelect" class="text-input grow" style="min-width: 110px;" title="Pilih Platform Web AI">
-                  <option value="gemini">Google Gemini</option>
-                  <option value="chatgpt">ChatGPT (OpenAI)</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="claude">Claude (Anthropic)</option>
-                  <option value="meta">Meta AI</option>
-                  <option value="qwen">Qwen AI</option>
-                </select>
-                <select id="autoCopasModeSelect" class="text-input grow" style="min-width: 110px;" title="Pilih Mode Copas">
-                  <option value="semi">Semi Auto (Kirim/Salin)</option>
-                  <option value="full">Full Auto (Loop Otomatis)</option>
-                </select>
-              </div>
               <div class="flex gap-2 wrap mb-1 mt-1">
                 <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Jalankan Auto Copas (Semi / Full Auto)">Auto Copas</button>
-                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari Web AI / Clipboard">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka Jendela Web AI Companion">Jendela AI</button>
+                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari AI Companion / Clipboard">Ambil Hasil</button>
+                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka Jendela AI Companion">Jendela AI</button>
                 <button id="btnAutoCopasCancel" class="btn btn-danger" style="display:none" title="Batalkan Auto Copas yang berjalan">Batal</button>
               </div>
               <div id="autoCopasStatus" class="hint m-0 mb-1">Auto Copas: Siap · Gemini (Semi)</div>
@@ -346,7 +333,7 @@
               <div class="flex gap-2 wrap mb-1">
                 <button id="btnAutoCopasGlossary" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk ekstrak glossary">Auto Copas</button>
                 <button id="btnFetchCopasGlossaryResult" class="btn btn-outline grow" title="Ambil hasil glossary dari tab LLM">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
+                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela AI Companion">Jendela AI</button>
                 <button id="btnAutoCopasGlossaryCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
               </div>
               <div id="autoCopasGlossaryStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
@@ -402,7 +389,7 @@
               <div class="flex gap-2 wrap mb-1">
                 <button id="btnAutoCopasAiCheck" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk AI Check">Auto Copas</button>
                 <button id="btnFetchCopasAiCheckResult" class="btn btn-outline grow" title="Ambil hasil AI Check dari tab LLM">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela Web AI">Jendela AI</button>
+                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela AI Companion">Jendela AI</button>
                 <button id="btnAutoCopasAiCheckCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
               </div>
               <div id="autoCopasAiCheckStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
@@ -481,24 +468,22 @@
               </select>
             </div>
           </div>
-          <div class="flex-center gap-4 wrap mt-2">
-            <div class="flex-col grow">
-              <label class="form-label" for="dsTranslationMode">Mode Terjemahan</label>
-              <select id="dsTranslationMode" class="text-input w-full">
-                <option value="ai">AI (Bantuan AI)</option>
-                <option value="htl">HTL (Manual / Manusia)</option>
-              </select>
+          <div class="mt-2">
+            <label class="form-label" for="dsTranslationMode">Mode Terjemahan</label>
+            <select id="dsTranslationMode" class="text-input w-full">
+              <option value="ai">AI (Bantuan AI)</option>
+              <option value="htl">HTL (Manual / Manusia)</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" for="dsRegexFilter">Regex Filter (Opsional)</label>
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); white-space: nowrap;">
+                <input id="dsRegexFilterCase" type="checkbox" style="cursor: pointer;" />
+                <span>Case-sensitive</span>
+              </label>
             </div>
-            <div class="flex-col grow">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label class="form-label" for="dsRegexFilter">Regex Filter (Opsional)</label>
-                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);">
-                  <input id="dsRegexFilterCase" type="checkbox" style="cursor: pointer;" />
-                  <span>Case-sensitive</span>
-                </label>
-              </div>
-              <input id="dsRegexFilter" type="text" class="text-input w-full" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
-            </div>
+            <input id="dsRegexFilter" type="text" class="text-input w-full" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
           </div>
         </div>
 
@@ -801,12 +786,12 @@
           <h3 class="m-0">Pengaturan Proyek</h3>
         </div>
       </div>
-      <div class="tabs-wrap px-3 pt-2 mb-2" style="display: flex; gap: 6px;" role="tablist">
-        <button id="btnTabSettingsGeneral" type="button" class="btn btn-primary btn-sm grow is-active" role="tab" aria-selected="true">Umum</button>
-        <button id="btnTabSettingsPrompts" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Prompt</button>
-        <button id="btnTabSettingsGlossary" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Glosarium</button>
-        <button id="btnTabSettingsShortcuts" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Shortcut</button>
-        <button id="btnTabSettingsPlugins" type="button" class="btn btn-outline btn-sm grow" role="tab" aria-selected="false">Plugin</button>
+      <div id="settingsTabsWrap" class="tabs-wrap" role="tablist" aria-label="Tab Pengaturan Proyek">
+        <button id="btnTabSettingsGeneral" type="button" class="btn btn-primary btn-sm is-active" role="tab" aria-selected="true">Umum</button>
+        <button id="btnTabSettingsPrompts" type="button" class="btn btn-outline btn-sm" role="tab" aria-selected="false">Prompt</button>
+        <button id="btnTabSettingsGlossary" type="button" class="btn btn-outline btn-sm" role="tab" aria-selected="false">Glosarium</button>
+        <button id="btnTabSettingsShortcuts" type="button" class="btn btn-outline btn-sm" role="tab" aria-selected="false">Shortcut</button>
+        <button id="btnTabSettingsPlugins" type="button" class="btn btn-outline btn-sm" role="tab" aria-selected="false">Plugin</button>
       </div>
       <div class="modal-body">
         
@@ -818,8 +803,8 @@
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
               Bahasa &amp; Mode
             </div>
-            <div class="flex-center gap-4 wrap">
-              <div class="flex-col grow">
+            <div class="flex-center gap-2 wrap">
+              <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 130px;">
                 <label class="form-label" for="settingsSourceLangSelect">Bahasa Sumber (Source)</label>
                 <select id="settingsSourceLangSelect" class="text-input w-full">
                   <option value="Japanese">Japanese</option>
@@ -828,7 +813,7 @@
                   <option value="Korean">Korean</option>
                 </select>
               </div>
-              <div class="flex-col grow">
+              <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 130px;">
                 <label class="form-label" for="settingsTargetLangSelect">Bahasa Tujuan (Target)</label>
                 <select id="settingsTargetLangSelect" class="text-input w-full">
                   <option value="Indonesian">Indonesian</option>
@@ -836,34 +821,32 @@
                 </select>
               </div>
             </div>
-            <div class="flex-center gap-4 wrap mt-2">
-              <div class="flex-col grow">
-                <label class="form-label" for="settingsTranslationModeSelect">Mode Terjemahan</label>
-                <select id="settingsTranslationModeSelect" class="text-input w-full">
-                  <option value="ai">AI (Bantuan AI)</option>
-                  <option value="htl">HTL (Manual / Manusia)</option>
-                </select>
+            <div class="mt-2">
+              <label class="form-label" for="settingsTranslationModeSelect">Mode Terjemahan</label>
+              <select id="settingsTranslationModeSelect" class="text-input w-full">
+                <option value="ai">AI (Bantuan AI)</option>
+                <option value="htl">HTL (Manual / Manusia)</option>
+              </select>
+            </div>
+            <div class="mt-2">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label" for="settingsRegexFilterInput">Regex Filter (Opsional)</label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); white-space: nowrap;">
+                  <input id="settingsRegexFilterCaseCheck" type="checkbox" style="cursor: pointer;" />
+                  <span>Case-sensitive</span>
+                </label>
               </div>
-              <div class="flex-col grow">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <label class="form-label" for="settingsRegexFilterInput">Regex Filter (Opsional)</label>
-                  <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);">
-                    <input id="settingsRegexFilterCaseCheck" type="checkbox" style="cursor: pointer;" />
-                    <span>Case-sensitive</span>
-                  </label>
-                </div>
-                <input id="settingsRegexFilterInput" class="text-input w-full" type="text" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
-              </div>
+              <input id="settingsRegexFilterInput" class="text-input w-full" type="text" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
             </div>
 
-            <div class="mt-3" id="settingsRefLangWrap">
+            <div class="mt-2" id="settingsRefLangWrap">
               <label class="form-label">Referensi Bahasa Tambahan (JSON)</label>
-              <div class="flex-center gap-4 wrap">
-                <div class="flex-col grow">
-                  <input id="settingsRefLang1Select" class="text-input w-full" type="text" placeholder="Ref 1 (mis. English) - Belum diimpor" readonly />
+              <div class="flex-center gap-2 wrap">
+                <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 120px;">
+                  <input id="settingsRefLang1Select" class="text-input w-full" type="text" placeholder="Ref 1 - Belum diimpor" readonly />
                 </div>
-                <div class="flex-col grow">
-                  <input id="settingsRefLang2Select" class="text-input w-full" type="text" placeholder="Ref 2 (mis. Chinese) - Belum diimpor" readonly />
+                <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 120px;">
+                  <input id="settingsRefLang2Select" class="text-input w-full" type="text" placeholder="Ref 2 - Belum diimpor" readonly />
                 </div>
               </div>
               <div class="inline-actions mt-2">
@@ -883,8 +866,8 @@
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
               Tampilan &amp; Kamus
             </div>
-            <div class="checkbox-grid" style="align-items: end;">
-              <div>
+            <div class="flex-center gap-2 wrap" style="align-items: end;">
+              <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 130px;">
                 <label class="checkbox-line mb-1">
                   <input id="settingsShowFurigana" type="checkbox" />
                   <span>Tampilkan Furigana</span>
@@ -895,11 +878,11 @@
                   <option value="romaji">Romaji</option>
                 </select>
               </div>
-              <div>
+              <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 130px;">
                 <label class="form-label mb-1" for="settingsFontSize">Ukuran Font Utama</label>
                 <div class="flex-center gap-2">
                   <input type="number" id="settingsFontSize" class="text-input grow w-full" min="10" max="48" value="14" />
-                  <span class="hint" style="font-size: 13px; font-weight: 500;">px</span>
+                  <span class="hint" style="font-size: 12px; font-weight: 500;">px</span>
                 </div>
               </div>
             </div>
@@ -1035,18 +1018,39 @@
                 <input id="settingsAgentMaxTurns" type="number" class="text-input w-full" min="3" max="30" value="10" />
               </div>
             </div>
+            <label class="checkbox-line mt-2">
+              <input id="settingsIncrementCheck" type="checkbox" />
+              <span>Aktifkan Auto-Increment baris (mengikuti ukuran Batch Translate)</span>
+            </label>
           </div>
 
-          <!-- SECTION: Auto-Increment Baris -->
+          <!-- SECTION: Auto Copas -->
           <div class="settings-section">
             <div class="settings-section-title">
-              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-              Auto-Increment Baris
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
+              Auto Copas
             </div>
-            <label class="checkbox-line">
-              <input id="settingsIncrementCheck" type="checkbox" />
-              <span>Aktifkan Auto-Increment (mengikuti ukuran Batch Translate)</span>
-            </label>
+            <div class="flex-center gap-4 wrap">
+              <div class="flex-col grow">
+                <label class="form-label" for="autoCopasTargetSelect">Model AI (Platform)</label>
+                <select id="autoCopasTargetSelect" class="text-input w-full" title="Pilih Model AI untuk Auto Copas">
+                  <option value="gemini">Google Gemini</option>
+                  <option value="chatgpt">ChatGPT (OpenAI)</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="claude">Claude (Anthropic)</option>
+                  <option value="meta">Meta AI</option>
+                  <option value="qwen">Qwen AI</option>
+                </select>
+              </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="autoCopasModeSelect">Mode Copas</label>
+                <select id="autoCopasModeSelect" class="text-input w-full" title="Pilih Mode Auto Copas">
+                  <option value="semi">Semi Auto (Kirim/Salin)</option>
+                  <option value="full">Full Auto (Loop Otomatis)</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint mt-2">Dipakai tombol Auto Copas di tab Translate, Glossary, dan AI Check. Tersimpan otomatis begitu diubah.</p>
           </div>
 
           <!-- SECTION: Format & Eksternal -->
@@ -1210,15 +1214,17 @@
 
         <!-- PANE: SHORTCUT -->
         <div id="settingsTabShortcuts" class="settings-tab-pane" style="display: none;">
-          <div class="flex-between mb-2">
-            <p class="hint m-0">Klik tombol kombinasi lalu tekan tombol keyboard untuk mengubah. Gunakan <kbd>Backspace</kbd> untuk menghapus atau <kbd>Escape</kbd> untuk membatalkan.</p>
-            <button id="btnShortcutsResetAll" class="btn btn-outline btn-xs" title="Reset semua shortcut ke default" type="button" style="flex-shrink: 0; margin-left: 8px;">
-              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
-              <span>Reset Semua</span>
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+              Shortcut Keyboard
+            </div>
+            <p class="hint-sm m-0 mb-2">Kustomisasi tombol pintasan keyboard untuk Dashboard dan Workspace.</p>
+            <button id="btnOpenShortcutsFromSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
+              <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+              <span>Buka Konfigurasi Shortcut Keyboard</span>
             </button>
           </div>
-          <p id="shortcutStatus" class="hint shortcut-status m-0 mb-2" hidden></p>
-          <div id="shortcutList" class="shortcut-list"></div>
         </div>
 
         <!-- PANE: PLUGIN -->
@@ -1443,15 +1449,15 @@
       </div>
     </div>
   </div>
-  <button id="btnFloatingApiSettings" class="floating-btn" title="Pengaturan API Global" data-htl-hide="true">
+  <button id="btnFloatingApiSettings" class="floating-btn fb-stack-1" title="Pengaturan API Global" data-htl-hide="true">
     <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>
   </button>
   
-  <button id="btnFloatingAiAgent" class="floating-btn" title="CSTL AI Agent" style="bottom: 70px; background-color: var(--primary);" data-htl-hide="true">
+  <button id="btnFloatingAiAgent" class="floating-btn fb-stack-2" title="CSTL AI Agent" data-htl-hide="true">
     <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /></svg>
   </button>
 
-  <button id="btnFloatingLogging" class="floating-btn" title="AI Request Log" style="bottom: 124px; background-color: #64748b; display: none;">
+  <button id="btnFloatingLogging" class="floating-btn fb-stack-3" title="AI Request Log" style="display: none;">
     <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
   </button>
 
@@ -1562,9 +1568,9 @@
           <div>
             <textarea id="apiBackupKeysInput" class="text-input w-full mono" style="height: 70px; font-size: 12px; resize: vertical;" placeholder="1 key per baris (atau format: key|url|model)"></textarea>
           </div>
-          <div class="flex-center gap-2 mt-2">
-            <label class="form-label m-0" for="apiKeyStrategySelect">Strategi Rotasi:</label>
-            <select id="apiKeyStrategySelect" class="text-input" style="width: auto;">
+          <div class="flex-center gap-2 mt-2 wrap">
+            <label class="form-label m-0" for="apiKeyStrategySelect" style="flex-shrink: 0;">Strategi Rotasi:</label>
+            <select id="apiKeyStrategySelect" class="text-input" style="width: auto; max-width: 100%; min-width: 0;">
               <option value="fallback">Fallback (Gunakan utama dulu)</option>
               <option value="random">Random (Acak antar key)</option>
             </select>
@@ -1991,9 +1997,29 @@
     </div>
   </div>
 
-  <!-- Shortcut Keyboard Modal Fallback -->
-  <div id="shortcutModal" style="display:none;" hidden>
-    <button id="btnShortcutsClose" type="button" style="display:none;"></button>
+  <!-- Dedicated Shortcut Keyboard Modal -->
+  <div id="shortcutModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head flex-between">
+        <div class="flex-center gap-2">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+          <h3 class="m-0">Shortcut Keyboard</h3>
+        </div>
+        <button id="btnShortcutsResetAll" class="btn btn-outline btn-xs" title="Reset semua shortcut ke default" type="button">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
+          <span>Reset Semua</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="hint m-0 mb-2">Klik tombol kombinasi lalu tekan tombol keyboard untuk mengubah. Gunakan <kbd>Backspace</kbd> untuk menghapus atau <kbd>Escape</kbd> untuk membatalkan.</p>
+        <p id="shortcutStatus" class="hint shortcut-status m-0 mb-2" hidden></p>
+        <div id="shortcutList" class="shortcut-list"></div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnShortcutsClose" class="btn btn-primary" type="button">Tutup</button>
+      </div>
+    </div>
   </div>
 
 </body>

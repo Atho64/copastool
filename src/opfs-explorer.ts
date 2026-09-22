@@ -3,6 +3,7 @@
 
 import { getOpfsRoot } from './state';
 import { escapeHtml, openModal, closeModal } from './project';
+import { saveOrDownloadBlob } from './download-helper';
 
 export interface OpfsItem {
   name: string;
@@ -288,16 +289,7 @@ export const OpfsExplorer = {
       const dir = await this.dirHandle(this.path);
       const handle = await dir.getFileHandle(name);
       const file = await handle.getFile();
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 10000);
+      await saveOrDownloadBlob(file, name);
     } catch (e: any) {
       alert(`Gagal mengunduh "${name}": ${e?.message || e}`);
     }

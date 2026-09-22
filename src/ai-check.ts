@@ -662,7 +662,7 @@ export function stripDuplicateSpeakerPrefix(text: string, name: string): string 
 export function onApplyAiCheckCorrections(pushUndo = true): { applied: number; categories: Map<string, number> } {
   const corrections = state.aiCheckCorrections.filter(c => c.checked);
   if (!corrections.length) return { applied: 0, categories: new Map() };
-  if (pushUndo) pushUndoSnapshot();
+  if (pushUndo) pushUndoSnapshot(true, corrections.map(c => c.num));
   let applied = 0;
   const catStats = new Map<string, number>();
   for (const correction of corrections) {

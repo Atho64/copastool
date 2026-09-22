@@ -8,6 +8,7 @@ import { queueAutoSave } from './project';
 import { recordSelectionHistory } from './selection';
 import { getSelectedTranslationPlainText, applyPromptVariables } from './ai-format';
 import { DEFAULT_GLOSSARY_PROMPT } from './constants';
+import { saveOrDownloadBlob } from './download-helper';
 import type { GlossaryEntry, Line } from './types';
 
 
@@ -281,15 +282,12 @@ export function onDeleteTranslation(): void {
   }
 }
 
-export function onExportGlossaryFile(): void {
+export async function onExportGlossaryFile(): Promise<void> {
   const glossary = serializeGlossaryMap(parseGlossaryToMap(state.glossaryText));
   if (!glossary.trim()) return alert('Smart Glossary masih kosong.');
   const blob = new Blob([glossary + '\n'], { type: 'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${buildSafeFileNameGlossary(state.projectName)}_glossary.txt`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const filename = `${buildSafeFileNameGlossary(state.projectName)}_glossary.txt`;
+  await saveOrDownloadBlob(blob, filename);
   flashHint('Glossary diekspor ke file.');
 }
 

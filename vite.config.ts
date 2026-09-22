@@ -1,13 +1,36 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
+import { readFileSync } from 'fs';
+
+// Single source of truth for the app version: package.json.
+// `npm run version:check` (also enforced in CI) keeps tauri.conf.json, Cargo.toml
+// and the README badge in sync with it.
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as { version: string };
+const APP_VERSION = `v${pkg.version}`;
+
+/** Replaces the __APP_VERSION__ placeholder in index.html (hero badge). */
+function htmlAppVersion(): Plugin {
+  return {
+    name: 'copastool-html-app-version',
+    transformIndexHtml(html: string) {
+      return html.replace(/__APP_VERSION__/g, APP_VERSION);
+    },
+  };
+}
 
 export default defineConfig(() => ({
   base: './',
   clearScreen: false,
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   resolve: {
@@ -24,12 +47,27 @@ export default defineConfig(() => ({
     },
   },
   plugins: [
+    htmlAppVersion(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.jpg', 'icon.svg', 'notif.mp3', 'dict/*.dat.gz'],
+      includeAssets: ['icon.jpg', 'icon.png', 'icon.svg', 'notif.mp3'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff2,dat.gz}'],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // The Kuromoji dictionaries (~17 MB in public/dict) are deliberately kept out
+        // of the precache manifest so the first launch only pulls the ~1 MB app shell.
+        // They are cached on demand the first time furigana is used (see runtimeCaching),
+        // and stay available offline from then on.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/dict\/.*\.dat\.gz$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'copastool-kuromoji-dict',
+              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'Copas Tool',
@@ -40,6 +78,12 @@ export default defineConfig(() => ({
         display: 'standalone',
         start_url: './',
         icons: [
+          {
+            src: 'icon.png',
+            sizes: '1024x1024',
+            type: 'image/png',
+            purpose: 'any'
+          },
           {
             src: 'icon.jpg',
             sizes: '784x784',

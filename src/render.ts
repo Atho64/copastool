@@ -177,18 +177,38 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
   row.className = 'preview-row';
   if (rowData.type === 'separator') {
     row.classList.add('separator');
-    const fileLines = state.lines.filter(l => l.file === rowData.file && isSelectableForActiveTab(l));
-    const isAllSelected = fileLines.length > 0 && fileLines.every(l => state.selectedLines.has(l.line_num));
+    const range = fileLineRanges.get(rowData.file);
+    let isAllSelected = false;
+    if (range) {
+      let hasSelectable = false;
+      let all = true;
+      for (let n = range.first; n <= range.last; n++) {
+        const l = state.lineByNum.get(n);
+        if (l && !l._hidden && isSelectableForActiveTab(l)) {
+          hasSelectable = true;
+          if (!state.selectedLines.has(n)) {
+            all = false;
+            break;
+          }
+        }
+      }
+      isAllSelected = hasSelectable && all;
+    }
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     (cb as any).dataset.file = rowData.file;
     cb.checked = isAllSelected;
     cb.addEventListener('change', (e) => {
       const isChecked = (e.target as HTMLInputElement).checked;
-      fileLines.forEach(l => {
-        if (isChecked) state.selectedLines.add(l.line_num);
-        else state.selectedLines.delete(l.line_num);
-      });
+      if (range) {
+        for (let n = range.first; n <= range.last; n++) {
+          const l = state.lineByNum.get(n);
+          if (l && !l._hidden && isSelectableForActiveTab(l)) {
+            if (isChecked) state.selectedLines.add(n);
+            else state.selectedLines.delete(n);
+          }
+        }
+      }
       recordSelectionHistory();
       syncCheckboxUI();
     });
@@ -325,8 +345,26 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
 
 export function syncCheckboxUI(): void {
   document.querySelectorAll<HTMLInputElement>('.preview-row.separator input[type="checkbox"]').forEach(cb => {
-    const fileLines = state.lines.filter(l => l.file === (cb as any).dataset.file && isSelectableForActiveTab(l));
-    cb.checked = fileLines.length > 0 && fileLines.every(l => state.selectedLines.has(l.line_num));
+    const file = (cb as any).dataset.file;
+    const range = file ? fileLineRanges.get(file) : null;
+    let allSelected = true;
+    let hasSelectable = false;
+    if (range) {
+      for (let n = range.first; n <= range.last; n++) {
+        const l = state.lineByNum.get(n);
+        if (l && isSelectableForActiveTab(l)) {
+          hasSelectable = true;
+          if (!state.selectedLines.has(n)) {
+            allSelected = false;
+            break;
+          }
+        }
+      }
+      cb.checked = hasSelectable && allSelected;
+    } else {
+      const fileLines = state.lines.filter(l => l.file === file && isSelectableForActiveTab(l));
+      cb.checked = fileLines.length > 0 && fileLines.every(l => state.selectedLines.has(l.line_num));
+    }
   });
   document.querySelectorAll<HTMLInputElement>('.preview-row:not(.separator) input[type="checkbox"]').forEach(cb => {
     const num = Number((cb as any).dataset.num);
@@ -340,6 +378,17 @@ export function syncCheckboxUI(): void {
 }
 
 // ─── Name Table ────────────────────────────────────────────────────────────────
+
+let cachedCharacterNameCount: number | null = null;
+export function invalidateNameCache(): void {
+  cachedCharacterNameCount = null;
+}
+export function getCachedCharacterNameCount(): number {
+  if (cachedCharacterNameCount === null) {
+    cachedCharacterNameCount = collectCharacterNameRows().length;
+  }
+  return cachedCharacterNameCount;
+}
 
 export function collectCharacterNameRows() {
   const rows = new Map<string, { name: string; lines: Line[]; translatedNames: Set<string> }>();
@@ -357,6 +406,18 @@ export function collectCharacterNameRows() {
 }
 
 export function renderNameTable(): void {
+  invalidateNameCache();
+  const nameTableWrap = document.getElementById('nameTableWrap');
+  const details = nameTableWrap?.closest('details');
+  if (details && !details.open) {
+    if (!(details as any)._cstlHasToggle) {
+      (details as any)._cstlHasToggle = true;
+      details.addEventListener('toggle', () => {
+        if (details.open) renderNameTable();
+      });
+    }
+    return;
+  }
   const autoDetectedNames = collectCharacterNameRows();
   (ui.nameTableBody as HTMLElement).textContent = '';
   const frag = document.createDocumentFragment();
@@ -392,6 +453,7 @@ export function renderNameTable(): void {
       if (currentNames.length === 1 && currentNames[0] === nextName) return;
       pushUndoSnapshot();
       matchingLines.forEach(line => { line.trans_name = nextName || null; });
+      invalidateNameCache();
       renderPreviewRows();
       queueAutoSave();
       flashHint(nextName ? `Nama "${n}" diganti menjadi "${nextName}".` : `Terjemah nama "${n}" dikosongkan.`);
@@ -407,9 +469,15 @@ export function renderNameTable(): void {
 
 export function updateStatusBar(): void {
   const rawTotal = state.lines.length;
-  const visibleLines = state.lines.filter(l => !l._hidden);
-  const total = visibleLines.length;
-  const trans = visibleLines.filter(isTranslated).length;
+  let total = 0;
+  let trans = 0;
+  for (let i = 0; i < rawTotal; i++) {
+    const l = state.lines[i];
+    if (!l._hidden) {
+      total++;
+      if (isTranslated(l)) trans++;
+    }
+  }
   const perc = total ? Math.floor((trans / total) * 100) : 0;
 
   let modeText = '-';
@@ -447,36 +515,92 @@ export function refreshAll(): void {
   }
 }
 
-export function pushUndoSnapshot(clearRedo = true): void {
+/**
+ * Progressive refresh used when opening a project: the virtual row list is
+ * rendered synchronously so the workspace appears immediately, while the
+ * heavier derived views (character name table, status bar, badges) run after
+ * the first paint. Opening a large project no longer waits on them.
+ */
+export function refreshAllStaged(): void {
+  rebuildDisplayState();
+  renderPreviewRows();
+  const finish = () => {
+    renderNameTable();
+    updateStatusBar();
+    import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
+    (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
+    if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
+    if (state.translationMode === 'htl') {
+      import('./htl-mode').then(m => m.refreshHtlPanels()).catch(() => {});
+    }
+  };
+  const idle = (window as any).requestIdleCallback;
+  if (typeof idle === 'function') idle(finish, { timeout: 300 });
+  else setTimeout(finish, 0);
+}
+
+/** Fast workspace refresh for line edits / translations that do not change file grouping or filtering */
+export function refreshWorkspaceFast(): void {
+  const mainScroller = getMainScroller();
+  if (mainScroller) {
+    mainScroller.render(true);
+  }
+  updateButtonStates();
+  renderNameTable();
+  updateStatusBar();
+  (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
+  if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
+  if (state.translationMode === 'htl') {
+    import('./htl-mode').then(m => m.refreshHtlPanels()).catch(() => {});
+  }
+}
+
+export function snapshotLine(l: Line) {
+  return {
+    line_num: l.line_num,
+    file: l.file,
+    name: l.name,
+    message: l.message,
+    trans_name: l.trans_name,
+    trans_message: l.trans_message,
+    is_translated: l.is_translated,
+    bookmarked: l.bookmarked,
+    _hidden: l._hidden,
+    _glossary_extracted: l._glossary_extracted,
+    _ai_checked: l._ai_checked,
+    _ai_confirmed: l._ai_confirmed,
+    luca_command: l.luca_command,
+    luca_pre: l.luca_pre,
+    luca_post: l.luca_post,
+    luca_text_prefix: l.luca_text_prefix,
+    epub_selector: l.epub_selector,
+    epub_id: l.epub_id,
+    custom_raw: l.custom_raw,
+    custom_index: l.custom_index,
+  };
+}
+
+export function pushUndoSnapshot(clearRedo = true, targetLineNums?: Iterable<number>): void {
   if (clearRedo) {
     state.redoStack = [];
     if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = true;
   }
+  let linesToSnapshot: any[];
+  if (targetLineNums) {
+    const list: any[] = [];
+    for (const num of targetLineNums) {
+      const l = state.lineByNum.get(num);
+      if (l) list.push(snapshotLine(l));
+    }
+    linesToSnapshot = list;
+  } else {
+    linesToSnapshot = state.lines.map(snapshotLine);
+  }
   state.undoStack.push({
-    lines: state.lines.map(l => ({
-      line_num: l.line_num,
-      file: l.file,
-      name: l.name,
-      message: l.message,
-      trans_name: l.trans_name,
-      trans_message: l.trans_message,
-      is_translated: l.is_translated,
-      bookmarked: l.bookmarked,
-      _hidden: l._hidden,
-      _glossary_extracted: l._glossary_extracted,
-      _ai_checked: l._ai_checked,
-      _ai_confirmed: l._ai_confirmed,
-      luca_command: l.luca_command,
-      luca_pre: l.luca_pre,
-      luca_post: l.luca_post,
-      luca_text_prefix: l.luca_text_prefix,
-      epub_selector: l.epub_selector,
-      epub_id: l.epub_id,
-      custom_raw: l.custom_raw,
-      custom_index: l.custom_index,
-    }))
+    lines: linesToSnapshot
   });
-  if (state.undoStack.length > MAX_UNDO_STEPS) state.undoStack.shift();
+  const maxSteps = state.lines.length > 20000 ? 3 : MAX_UNDO_STEPS;
+  if (state.undoStack.length > maxSteps) state.undoStack.shift();
   (ui.btnUndo as HTMLButtonElement).disabled = false;
 }
 
@@ -484,25 +608,15 @@ export function pushUndoSnapshot(clearRedo = true): void {
 
 export function flashHint(msg: string, keepAlive = false): void {
   const bare = String(msg ?? '').trim();
+  if (!bare) return;
   const q = bare.toLowerCase();
   const isStopLike = q.includes('dibatalkan') || q.includes('dihentikan') || q.includes('berhenti') || q.includes('canceled') || q.includes('cancelled') || bare.includes('Menghentikan');
   const isWarnLike = isStopLike || q.includes('gagal') || q.includes('error') || q.includes('ditolak');
-  const isOkLike = q.startsWith('disalin') || q.startsWith('full auto selesai') || q.includes('selesai:') || q.includes('diterapkan') || q.includes('disimpan');
+  const isOkLike = q.startsWith('disalin') || q.includes('selesai') || q.includes('diterapkan') || q.includes('disimpan') || q.includes('berhasil') || q.includes('download') || q.includes('backup') || q.includes('ekspor');
   const kind: 'success' | 'info' | 'warn' | 'danger' = isWarnLike ? (q.includes('ditolak') || q.includes('gagal') ? 'danger' : 'warn') : isOkLike ? 'success' : 'info';
-  const looksLikeTransientToast =
-    q.startsWith('disalin ') ||
-    q.includes('disalin:') ||
-    /^nama\s+["\u201c]/.test(q) ||
-    q.includes(' full auto') ||
-    q.startsWith('full auto') ||
-    q.includes('auto glossary') ||
-    q.includes('auto ai check');
 
-  // Toast-worthy messages replace the inline hint (no duplication).
-  if (looksLikeTransientToast) {
-    void import('./notify').then(m => m.notify(bare, { kind, withSound: isStopLike })).catch(() => {});
-    return;
-  }
+  // Always show top-center toast so user gets immediate visual feedback on any view (Dashboard, Modals, Workspace)
+  void import('./notify').then(m => m.notify(bare, { kind, withSound: isStopLike })).catch(() => {});
 
   const el = ui.copyStatus as HTMLElement | undefined;
   if (!el) return;
@@ -518,14 +632,62 @@ export function flashHint(msg: string, keepAlive = false): void {
 
 // ─── Button States ────────────────────────────────────────────────────────────
 
+let _updateButtonStatesRAF: number | null = null;
+
 export function updateButtonStates(): void {
+  if (_updateButtonStatesRAF !== null) return;
+  _updateButtonStatesRAF = requestAnimationFrame(() => {
+    _updateButtonStatesRAF = null;
+    _runUpdateButtonStates();
+  });
+}
+
+function _runUpdateButtonStates(): void {
   const hasData = state.lines.length > 0;
   const hasSelection = state.selectedLines.size > 0;
-  const nameCount = collectCharacterNameRows().length;
-  const translatedNameCount = state.lines.filter(l => (l.name || '').trim() && (l.trans_name || '').trim()).length;
-  const untranslatedSelectionCount = state.lines.filter(l => !l._hidden && !isIlustrasiLine(l) && state.selectedLines.has(l.line_num) && !isTranslated(l)).length;
-  const translatedSelectionCount = state.lines.filter(l => !l._hidden && !isIlustrasiLine(l) && state.selectedLines.has(l.line_num) && isTranslated(l)).length;
-  const glossarySelectionCount = state.lines.filter(l => !l._hidden && !isIlustrasiLine(l) && state.selectedLines.has(l.line_num)).length;
+
+  const nameSet = new Set<string>();
+  let translatedNameCount = 0;
+  let untranslatedSelectionCount = 0;
+  let translatedSelectionCount = 0;
+  let glossarySelectionCount = 0;
+  let untranslatedCount = 0;
+  let unextractedCount = 0;
+  let uncheckedCount = 0;
+
+  const sel = state.selectedLines;
+  const lines = state.lines;
+  const len = lines.length;
+
+  for (let i = 0; i < len; i++) {
+    const l = lines[i];
+    if (l._hidden) continue;
+    const isIlus = isIlustrasiLine(l);
+    const tl = isTranslated(l);
+
+    const nameStr = (l.name || '').trim();
+    if (nameStr) {
+      nameSet.add(nameStr);
+      if ((l.trans_name || '').trim()) {
+        translatedNameCount++;
+      }
+    }
+
+    if (!isIlus) {
+      if (!tl) untranslatedCount++;
+      if (!l._glossary_extracted) unextractedCount++;
+      if (tl && !l._ai_checked && !l._ai_confirmed) uncheckedCount++;
+
+      if (hasSelection && sel.has(l.line_num)) {
+        glossarySelectionCount++;
+        if (!tl) untranslatedSelectionCount++;
+        else translatedSelectionCount++;
+      }
+    }
+  }
+
+  const nameCount = nameSet.size;
+  const hasCharacterNames = nameCount > 0;
   const setDisabled = (key: string, val: boolean) => { if (ui[key]) (ui[key] as HTMLButtonElement | HTMLInputElement | HTMLTextAreaElement).disabled = val; };
   setDisabled('btnExport', !hasData);
   setDisabled('btnProofread', !hasData);
@@ -550,26 +712,23 @@ export function updateButtonStates(): void {
     bridgeOk = (window as any).__cstlExtAvailable === true;
   } catch { /* */ }
   const canCopas = untranslatedSelectionCount > 0 && (bridgeOk || document.documentElement.dataset.cstlExt === '1');
-  const untranslatedCount = state.lines.filter(l => !isTranslated(l) && !l._hidden && !isIlustrasiLine(l)).length;
   // Full Auto can select the next batch itself, so it must remain available
   // even when the user has not manually selected rows.
   setDisabled('btnAutoCopas', untranslatedCount === 0);
   setDisabled('btnFetchCopasResult', !hasData);
   setDisabled('btnAutoTranslate', untranslatedCount === 0);
-  setDisabled('btnCopyNamesForAi', nameCount === 0);
+  setDisabled('btnCopyNamesForAi', !hasCharacterNames);
   setDisabled('btnResetNameTranslations', translatedNameCount === 0);
   setDisabled('btnCopyForGlossaryAi', glossarySelectionCount === 0);
-  const unextractedCount = state.lines.filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l)).length;
   setDisabled('btnAutoGlossaryAi', unextractedCount === 0);
   setDisabled('btnCopyForAiCheck', translatedSelectionCount === 0);
-  const uncheckedCount = state.lines.filter(l => isTranslated(l) && !l._ai_checked && !l._ai_confirmed && !l._hidden && !isIlustrasiLine(l)).length;
   setDisabled('btnAutoAiCheck', uncheckedCount === 0);
   setDisabled('btnExtractEpubRubyNames', !(state.projectType === 'epub' && state.epubSourceId));
   setDisabled('pasteArea', !hasData);
-  setDisabled('pasteNameArea', nameCount === 0);
+  setDisabled('pasteNameArea', !hasCharacterNames);
   setDisabled('pasteGlossaryArea', !hasData);
   setDisabled('btnApply', !hasData);
-  setDisabled('btnApplyNameTranslations', nameCount === 0 || !(ui.pasteNameArea as HTMLTextAreaElement)?.value.trim());
+  setDisabled('btnApplyNameTranslations', !hasCharacterNames || !(ui.pasteNameArea as HTMLTextAreaElement)?.value.trim());
   setDisabled('btnSaveGlossary', !hasData);
   setDisabled('btnParseAiCheck', !hasData);
   setDisabled('pasteAiCheckArea', !hasData);

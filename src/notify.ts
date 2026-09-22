@@ -45,10 +45,20 @@ function ensureHost(): HTMLElement {
   return host;
 }
 
+/** Key events also go to the OS (local, native) — task completions, downloads, backups, and failures. */
+function isKeyEvent(kind: ToastKind, opts: ToastOpts): boolean {
+  return kind === 'danger' || kind === 'warn' || kind === 'success' || !!opts.withSound;
+}
+
+function postNative(message: string): void {
+  void import('./native-notify').then(m => m.nativeNotify('CopasTool', message)).catch(() => {});
+}
+
 export function notify(message: string, opts: ToastOpts = {}): void {
   const kind = opts.kind ?? 'success';
   const ms = opts.ms ?? (kind === 'danger' ? 4200 : kind === 'warn' ? 3600 : 2800);
   const after = () => { if (opts.withSound) playStopSound(); };
+  if (isKeyEvent(kind, opts)) postNative(message);
   const host = ensureHost();
   const last = host.lastElementChild as HTMLElement | null;
   if (last && last.classList.contains('notify-toast') && (last as any)._notifyMessage === message && !last.dataset.dismissed) {

@@ -178,14 +178,24 @@ export function isTranslated(line: Line): boolean {
   return !!line.is_translated && (state.disableEmptyLineValidation || !!String(line.trans_message).trim());
 }
 
+function fastNormalizeText(val: any): string | null {
+  if (val == null) return null;
+  const s = String(val);
+  if (!s) return '';
+  if (s.includes('\r') || s.includes('\n')) {
+    return s.replace(/\r?\n/g, '\\n').trim();
+  }
+  return s.trim();
+}
+
 export function normalizeLineDict(line: any): Line {
   const normalized: Line = {
     line_num: Number(line.line_num),
     file: String(line.file),
-    name: line.name == null ? null : String(line.name).replace(/\r?\n/g, '\\n').trim(),
-    message: String(line.message).replace(/\r?\n/g, '\\n').trim(),
-    trans_name: line.trans_name == null ? null : String(line.trans_name).replace(/\r?\n/g, '\\n').trim(),
-    trans_message: line.trans_message == null ? null : String(line.trans_message).replace(/\r?\n/g, '\\n').trim(),
+    name: fastNormalizeText(line.name),
+    message: fastNormalizeText(line.message) || '',
+    trans_name: fastNormalizeText(line.trans_name),
+    trans_message: fastNormalizeText(line.trans_message) || '',
     is_translated: Boolean(line.is_translated),
     ...(line.bookmarked != null ? { bookmarked: Boolean(line.bookmarked) } : {}),
     ...(line.luca_jp != null ? { luca_jp: String(line.luca_jp) } : {}),

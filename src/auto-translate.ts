@@ -1213,8 +1213,9 @@ export async function onAutoAiCheck(): Promise<void> {
       autoAiCheckStats.totalCorrections += state.aiCheckCorrections.length;
       // One undo must cover both corrections and the checked flags, including
       // batches with no corrections or batches skipped in review mode.
+      // Snapshot only this batch's lines — O(batch) instead of O(project).
       const { pushUndoSnapshot } = await import('./render');
-      pushUndoSnapshot();
+      pushUndoSnapshot(true, batchLines.map(l => l.line_num));
 
       if (!isAutoAiCheck) break;
 

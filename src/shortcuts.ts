@@ -288,12 +288,15 @@ export const Shortcuts = {
 
   openModal(): void {
     Shortcuts.renderList();
-    import('./settings').then(m => m.onOpenSettings('shortcuts'));
+    const modal = document.getElementById('shortcutModal');
+    if (modal) {
+      import('./project').then(m => m.openModal(modal));
+    }
   },
 
   closeModal(): void {
     Shortcuts.stopRecording();
-    const modal = document.getElementById('settingsModal');
+    const modal = document.getElementById('shortcutModal');
     if (modal) {
       import('./project').then(m => m.closeModal(modal));
     }

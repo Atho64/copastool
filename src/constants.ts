@@ -332,7 +332,10 @@ AVAILABLE TOOLS:
 2. search_text(query) — Search all lines for a keyword (max 50 results).
 3. get_context(line_num, radius) — Get surrounding lines (radius 1-20).
 4. get_glossary() — Get current glossary terms.`;
-export const APP_VERSION = 'vM15';
+// Injected at build/dev time by vite.config.ts (`define: { __APP_VERSION__ }`),
+// sourced from the single source of truth: package.json -> "version".
+declare const __APP_VERSION__: string;
+export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'v0.1.6';
 export const DEFAULT_LUCA_MC_DISPLAY_NAME = 'Tomoya';
 export const DEFAULT_JSON_REF_LANG = ''; // e.g. "en" or "zh" - extra reference language for JSON VNTP projects
 export const HTL_MODE = 'htl'; // Human Translation Mode - hides AI features

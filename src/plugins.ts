@@ -24,6 +24,7 @@ import {
   buildLucaExportText, DEFAULT_LUCA_PROFILE, getLucaExportSlotOptions
 } from './luca-engine';
 import { decodeArrayBuffer, splitBufferToLines, bytesToBase64 } from './binary-utils';
+import { saveOrDownloadBlob } from './download-helper';
 
 const PLUGIN_API_VERSION = 1;
 const MANIFEST_FILE = 'manifest.json';
@@ -2447,12 +2448,7 @@ export const Runtime = {
       const body = (data instanceof Uint8Array || data instanceof ArrayBuffer) ? data : String(data ?? '');
       blob = new Blob([body as unknown as BlobPart], { type: 'application/octet-stream' });
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = sanitizeFilename(filename);
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    saveOrDownloadBlob(blob, sanitizeFilename(filename));
   },
 
   resolveByExtension(fileName: string): PluginMeta | null {

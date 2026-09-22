@@ -7,7 +7,7 @@ export class VirtualScroller<T = any> {
   renderItem: (item: T) => HTMLElement;
   items: T[];
   heights: number[];
-  positions: number[];
+  positions: number[] | Float64Array;
   totalHeight: number;
   scrollTop: number;
   ticking: boolean;
@@ -120,11 +120,16 @@ export class VirtualScroller<T = any> {
   }
 
   updatePositions(): void {
+    const len = this.items.length;
+    if (!this.positions || this.positions.length !== len) {
+      this.positions = new Float64Array(len);
+    }
     let top = 0;
-    this.positions = new Array(this.items.length);
-    for (let i = 0; i < this.items.length; i++) {
-      this.positions[i] = top;
-      top += this.heights[i];
+    const h = this.heights;
+    const p = this.positions;
+    for (let i = 0; i < len; i++) {
+      p[i] = top;
+      top += h[i];
     }
     this.totalHeight = top;
   }
@@ -228,8 +233,6 @@ export class VirtualScroller<T = any> {
     if (this.rerenderRAF !== null) return;
     this.rerenderRAF = requestAnimationFrame(() => {
       this.rerenderRAF = null;
-      this.lastStart = -1;
-      this.lastEnd = -1;
       this.render(false);
     });
   }

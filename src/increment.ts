@@ -3,7 +3,7 @@
 
 import type { Line } from './types';
 import { state, ui } from './state';
-import { refreshAll } from './render';
+import { syncCheckboxUI } from './render';
 
 export function isLineTranslated(l: Line): boolean {
   return !!(l.trans_message && l.trans_message.trim().length > 0) || l.is_translated;
@@ -39,7 +39,7 @@ export function prefillIncrement(): void {
     if (fromEl) fromEl.value = '';
     if (toEl) toEl.value = '';
     state.selectedLines.clear();
-    refreshAll();
+    syncCheckboxUI();
     return;
   }
   const to = Math.min(from + step - 1, max);
@@ -50,7 +50,7 @@ export function prefillIncrement(): void {
     const l = state.lineByNum.get(n) || state.lines.find(x => x.line_num === n);
     if (l && !l._hidden && !isLineTranslated(l)) state.selectedLines.add(n);
   }
-  refreshAll();
+  syncCheckboxUI();
 }
 
 export function applyIncrement(applied: number[]): string | null {
@@ -71,7 +71,7 @@ export function applyIncrement(applied: number[]): string | null {
     if (fromEl) fromEl.value = '';
     if (toEl) toEl.value = '';
     state.selectedLines.clear();
-    refreshAll();
+    syncCheckboxUI();
     return ' Semua baris sudah tercakup.';
   }
   const to = Math.min(from + step - 1, max);
@@ -82,7 +82,7 @@ export function applyIncrement(applied: number[]): string | null {
     const l = state.lineByNum.get(n) || state.lines.find(x => x.line_num === n);
     if (l && !isLineTranslated(l)) state.selectedLines.add(n);
   }
-  refreshAll();
+  syncCheckboxUI();
   return ` Auto-increment: Baris ${from}–${to} terpilih.`;
 }
 

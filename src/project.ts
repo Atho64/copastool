@@ -23,6 +23,13 @@ import { icon } from './icons';
 import { preloadEpubImages, clearEpubImageCache } from './epub-images';
 import { getCustomParser, isValidCustomParser, upsertCustomParser } from './custom-parsers';
 import { prefillIncrement } from './increment';
+import { stringifyAsync, parseAsync } from './storage-worker';
+import { saveOrDownloadBlob } from './download-helper';
+
+/** Best-effort native OS notification for save failures (no-op on plain web). */
+function notifySaveError(message: string): void {
+  void import('./native-notify').then(m => m.nativeNotify('CopasTool — Penyimpanan', message)).catch(() => {});
+}
 
 export function isProjectFile(name: string): boolean {
   return name.endsWith(PROJECT_EXT) || name.endsWith(LEGACY_PROJECT_EXT);
@@ -101,6 +108,7 @@ function recoverLucaRawFields(): void {
 
 // ─── Lazy render helpers (breaks render.js ↔ project.js circular dep) ─────────
 async function refreshAll() { return (await import('./render')).refreshAll(); }
+async function refreshAllStaged() { return (await import('./render')).refreshAllStaged(); }
 async function flashHintAsync(msg: string, keepAlive?: boolean) { return (await import('./render')).flashHint(msg, keepAlive); }
 function flashHint(msg: string, keepAlive?: boolean) { import('./render').then(m => m.flashHint(msg, keepAlive)); }
 async function updateButtonStates() { return (await import('./render')).updateButtonStates(); }
@@ -407,68 +415,178 @@ export function formatDashboardDate(ts: number): string {
   return `${day} ${month} ${year} · ${hours}.${minutes}`;
 }
 
+const META_CACHE_FILE = '_projects_meta_cache.json';
+let inMemoryMetaCache: Record<string, any> | null = null;
+
+async function loadProjectsMetaCache(root: FileSystemDirectoryHandle): Promise<Record<string, any>> {
+  if (inMemoryMetaCache) return inMemoryMetaCache;
+  try {
+    const handle = await root.getFileHandle(META_CACHE_FILE);
+    const file = await handle.getFile();
+    const text = await file.text();
+    inMemoryMetaCache = JSON.parse(text) || {};
+    return inMemoryMetaCache!;
+  } catch (_) {
+    inMemoryMetaCache = {};
+    return inMemoryMetaCache;
+  }
+}
+
+async function saveProjectsMetaCache(root: FileSystemDirectoryHandle, cache: Record<string, any>): Promise<void> {
+  inMemoryMetaCache = cache;
+  try {
+    const handle = await root.getFileHandle(META_CACHE_FILE, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(cache));
+    await writable.close();
+  } catch (err) {
+    console.warn('[Project] Failed to persist metadata cache:', err);
+  }
+}
+
+export function updateProjectMetaInCache(id: string, meta: any): void {
+  if (!inMemoryMetaCache) inMemoryMetaCache = {};
+  inMemoryMetaCache[id] = meta;
+  getOpfsRoot().then(root => saveProjectsMetaCache(root, inMemoryMetaCache!)).catch(() => {});
+}
+
+export function removeProjectMetaFromCache(id: string): void {
+  if (inMemoryMetaCache) {
+    delete inMemoryMetaCache[id];
+    getOpfsRoot().then(root => saveProjectsMetaCache(root, inMemoryMetaCache!)).catch(() => {});
+  }
+}
+
+export function syncProjectMetaCache(id: string, dataObj: any): void {
+  const lines = Array.isArray(dataObj.lines) ? dataObj.lines : [];
+  let translatedLines = 0;
+  for (const l of lines) {
+    if (isIlustrasiLine(l) || (l && l.is_translated && (dataObj.disable_empty_line_validation || !!String(l.trans_message || '').trim()))) {
+      translatedLines++;
+    }
+  }
+  const fileCount = Array.isArray(dataObj.imported_files) && dataObj.imported_files.length > 0
+    ? dataObj.imported_files.length
+    : (Array.isArray(dataObj.file_order) ? dataObj.file_order.length : 0);
+
+  updateProjectMetaInCache(id, {
+    id,
+    name: dataObj.projectName || stripProjectExt(id),
+    updatedAt: dataObj.updatedAt || Date.now(),
+    fileCount,
+    lineCount: lines.length,
+    totalLines: lines.length,
+    translatedLines,
+    projectType: dataObj.projectType,
+    translationMode: dataObj.translationMode,
+    customParserId: dataObj.custom_parser_id || null,
+  });
+}
+
 export async function loadDashboardProjects(): Promise<void> {
-  state.dashboardProjects = [];
-  (ui.projectList as HTMLElement).textContent = '';
+  // Every caller reaches this after something changed on disk (close, delete,
+  // rename, repair), so any prefetched copy may be stale.
+  prefetchCache.clear();
   try {
     const root = await getOpfsRoot();
-    const projects: any[] = [];
+    const cache = await loadProjectsMetaCache(root);
+    const cachedList = Object.values(cache);
+
+    // Fast initial display: render cached metadata immediately (0-5ms)
+    if (cachedList.length > 0) {
+      cachedList.sort((a: any, b: any) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      state.dashboardProjects = cachedList;
+      renderDashboardProjects();
+    } else if (state.dashboardProjects.length === 0) {
+      renderDashboardMessage('Memuat daftar proyek...');
+    }
+
+    // Fast check: scan storage entries to verify additions, deletions, or corruptions
+    const diskFiles = new Map<string, FileSystemHandle>();
     for await (const [name, handle] of (root as any).entries()) {
       if (isProjectFile(name) && handle.kind === 'file') {
-        const file = await handle.getFile();
-        let data: any = null;
-        try {
-          data = JSON.parse(await file.text());
-          if (!data || typeof data !== 'object') data = null;
-        } catch (_) { data = null; }
-        if (!data) {
-          // Keep unreadable files visible: silently skipping them makes a bad
-          // read look like the project vanished. The file is still on disk
-          // and can be replaced by restoring a backup.
-          projects.push({
-            id: name,
-            name: stripProjectExt(name),
-            updatedAt: file.lastModified,
-            fileCount: 0,
-            lineCount: 0,
-            totalLines: 0,
-            translatedLines: 0,
-            projectType: undefined,
-            translationMode: undefined,
-            corrupt: true,
-          });
-          continue;
-        }
-
-        const lines = Array.isArray(data.lines) ? data.lines : [];
-        const totalLines = lines.length;
-        let translatedLines = 0;
-        for (const l of lines) {
-          if (isIlustrasiLine(l) || (l && l.is_translated && (data.disable_empty_line_validation || !!String(l.trans_message || '').trim()))) {
-            translatedLines++;
-          }
-        }
-        const fileCount = Array.isArray(data.imported_files) && data.imported_files.length > 0
-          ? data.imported_files.length
-          : (Array.isArray(data.file_order) ? data.file_order.length : 0);
-
-        projects.push({
-          id: name,
-          name: data.projectName || stripProjectExt(name),
-          updatedAt: data.updatedAt || file.lastModified,
-          fileCount,
-          lineCount: totalLines,
-          totalLines,
-          translatedLines,
-          projectType: data.projectType,
-          translationMode: data.translationMode,
-          customParserId: data.custom_parser_id || null,
-        });
+        diskFiles.set(name, handle);
       }
     }
-    projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    state.dashboardProjects = projects;
-    renderDashboardProjects();
+
+    let cacheChanged = false;
+    for (const cachedId of Object.keys(cache)) {
+      if (!diskFiles.has(cachedId)) {
+        delete cache[cachedId];
+        cacheChanged = true;
+      }
+    }
+
+    for (const [name, handle] of diskFiles.entries()) {
+      if (!cache[name]) {
+        try {
+          const file = await (handle as any).getFile();
+          const text = await file.text();
+          let data: any = null;
+          // Parsing a multi-MB project on the UI thread froze the dashboard for
+          // seconds; the worker keeps the frame alive.
+          try {
+            data = await parseAsync(text);
+          } catch (_) {
+            try { data = JSON.parse(text); } catch (_) { data = null; }
+          }
+          if (!data || typeof data !== 'object') data = null;
+
+          if (!data) {
+            cache[name] = {
+              id: name,
+              name: stripProjectExt(name),
+              updatedAt: file.lastModified,
+              fileCount: 0,
+              lineCount: 0,
+              totalLines: 0,
+              translatedLines: 0,
+              projectType: undefined,
+              translationMode: undefined,
+              corrupt: true,
+            };
+          } else {
+            const lines = Array.isArray(data.lines) ? data.lines : [];
+            const totalLines = lines.length;
+            let translatedLines = 0;
+            for (const l of lines) {
+              if (isIlustrasiLine(l) || (l && l.is_translated && (data.disable_empty_line_validation || !!String(l.trans_message || '').trim()))) {
+                translatedLines++;
+              }
+            }
+            const fileCount = Array.isArray(data.imported_files) && data.imported_files.length > 0
+              ? data.imported_files.length
+              : (Array.isArray(data.file_order) ? data.file_order.length : 0);
+
+            cache[name] = {
+              id: name,
+              name: data.projectName || stripProjectExt(name),
+              updatedAt: data.updatedAt || file.lastModified,
+              fileCount,
+              lineCount: totalLines,
+              totalLines,
+              translatedLines,
+              projectType: data.projectType,
+              translationMode: data.translationMode,
+              customParserId: data.custom_parser_id || null,
+            };
+          }
+          cacheChanged = true;
+        } catch (e) {
+          console.warn('[Project] Failed to index project:', name, e);
+        }
+      }
+    }
+
+    if (cacheChanged || cachedList.length === 0) {
+      const updatedList = Object.values(cache);
+      updatedList.sort((a: any, b: any) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      state.dashboardProjects = updatedList;
+      renderDashboardProjects();
+      if (cacheChanged) {
+        saveProjectsMetaCache(root, cache).catch(() => {});
+      }
+    }
   } catch (err) {
     renderDashboardMessage('Gagal mengakses storage browser.', true);
   }
@@ -544,6 +662,13 @@ export function renderDashboardProjects(): void {
   for (const p of projects) {
     const card = document.createElement('div');
     card.className = 'project-card';
+
+    if (!p.corrupt) {
+      // Reading + parsing the project is the slow half of "Buka Project" and we
+      // can guess the target as soon as the user shows interest in the card.
+      card.addEventListener('pointerenter', () => prefetchProjectData(p.id), { once: true });
+      card.addEventListener('focusin', () => prefetchProjectData(p.id), { once: true });
+    }
 
     if (p.corrupt) {
       card.classList.add('project-card-corrupt');
@@ -695,9 +820,17 @@ export function renderDashboardProjects(): void {
 
     card.querySelector('.btn-open')?.addEventListener('click', async function(this: HTMLButtonElement) {
       this.disabled = true;
-      this.textContent = 'Membuka...';
+      this.innerHTML = `<span class="spinner-border" style="width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;margin-right:6px"></span> <span>Membuka...</span>`;
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+      const startedAt = performance.now();
       try {
-        await openProject(p.id, await fetchProjectData(p.id));
+        const projectData = await loadProjectDataForOpen(p.id);
+        const readAt = performance.now();
+        await openProject(p.id, projectData);
+        console.info(`[CSTL] Open "${p.name}": baca ${Math.round(readAt - startedAt)}ms, workspace ${Math.round(performance.now() - readAt)}ms`);
+      } catch (err: any) {
+        console.error('Failed to open project:', err);
+        alert('Gagal membuka proyek: ' + (err?.message || err));
       } finally {
         this.disabled = false;
         this.innerHTML = `${icon('arrow-right', 17)} <span>Buka Project</span>`;
@@ -737,6 +870,15 @@ export function renderDashboardProjects(): void {
     frag.appendChild(card);
   }
   (ui.projectList as HTMLElement).appendChild(frag);
+
+  // Warm the most recent project in the background so the first click is cheap.
+  const firstProject = projects[0];
+  if (firstProject && !firstProject.corrupt) {
+    setTimeout(() => {
+      if (state.currentProjectId) return;
+      prefetchProjectData(firstProject.id);
+    }, 1500);
+  }
 }
 
 // ─── Project CRUD ─────────────────────────────────────────────────────────────
@@ -815,17 +957,69 @@ export async function createNewProject(): Promise<void> {
   }
 }
 
-export async function fetchProjectData(id: string): Promise<any> {
+export async function fetchProjectData(id: string, normalizeLines = false): Promise<any> {
+  // Never read while an autosave/close-save is still in flight — a stale read
+  // would load old data over the write that is about to land.
+  if (activeAutoSavePromise) {
+    try { await activeAutoSavePromise; } catch (_) {}
+  }
   const root = await getOpfsRoot();
   const fileHandle = await root.getFileHandle(id);
-  const file = await fileHandle.getFile();
-  const text = await file.text();
-  return JSON.parse(text);
+  let text: string;
+  if (typeof (fileHandle as any).readText === 'function') {
+    text = await (fileHandle as any).readText();
+  } else {
+    const file = await fileHandle.getFile();
+    text = await file.text();
+  }
+  // Parse (and optionally normalize lines) off the main thread.
+  return parseAsync(text, normalizeLines);
+}
+
+// ─── Prefetch (dashboard hover → instant open) ───────────────────────────────
+// Reading and parsing a multi-MB project is the slowest stage of opening it, and
+// on the dashboard we can already guess which card the user will click. Hover
+// (or keyboard focus) starts the read; the click then just awaits it.
+const PREFETCH_TTL_MS = 60000;
+const prefetchCache = new Map<string, { promise: Promise<any>; at: number }>();
+
+export function prefetchProjectData(id: string): void {
+  const now = Date.now();
+  const existing = prefetchCache.get(id);
+  if (existing && now - existing.at < PREFETCH_TTL_MS) return;
+  const promise = fetchProjectData(id, true);
+  // Never leave an unhandled rejection behind if nothing consumes it.
+  promise.catch(() => {});
+  prefetchCache.set(id, { promise, at: now });
+}
+
+export function invalidatePrefetch(id: string): void {
+  prefetchCache.delete(id);
+}
+
+/** Uses the prefetched payload when it is still fresh, else reads it now. */
+async function loadProjectDataForOpen(id: string): Promise<any> {
+  const entry = prefetchCache.get(id);
+  if (entry) {
+    prefetchCache.delete(id);
+    if (Date.now() - entry.at < PREFETCH_TTL_MS) {
+      try {
+        return await entry.promise;
+      } catch (_) {
+        // Prefetch failed (file changed on disk) — read again below.
+      }
+    }
+  }
+  return fetchProjectData(id, true);
 }
 
 export async function deleteProject(id: string, data: any): Promise<void> {
   if (!confirm('Hapus proyek ini secara permanen?')) return;
+  invalidatePrefetch(id);
   try {
+    if (activeAutoSavePromise) {
+      try { await activeAutoSavePromise; } catch (_) {}
+    }
     const root = await getOpfsRoot();
     if (data.epubSourceId) {
       try { await root.removeEntry(data.epubSourceId); } catch (_) {}
@@ -842,6 +1036,7 @@ export async function deleteProject(id: string, data: any): Promise<void> {
       await root.removeEntry(id + '.corrupt-bak');
     } catch (_) {}
     await root.removeEntry(id);
+    removeProjectMetaFromCache(id);
     loadDashboardProjects();
   } catch (e: any) {
     alert('Gagal menghapus: ' + e.message);
@@ -1005,12 +1200,9 @@ export async function backupDashboardProject(name: string, data: any, id: string
   const backupData = await prepareProjectBackupData(data, id);
   if (!backupData) return;
   const { blob, isZip } = await buildBackupBlob(backupData);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
   const safeName = name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  a.download = `${safeName}_backup${isZip ? PROJECT_EXT + '.zip' : PROJECT_EXT}`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const filename = `${safeName}_backup${isZip ? PROJECT_EXT + '.zip' : PROJECT_EXT}`;
+  await saveOrDownloadBlob(blob, filename);
 }
 
 function getProofreadSettings(): Record<string, any> {
@@ -1126,10 +1318,8 @@ export async function backupAllProjectsAsZip(): Promise<void> {
       zip.file(entryName, JSON.stringify(backupData));
     }
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = href;
-    a.download = `cstl_projects_backup_${new Date().toISOString().slice(0, 10)}.zip`; a.click();
-    setTimeout(() => URL.revokeObjectURL(href), 1000);
+    const filename = `cstl_projects_backup_${new Date().toISOString().slice(0, 10)}.zip`;
+    await saveOrDownloadBlob(blob, filename);
     flashHint('Backup semua proyek berhasil.');
   } catch (e: any) {
     alert('Gagal membuat backup ZIP: ' + e.message);
@@ -1239,12 +1429,16 @@ export async function listPluginBlobs(projectId: string | null, pluginId: string
 // ─── OPFS persistence ─────────────────────────────────────────────────────────
 export async function saveProjectToOpfs(id: string, dataObj: any): Promise<void> {
   dataObj.updatedAt = Date.now();
+  // Serialize in the storage worker — stringify of a multi-MB project on the
+  // UI thread was a main source of stutter on every autosave.
+  const serialized = await stringifyAsync(dataObj);
   const root = await getOpfsRoot();
   const fileHandle = await root.getFileHandle(id, { create: true });
   const writable = await fileHandle.createWritable();
   try {
-    await writable.write(JSON.stringify(dataObj));
+    await writable.write(serialized);
     await writable.close();
+    syncProjectMetaCache(id, dataObj);
   } catch (err: any) {
     try { await writable.abort(); } catch (_) {}
     if (err?.name === 'QuotaExceededError') {
@@ -1254,12 +1448,13 @@ export async function saveProjectToOpfs(id: string, dataObj: any): Promise<void>
   }
 }
 export async function saveLucaDataToOpfs(id: string, lucaData: any): Promise<void> {
+  const serialized = await stringifyAsync(lucaData);
   const root = await getOpfsRoot();
   const lucaId = getProjectSidecarId(id, '_luca.json');
   const fileHandle = await root.getFileHandle(lucaId, { create: true });
   const writable = await fileHandle.createWritable();
   try {
-    await writable.write(JSON.stringify(lucaData));
+    await writable.write(serialized);
     await writable.close();
   } catch (err: any) {
     try { await writable.abort(); } catch (_) {}
@@ -1517,6 +1712,7 @@ export function queueAutoSave(): void {
     } catch (err) {
       console.error('Failed to autosave project', err);
       flashHint('Gagal menyimpan ke storage!');
+      notifySaveError('Gagal menyimpan proyek ke storage. Coba buka-tutup proyek atau periksa kuota penyimpanan.');
     } finally {
       if (activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
       if (getSaveTimeout() === timeout) setSaveTimeout(null);
@@ -1541,6 +1737,7 @@ export function flushAutoSaveNow(): void {
 
 // ─── Open / Close project ─────────────────────────────────────────────────────
 export async function openProject(id: string, data: any): Promise<void> {
+  const openStartedAt = performance.now();
   // Must be acquired before any state mutation. A second window holding the
   // lock means this open is refused, not silently raced against its saves.
   const lockAcquired = await acquireProjectLock(id);
@@ -1575,7 +1772,8 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.customParserId = data.custom_parser_id || null;
   state.customRawFiles = {};
   state.customRawBuffers = {};
-  const customDataLoad = (async () => {
+  const isCustom = data.projectType === 'custom' || !!data.custom_parser_id;
+  const customDataLoad = isCustom ? (async () => {
     const customData = await loadCustomSourcesFromOpfs(id);
     if (!isCurrentLoad()) return;
     if (!customData) return;
@@ -1589,10 +1787,12 @@ export async function openProject(id: string, data: any): Promise<void> {
       state.customRawFiles = customData.customRawFiles || {};
       state.customRawBuffers = customData.customRawBuffers || {};
     }
-  })();
+  })() : Promise.resolve();
   activeCustomDataProjectId = id;
   activeCustomDataLoad = customDataLoad;
-  const lucaDataLoad = (async () => {
+
+  const isLuca = data.projectType === 'luca' || (Array.isArray(data.imported_files) && data.imported_files.some((f: any) => typeof f === 'string' && f.endsWith('.txt')));
+  const lucaDataLoad = isLuca ? (async () => {
     const lucaData = await loadLucaDataFromOpfs(id);
     if (!isCurrentLoad()) return;
     if (lucaData) {
@@ -1615,7 +1815,7 @@ export async function openProject(id: string, data: any): Promise<void> {
       console.error('Failed to migrate Luca project data', err);
       if (isCurrentLoad()) flashHint('Gagal memigrasikan data mentah Luca ke storage!');
     }
-  })();
+  })() : Promise.resolve();
   activeLucaDataProjectId = id;
   activeLucaDataLoad = lucaDataLoad;
   state.regexFilter = data.regex_filter || '';
@@ -1649,7 +1849,9 @@ export async function openProject(id: string, data: any): Promise<void> {
   document.documentElement.style.setProperty('--content-font-size', state.fontSize + 'px');
   state.similarityThreshold = (typeof data.similarity_threshold === 'number' && data.similarity_threshold > 0 && data.similarity_threshold < 1)
     ? data.similarity_threshold : 0.7;
-  state.lines = (data.lines || []).map(normalizeLineDict);
+  state.lines = data.__linesNormalized
+    ? (data.lines || [])
+    : (data.lines || []).map(normalizeLineDict);
   state.importedFiles = data.imported_files || [];
   state.fileOrder = data.file_order || [];
   state.aiInstructionHeader = data.prompt_header || DEFAULT_PROMPT_HEADER;
@@ -1697,16 +1899,24 @@ export async function openProject(id: string, data: any): Promise<void> {
   if (ui.aiCheckResults) (ui.aiCheckResults as HTMLElement).textContent = '';
   setDictHistory(data.dict_history || []);
 
-  await lucaDataLoad;
-  await customDataLoad;
+  // Raw sidecars (Luca text / custom sources) are only needed for export and
+  // backup, and both of those await waitForLucaDataLoad() / waitForCustomSourcesLoad()
+  // first. Awaiting them here delayed the workspace by however long a multi-MB
+  // sidecar took to read + parse.
+  void Promise.all([lucaDataLoad, customDataLoad])
+    .then(() => {
+      if (!isCurrentLoad()) return;
+      // Legacy recovery must see the asynchronously loaded raw sidecar, and all
+      // other project settings must be ready before recovery queues a save.
+      recoverLucaRawFields();
+    })
+    .catch(err => console.error('[CSTL] Sidecar load failed:', err));
+
   if (!isCurrentLoad()) {
     // A newer open superseded this one — release the lock it will never use.
     releaseProjectLock(id);
     return;
   }
-  // Legacy recovery must see the asynchronously loaded raw sidecar, and all
-  // other project settings above must be ready before recovery queues a save.
-  recoverLucaRawFields();
 
   import('./ai-agent').then(({ loadChatHistory, renderChatHistory, loadAllAgentMemories }) => {
     loadAllAgentMemories();
@@ -1718,15 +1928,19 @@ export async function openProject(id: string, data: any): Promise<void> {
     : state.projectName;
   (ui.dashboardView as HTMLElement).classList.remove('open');
   (ui.workspaceView as HTMLElement).style.display = 'flex';
+  await new Promise(r => setTimeout(r, 0));
   if (state.projectType === 'epub' && state.epubSourceId && state.showEpubImages === true) {
     preloadEpubImages().then(() => {
       refreshAll();
     });
   }
-  refreshAll();
+  // Rows first, derived views after the first paint: the workspace shows up
+  // immediately instead of waiting for the name table and status bar passes.
+  refreshAllStaged();
   if (state.incrementEnabled && state.lines.length) {
     prefillIncrement();
   }
+  console.info(`[CSTL] openProject "${state.projectName}": ${state.lines.length} baris, workspace siap dalam ${Math.round(performance.now() - openStartedAt)}ms`);
   applyHtlMode();
   switchWorkspaceTab('translate');
   import('./ai-check').then(m => m.renderAiCheckSettingsUI()).catch(() => {});
@@ -1752,17 +1966,27 @@ export async function closeProject(): Promise<void> {
     }
   }
 
+  // Snapshot the project while state is still intact, flip the UI to the
+  // dashboard immediately, then let the final write finish in the background.
+  // Going back must not wait behind a multi-MB serialize + disk write —
+  // fetchProjectData / queueAutoSave await activeAutoSavePromise, so reopening
+  // or a later autosave can never race this write.
+  const data = buildProjectPersistenceData();
+  finishClose();
+
+  let savePromise: Promise<void> | null = null;
   try {
-    while (true) {
-      const revision = projectRevision;
-      await saveProjectToOpfs(projectId, buildProjectPersistenceData());
-      if (revision === projectRevision) break;
-    }
-    finishClose();
+    const previousSave = activeAutoSavePromise;
+    savePromise = (previousSave ? previousSave.catch(() => {}) : Promise.resolve())
+      .then(() => saveProjectToOpfs(projectId, data));
+    activeAutoSavePromise = savePromise;
+    await savePromise;
   } catch (err: any) {
     console.error('Failed to save project before closing', err);
-    alert('Gagal menyimpan proyek. Proyek tetap terbuka.\n\n' + (err?.message || err));
+    notifySaveError('Gagal menyimpan proyek saat ditutup.');
+    alert('Gagal menyimpan proyek terakhir!\n\nBuka kembali proyek tersebut dan lakukan backup manual.\n\n' + (err?.message || err));
   } finally {
+    if (savePromise && activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
     isClosingProject = false;
   }
 }
@@ -1825,7 +2049,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
         check();
       });
     } else {
-      p = JSON.parse(await f.text());
+      p = await parseAsync(await f.text());
     }
     const name = p.projectName || stripProjectExt(f.name);
     const id = 'proj_' + Date.now() + PROJECT_EXT;
@@ -1848,7 +2072,9 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
     }
     // Preserve every field already supported by autosave, while keeping the
     // large Luca/EPUB payloads in their dedicated sidecar files.
-    const safeData: Record<string, any> = JSON.parse(JSON.stringify(p));
+    const safeData: Record<string, any> = typeof structuredClone === 'function'
+      ? structuredClone(p)
+      : JSON.parse(JSON.stringify(p));
     delete safeData.epub_source;
     delete safeData.lucaRawFiles;
     delete safeData.lucaRawBuffers;

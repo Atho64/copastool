@@ -38,8 +38,18 @@ export function switchSettingsTab(tabName: SettingsTabName): void {
     const btn = document.getElementById(v.btnId);
     const pane = document.getElementById(v.paneId);
     if (btn) {
-      btn.className = isTarget ? 'btn btn-primary btn-sm grow is-active' : 'btn btn-outline btn-sm grow';
+      btn.className = isTarget ? 'btn btn-primary btn-sm is-active' : 'btn btn-outline btn-sm';
       btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+      if (isTarget) {
+        if (tabName === 'general') {
+          const wrap = document.getElementById('settingsTabsWrap');
+          if (wrap) wrap.scrollLeft = 0;
+        } else {
+          setTimeout(() => {
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+          }, 30);
+        }
+      }
     }
     if (pane) {
       pane.style.display = isTarget ? 'block' : 'none';
@@ -61,6 +71,10 @@ export function initSettingsTabs(): void {
   document.getElementById('btnOpenPluginManagerFromSettings')?.addEventListener('click', () => {
     closeModal(ui.settingsModal as HTMLElement);
     (window as any).CSTL?.plugins?.openPluginManager?.();
+  });
+  document.getElementById('btnOpenShortcutsFromSettings')?.addEventListener('click', () => {
+    closeModal(ui.settingsModal as HTMLElement);
+    Shortcuts.openModal();
   });
   document.getElementById('btnOpenPluginManagerFromDashboardSettings')?.addEventListener('click', () => {
     const dModal = document.getElementById('dashboardSettingsModal');

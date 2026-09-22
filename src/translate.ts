@@ -8,7 +8,7 @@ import {
   parseTranslationNumberedPaste, applyPromptVariables,
 } from './ai-format';
 import { unescapeStoredNewlines, escapeStoredNewlines, stringSimilarity, applyReplaceRules, stripLeakedAiSections } from './string-utils';
-import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, flashHint, updateButtonStates, pushUndoSnapshot, refreshAll } from './render';
+import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, flashHint, updateButtonStates, pushUndoSnapshot, refreshAll, refreshWorkspaceFast } from './render';
 import { queueAutoSave } from './project';
 import { getGlossaryMatches, getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
 import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS } from './constants';
@@ -394,7 +394,8 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
     if (errors.length > 10) visibleErrors.push(`... (+${errors.length - 10} error lain)`);
     fail('TRANSLASI DITOLAK:', visibleErrors);
   }
-  pushUndoSnapshot();
+  const affectedNums = updates.map(u => u.l.line_num);
+  pushUndoSnapshot(true, affectedNums);
   for (const { l, it } of updates) {
     l.trans_message = stripLeakedAiSections(it.msg);
     l.is_translated = !!(l.trans_message || state.disableEmptyLineValidation);
@@ -406,7 +407,17 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
     if (!selectedLineNums) state.selectedLines.delete(l.line_num);
   }
   (ui.pasteArea as HTMLTextAreaElement).value = '';
-  refreshAll();
+
+  if (state.incrementEnabled) {
+    const incMsg = applyIncrement(affectedNums);
+    refreshWorkspaceFast();
+    if (incMsg) flashHint(`${updates.length} baris diterapkan.${incMsg}`);
+    else flashHint(`${updates.length} baris sukses diterapkan.`);
+  } else {
+    syncCheckboxUI();
+    refreshWorkspaceFast();
+    flashHint(`${updates.length} baris sukses diterapkan.`);
+  }
   queueAutoSave();
 
   // Ringkasan disimpan HANYA jika apply sukses (background chaining)
@@ -417,15 +428,6 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
       (ui.settingsBackgroundInput as HTMLTextAreaElement).value = state.currentBackground;
     }
     queueAutoSave();
-  }
-
-  if (state.incrementEnabled) {
-    const appliedNums = updates.map(u => u.l.line_num);
-    const incMsg = applyIncrement(appliedNums);
-    if (incMsg) flashHint(`${updates.length} baris diterapkan.${incMsg}`);
-    else flashHint(`${updates.length} baris sukses diterapkan.`);
-  } else {
-    flashHint(`${updates.length} baris sukses diterapkan.`);
   }
 }
 
@@ -464,18 +466,23 @@ export async function onUndoLastApply(): Promise<void> {
     return;
   }
   
-  // Push current state to redoStack
-  state.redoStack.push({
-    lines: state.lines.map(snapshotLine)
-  });
-
   const snap = state.undoStack.pop();
   if (!snap) return;
+
+  // Push current state to redoStack (selective if snap is selective)
+  const targetNums = snap.lines.map(s => s.line_num);
+  state.redoStack.push({
+    lines: targetNums.length < state.lines.length
+      ? targetNums.map(n => state.lineByNum.get(n)).filter(Boolean).map(snapshotLine as any)
+      : state.lines.map(snapshotLine as any)
+  });
+
   for (const saved of snap.lines) {
     const l = state.lineByNum.get(saved.line_num);
     if (l) restoreLineSnapshot(l, saved);
   }
-  refreshAll();
+  syncCheckboxUI();
+  refreshWorkspaceFast();
   queueAutoSave();
   flashHint('Undo berhasil.');
 }
@@ -513,16 +520,19 @@ export async function onRedoLastUndo(): Promise<void> {
     return;
   }
   
-  // Push current state to undoStack but WITHOUT clearing redoStack
-  pushUndoSnapshot(false);
-
   const snap = state.redoStack.pop();
   if (!snap) return;
+
+  // Push current state to undoStack but WITHOUT clearing redoStack (selective if snap is selective)
+  const targetNums = snap.lines.map(s => s.line_num);
+  pushUndoSnapshot(false, targetNums.length < state.lines.length ? targetNums : undefined);
+
   for (const saved of snap.lines) {
     const l = state.lineByNum.get(saved.line_num);
     if (l) restoreLineSnapshot(l, saved);
   }
-  refreshAll();
+  syncCheckboxUI();
+  refreshWorkspaceFast();
   queueAutoSave();
   flashHint('Redo berhasil.');
 }
@@ -530,7 +540,8 @@ export async function onRedoLastUndo(): Promise<void> {
 export function applyAgentTranslations(updates: {num: number, trans_message: string, trans_name?: string}[]): number {
   if (!updates || !updates.length) return 0;
   if (updates.some(it => !state.lineByNum.has(it.num))) return 0;
-  pushUndoSnapshot();
+  const affected = updates.map(u => u.num);
+  pushUndoSnapshot(true, affected);
   let applied = 0;
   for (const it of updates) {
     const l = state.lineByNum.get(it.num);
@@ -547,18 +558,20 @@ export function applyAgentTranslations(updates: {num: number, trans_message: str
       l.trans_name = applyReplaceRules(it.trans_name, state.postReplaceRules, 'name');
     }
     
-    state.selectedLines.delete(l.line_num);
     applied++;
   }
   
-  refreshAll();
-  queueAutoSave();
+  if (applied > 0) {
+    syncCheckboxUI();
+    refreshWorkspaceFast();
+    queueAutoSave();
+  }
   return applied;
 }
 
 export function clearAgentTranslations(line_nums: number[]): number {
   if (!line_nums || !line_nums.length) return 0;
-  pushUndoSnapshot();
+  pushUndoSnapshot(true, line_nums);
   let cleared = 0;
   for (const num of line_nums) {
     const l = state.lineByNum.get(num);

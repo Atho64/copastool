@@ -17,6 +17,7 @@ import { decodeArrayBuffer } from './binary-utils';
 import { getLucaProfile, getActiveLucaProfile, populateLucaExportSlotSelect, DEFAULT_LUCA_PROFILE } from './luca-engine';
 import { DEFAULT_LUCA_MC_DISPLAY_NAME } from './constants';
 import { queueAutoSave, closeModal as closeModalEl } from './project';
+import { saveOrDownloadBlob } from './download-helper';
 import type { CustomParser, CustomParsedEntry, CpMatchStrategy, CpMagicPattern, CustomParserAsset, CpSettingSpec } from './types';
 
 let editingId: string | null | undefined = undefined; // undefined = list view, null = parser baru
@@ -580,11 +581,7 @@ function buildParsersPayload(id?: string): any {
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  saveOrDownloadBlob(blob, filename);
 }
 
 /** Unduh satu parser (atau semua) sebagai file .json — bisa diimpor lagi di

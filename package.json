@@ -1,14 +1,19 @@
 {
   "name": "copas-tool",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "tauri": "tauri"
+    "version:check": "node scripts/check-versions.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "android:init": "tauri android init && node scripts/patch-android-overlay.mjs",
+    "android:build": "tauri android build --apk"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
@@ -20,6 +25,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.3",
+    "@tauri-apps/plugin-notification": "^2.0.0",
     "@tauri-apps/plugin-opener": "^2.0.0",
     "browserify-zlib": "^0.2.0",
     "jszip": "^3.10.1",

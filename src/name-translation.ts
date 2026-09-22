@@ -3,7 +3,7 @@
 import { state, ui } from './state';
 import { truncateForPrompt, stripDecorativeWrapping, stripPlaintextFences, matchKnownName } from './string-utils';
 import { addNameGlossaryEntry, mergeGlossaryEntries, parseGlossaryToMap, serializeGlossaryMap, sanitizeTagsForChatgpt } from './glossary';
-import { flashHint, rebuildDisplayState, renderPreviewRows, renderNameTable, updateButtonStates, pushUndoSnapshot, collectCharacterNameRows, refreshAll } from './render';
+import { flashHint, rebuildDisplayState, renderPreviewRows, renderNameTable, updateButtonStates, pushUndoSnapshot, collectCharacterNameRows, refreshAll, refreshWorkspaceFast, invalidateNameCache } from './render';
 import { queueAutoSave } from './project';
 import { applyPromptVariables } from './ai-format';
 import { DEFAULT_NAME_TRANSLATION_PROMPT } from './constants';
@@ -96,9 +96,24 @@ export function onApplyNameTranslations(): void {
     return alert('TERJEMAH NAMA DITOLAK:\n\n' + errors.slice(0, 12).join('\n') + (errors.length > 12 ? `\n\n... (+${errors.length - 12} error lain)` : ''));
   }
 
+  const affectedLineNums: number[] = [];
+  for (const row of nameRows) {
+    if (!result.has(row.name)) continue;
+    const nextName = result.get(row.name)!;
+    for (const line of row.lines) {
+      if ((line.trans_name || '') !== nextName) {
+        affectedLineNums.push(line.line_num);
+      }
+    }
+  }
+
+  if (!affectedLineNums.length) {
+    flashHint('Tidak ada nama yang berubah.');
+    return;
+  }
+
+  pushUndoSnapshot(true, affectedLineNums);
   let changedNames = 0;
-  let changedLines = 0;
-  pushUndoSnapshot();
   for (const row of nameRows) {
     if (!result.has(row.name)) continue;
     const nextName = result.get(row.name)!;
@@ -106,24 +121,17 @@ export function onApplyNameTranslations(): void {
     for (const line of row.lines) {
       if ((line.trans_name || '') !== nextName) {
         line.trans_name = nextName;
-        changedLines++;
         rowChanged = true;
       }
     }
     if (rowChanged) changedNames++;
   }
 
-  if (!changedLines) {
-    state.undoStack.pop();
-    ui.btnUndo.disabled = state.undoStack.length === 0;
-    flashHint('Tidak ada nama yang berubah.');
-    return;
-  }
-
   ui.pasteNameArea.value = '';
-  refreshAll();
+  invalidateNameCache();
+  refreshWorkspaceFast();
   queueAutoSave();
-  flashHint(`Diterapkan ${changedNames} nama ke ${changedLines} baris.`);
+  flashHint(`Diterapkan ${changedNames} nama ke ${affectedLineNums.length} baris.`);
 }
 
 export function onResetNameTranslations(): void {

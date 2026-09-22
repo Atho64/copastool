@@ -911,7 +911,7 @@ input.dashboard-search-input,
   margin: 0;
   background: transparent;
   animation: fade-in var(--dur-3) var(--ease) both;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
   overflow: hidden;
 }
 
@@ -1215,6 +1215,54 @@ input.dashboard-search-input,
   }
 }
 
+
+/* Settings tab row: responsive, scrollable horizontally without vertical clipping or text squeezing */
+#settingsModal .tabs-wrap {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 42px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 8px 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+#settingsModal .tabs-wrap::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+#settingsModal .tabs-wrap .btn {
+  white-space: nowrap;
+  flex: 1 0 auto;
+  min-width: max-content;
+  padding: 0 14px;
+  height: 34px;
+  min-height: 34px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius);
+  box-sizing: border-box;
+}
+
+#settingsModal .btn-xs,
+#settingsModal button[id*="Reset"],
+#settingsModal button[id*="Clear"] {
+  height: 22px;
+  min-height: 22px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 8px;
+  border-radius: 4px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
 .split-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -1329,9 +1377,7 @@ input.dashboard-search-input,
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   overflow: auto;
-  background: color-mix(in srgb, var(--bg) 18%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--bg);
   min-height: 0;
   overscroll-behavior: contain;
   overflow-anchor: none;
@@ -1343,7 +1389,6 @@ input.dashboard-search-input,
   position: relative;
   width: 100%;
   min-height: 100%;
-  will-change: transform;
 }
 
 .preview-row {
@@ -1352,15 +1397,12 @@ input.dashboard-search-input,
   position: relative;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--panel) 65%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px 12px;
   contain: layout paint;
   cursor: pointer;
-  transition: background var(--dur-1) var(--ease-soft), border-color var(--dur-1) var(--ease-soft), box-shadow var(--dur-1) var(--ease-soft);
 }
 .preview-row:hover { background: color-mix(in srgb, var(--panel-2) 75%, transparent); border-color: var(--line-2); }
 .preview-row:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
@@ -1842,6 +1884,8 @@ select {
   -webkit-backdrop-filter: blur(12px);
   color: var(--muted);
   flex-shrink: 0;
+  min-height: 20px;
+  box-sizing: border-box;
   letter-spacing: 0.02em;
   line-height: var(--leading-snug);
   font-variant-numeric: tabular-nums;
@@ -2210,10 +2254,8 @@ select {
     min-height: 0 !important;
     max-height: none !important;
     overflow-y: auto !important;
-    padding: 8px 10px max(60px, calc(env(safe-area-inset-bottom) + 50px)) 10px !important;
-    background: color-mix(in srgb, var(--panel-2) 30%, transparent) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
+    padding: 8px 10px 48px 10px !important;
+    background: var(--panel-2) !important;
   }
 
   /* Text-Only Fullscreen Mode */
@@ -2262,7 +2304,7 @@ select {
     min-height: 0 !important;
     max-height: none !important;
     overflow-y: auto !important;
-    padding: 10px 12px max(60px, calc(env(safe-area-inset-bottom) + 50px)) 12px !important;
+    padding: 10px 12px 48px 12px !important;
     background: transparent !important;
   }
 
@@ -2283,15 +2325,22 @@ select {
 
   .status-bar {
     font-size: 11px;
-    padding: 5px max(10px, env(safe-area-inset-right)) max(8px, calc(env(safe-area-inset-bottom) + 4px)) max(10px, env(safe-area-inset-left)) !important;
+    padding: 5px 10px calc(env(safe-area-inset-bottom, 0px) + 5px) 10px !important;
+    min-height: calc(26px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
     white-space: nowrap;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .status-bar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .floating-btn {
-    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 28px) !important;
     right: 8px !important;
     width: 38px !important;
     height: 38px !important;
@@ -2303,11 +2352,15 @@ select {
     opacity: 1;
     transform: scale(1.06);
   }
-  #btnFloatingAiAgent {
-    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 74px) !important;
+  /* 38px buttons + 6px gap resting cleanly above status bar (+ safe-area) */
+  .fb-stack-1 {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 38px) !important;
   }
-  #btnFloatingLogging {
-    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 120px) !important;
+  .fb-stack-2 {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 82px) !important;
+  }
+  .fb-stack-3 {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 126px) !important;
   }
 
   .agent-panel {
@@ -2342,6 +2395,19 @@ select {
   .modal-head {
     padding-bottom: 12px;
   }
+  #settingsModal .tabs-wrap {
+    gap: 6px;
+    padding: 4px 2px 8px 2px;
+    margin-bottom: 10px;
+    min-height: 40px;
+  }
+  #settingsModal .tabs-wrap .btn {
+    padding: 0 12px;
+    font-size: 13px;
+    height: 33px;
+    min-height: 33px;
+    flex: 0 0 auto;
+  }
   .modal-body {
     max-width: 100% !important;
     overflow-x: hidden !important;
@@ -2357,19 +2423,20 @@ select {
     flex-basis: 100%;
   }
   .modal-head h3 {
-    font-size: 16.5px;
+    font-size: 15px;
   }
   .form-label, .modal-body label:not(.checkbox-line):not(.hint) {
-    font-size: 13px;
+    font-size: 12px;
     margin-bottom: 3px;
   }
   .settings-section {
-    padding: 10px 12px;
+    padding: 8px 10px;
     margin-bottom: 8px;
     max-width: 100% !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
     word-break: break-word !important;
+    border-radius: var(--radius-md, 8px);
   }
   .settings-section .flex {
     flex-wrap: wrap !important;
@@ -2384,18 +2451,130 @@ select {
     box-sizing: border-box !important;
   }
   .settings-section-title {
-    font-size: 12px;
-    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .settings-section-title svg {
+    width: 13px !important;
+    height: 13px !important;
+    flex-shrink: 0;
   }
   .checkbox-line {
-    font-size: 13px;
-    min-height: 28px;
-    padding: 3px 0;
+    font-size: 12px;
+    min-height: 24px;
+    padding: 2px 0;
+    gap: 6px;
+    line-height: 1.3;
   }
   .checkbox-line input[type="checkbox"] {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
   }
+
+  /* Compact 1-column list for settings checkboxes so long text doesn't squeeze */
+  #settingsModal .checkbox-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+
+  /* Compact inputs inside #settingsModal */
+  #settingsModal .text-input,
+  #settingsModal select,
+  #settingsModal input[type="number"],
+  #settingsModal input[type="text"],
+  #dashboardSettingsModal .text-input,
+  #dashboardSettingsModal select,
+  #dashboardSettingsModal input[type="number"],
+  #dashboardSettingsModal input[type="text"] {
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    height: 31px !important;
+    min-height: 31px !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+  }
+  #settingsModal select,
+  #dashboardSettingsModal select {
+    padding-right: 22px !important;
+  }
+  #settingsModal textarea,
+  #dashboardSettingsModal textarea {
+    font-family: var(--font-mono) !important;
+    font-size: 11.5px !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  /* Compact action buttons for Ref Lang */
+  #settingsModal #settingsRefLangWrap .inline-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px !important;
+  }
+  #settingsModal #settingsRefLangWrap .inline-actions .btn {
+    height: 28px !important;
+    min-height: 28px !important;
+    font-size: 11px !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+
+  #settingsModal .btn-xs,
+  #settingsModal button[id*="Reset"],
+  #settingsModal button[id*="Clear"] {
+    height: 21px !important;
+    min-height: 21px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    padding: 0 6px !important;
+    border-radius: 4px !important;
+    line-height: 19px !important;
+    white-space: nowrap !important;
+  }
+  #settingsPromptTemplateSelect {
+    height: 23px !important;
+    min-height: 23px !important;
+    font-size: 10.5px !important;
+    padding: 0 6px !important;
+    border-radius: 4px !important;
+  }
+
+  /* Settings modal footer: side-by-side compact buttons */
+  #settingsModal .modal-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding-top: 8px !important;
+    margin-top: 8px !important;
+  }
+  #settingsModal .modal-actions span.grow {
+    display: none !important;
+  }
+  #settingsModal .modal-actions .btn {
+    flex: 1 1 50% !important;
+    order: unset !important;
+    height: 35px !important;
+    min-height: 35px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    padding: 0 12px !important;
+  }
+  #settingsModal .modal-actions .btn.btn-primary {
+    order: unset !important;
+    font-weight: 700 !important;
+  }
+
   .modal-backdrop.open .modal {
     animation: modal-slide-up var(--dur-3) var(--ease);
   }
@@ -2946,6 +3125,12 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .floating-btn:hover { transform: scale(1.08); background: var(--primary-hover); }
 .floating-btn:active { transform: scale(0.95); }
 .floating-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; box-shadow: 0 0 0 4px var(--primary-soft), var(--shadow-glow); }
+
+/* Stacked floating buttons: base clears the status bar (~34px) + gap, each
+   next button sits one button-height + gap above the previous one. */
+.fb-stack-1 { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 42px); }
+.fb-stack-2 { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 94px); background: var(--primary); }
+.fb-stack-3 { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 146px); background: #64748b; }
 
 /* Collapsible Section (<details>) */
 .collapsible-section {
@@ -4856,3 +5041,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
 
 
 
+
+/* ─── Web AI companion window ─── */
+.modal-wide { width: min(860px, 94vw); }
