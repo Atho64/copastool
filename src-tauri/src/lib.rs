@@ -273,6 +273,7 @@ async fn open_ai_window(
 
     if let Some(ai_window) = app.get_webview_window(AI_WINDOW_LABEL) {
         let _ = ai_window.show();
+        #[cfg(desktop)]
         let _ = ai_window.unminimize();
         let _ = ai_window.set_focus();
         let needs_nav = match ai_window.url() {
