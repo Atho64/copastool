@@ -10,15 +10,17 @@ import {
   countTomoyoBadEmbeddedPrefixes, buildTomoyoQuotedArgBytes, normalizeTomoyoMessageLinesInArray,
 } from './luca-engine';
 import { buildSafeFileNameGlossary as buildSafeFileName } from './glossary';
-import { base64ToArrayBuffer, joinLinesToBuffer, arrayBufferToBase64, latin1BytesToString } from './binary-utils';
+import { joinLinesToBuffer, latin1BytesToString } from './binary-utils';
 import { WINDOWS_FILE_ORDER_COLLATOR, APP_VERSION } from './constants';
 import { flashHint } from './render';
-import { getOpfsRoot } from './state';
 import { waitForLucaDataLoad, waitForCustomSourcesLoad, readCustomSourceFile, customLazySourceHas } from './project';
+import { getActiveEpubZip } from './epub-images';
+import { stringifyExportLinesAsync } from './storage-worker';
 import { getCustomParser, buildParserOptions } from './custom-parsers';
 import { runCustomSerialize } from './custom-parser-runner';
 import { saveOrDownloadBlob } from './download-helper';
 import type { Line } from './types';
+import { cstlConfirm } from './dialog';
 
 function writeTextNodeWithBreaks(node: Text, text: string): void {
   if (!text.includes('\n')) {
@@ -107,7 +109,7 @@ export function onCopyForAi(ctxLines: Line[]): void {
   flashHint('Teks disalin ke clipboard!');
 }
 
-export function confirmExportWithUntranslatedReport(): boolean {
+export async function confirmExportWithUntranslatedReport(): Promise<boolean> {
   const untranslated = state.lines.filter(l => !l._hidden && !isTranslated(l));
   if (!untranslated.length) return true;
 
@@ -117,12 +119,16 @@ export function confirmExportWithUntranslatedReport(): boolean {
     return `#${l.line_num} (${l.file}) ${shortText}`;
   }).join('\n');
   const rest = untranslated.length > 12 ? `\n...dan ${untranslated.length - 12} baris lainnya.` : '';
-  return confirm(`Masih ada ${untranslated.length} baris yang belum diterjemahkan.\n\n${preview}${rest}\n\nLanjut ekspor tetap?`);
+  return await cstlConfirm(`Masih ada ${untranslated.length} baris yang belum diterjemahkan.\n\n${preview}${rest}\n\nLanjut ekspor tetap?`, {
+    title: 'Peringatan Ekspor',
+    confirmLabel: 'Tetap Ekspor',
+    cancelLabel: 'Batal',
+  });
 }
 
 export async function onExport(): Promise<void> {
-  if (!state.lines.length) return;
-  if (!confirmExportWithUntranslatedReport()) return;
+  if (!state.lines.length && !(state.projectType === 'epub' && state.epubSourceId)) return;
+  if (!await confirmExportWithUntranslatedReport()) return;
   const exportProjectId = state.currentProjectId;
   if (!exportProjectId) return;
   const exportStillActive = () => state.currentProjectId === exportProjectId;
@@ -131,10 +137,8 @@ export async function onExport(): Promise<void> {
     try {
       flashHint('Membangun file EPUB...', true);
       document.body.style.cursor = 'wait';
-      const root = await getOpfsRoot();
-      const fh = await (root as any).getFileHandle(state.epubSourceId);
-      const f = await fh.getFile();
-      const zip = await (window as any).JSZip.loadAsync(f);
+      const zip = await getActiveEpubZip();
+      if (!zip) throw new Error('File EPUB tidak dapat diakses.');
       if (!exportStillActive()) return;
       
       const linesByFile: Record<string, Line[]> = {};
@@ -159,11 +163,16 @@ export async function onExport(): Promise<void> {
         const els = Array.from(doc.querySelectorAll(tagsSelector));
         
         let lineIdx = 0;
+        let elementIndex = 0;
         for (const el of els) {
           if ((el.textContent || '').replace(/\r?\n/g, ' ').trim() === '') continue;
           const l = fLines[lineIdx++];
           if (l && isTranslated(l)) {
             replaceElementTextPreservingInlineStructure(el, l.trans_message || '');
+          }
+          if (++elementIndex % 160 === 0) {
+            flashHint(`Menyusun EPUB… ${href} (${elementIndex}/${els.length})`, true);
+            await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
         
@@ -184,7 +193,9 @@ export async function onExport(): Promise<void> {
         type: 'blob',
         mimeType: 'application/epub+zip',
         compression: 'DEFLATE',
-        compressionOptions: { level: 9 }
+        // Lower compression spends much less CPU on Android while still
+        // producing a standard, compact EPUB archive.
+        compressionOptions: { level: 3 }
       });
 
       if (!exportStillActive()) return;
@@ -354,21 +365,16 @@ export async function onExport(): Promise<void> {
         if (!g.has(l.file)) g.set(l.file, []);
         g.get(l.file)!.push(l);
       }
-      const res = Array.from(g.entries()).map(([fn, lns]) => ({
-        fn: `${fn.replace(/\.(xhtml|html|json)$/i, '')}.json`,
-        content: JSON.stringify(lns.map(l => {
-          const e: any = {};
-          e.name = isTranslated(l) ? ((l.trans_name || l.name || '').replace(/^\[\?\]\s*/,'') || l.name) : l.name;
-          e.message = isTranslated(l) ? (l.trans_message || '').replace(/^\[\?\]\s*/,'') : l.message;
-          if (e.name) {
-            e.name = e.name.replace(/\\n/g, '\n');
-          } else {
-            delete e.name;
-          }
-          if (e.message) e.message = e.message.replace(/\\n/g, '\n');
-          return e;
-        }), null, 2)
-      }));
+      const res: { fn: string; content: string }[] = [];
+      let fileIndex = 0;
+      for (const [fn, lns] of g) {
+        if (!exportStillActive()) return;
+        res.push({
+          fn: `${fn.replace(/\.(xhtml|html|json)$/i, '')}.json`,
+          content: await stringifyExportLinesAsync(lns, state.disableEmptyLineValidation),
+        });
+        if (++fileIndex % 2 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
       if ((window as any).JSZip && res.length > 1) {
         const zip = new (window as any).JSZip();
         res.forEach(f => zip.file(f.fn, f.content));

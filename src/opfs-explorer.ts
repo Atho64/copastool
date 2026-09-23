@@ -4,6 +4,7 @@
 import { getOpfsRoot } from './state';
 import { escapeHtml, openModal, closeModal } from './project';
 import { saveOrDownloadBlob } from './download-helper';
+import { cstlConfirm, cstlAlert } from './dialog';
 
 export interface OpfsItem {
   name: string;
@@ -296,7 +297,7 @@ export const OpfsExplorer = {
   },
 
   async remove(name: string, isDir: boolean): Promise<void> {
-    const ok = confirm(`Hapus "${name}" dari OPFS?\n\nTindakan ini permanen dan tidak bisa dibatalkan.`);
+    const ok = await cstlConfirm(`Hapus "${name}" dari OPFS?\n\nTindakan ini permanen dan tidak bisa dibatalkan.`, { danger: true, title: 'Hapus File OPFS' });
     if (!ok) return;
 
     try {
@@ -304,7 +305,7 @@ export const OpfsExplorer = {
       await dir.removeEntry(name, { recursive: isDir });
       this.refresh();
     } catch (e: any) {
-      alert(`Gagal menghapus "${name}": ${e?.message || e}`);
+      await cstlAlert(`Gagal menghapus "${name}": ${e?.message || e}`, { title: 'Gagal Menghapus' });
     }
   },
 

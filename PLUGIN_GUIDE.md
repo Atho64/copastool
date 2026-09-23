@@ -549,6 +549,7 @@ Perintah yang didaftarkan di array `commands` pada `plugin.js` akan otomatis mun
 | | Kembali ke Dashboard | `Alt + B` |
 | | Buka Daftar Bookmark | `Alt + M` |
 | | Jalankan Auto Translate | `Alt + T` |
+| | Buka Mode Immersif | `Alt + I` |
 | **Seleksi & Navigasi** | Pilih Semua Baris | `Alt + A` |
 | | Batal Pilih Baris | `Alt + Q` |
 | | Pilih Rentang Baris | `Alt + L` |

@@ -22,15 +22,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.ContentValues
 import android.content.Intent
+import android.database.Cursor
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Base64
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
@@ -63,6 +68,8 @@ object AiOverlay {
     private const val INTERFACE_NAME = "AndroidAiOverlay"
     private const val TAG = "CSTL-Overlay"
     private const val PREFS = "copas_overlay"
+    private const val FOLDER_PICK_REQUEST = 0x4354
+    private val folderIoExecutor: ExecutorService = Executors.newCachedThreadPool()
 
     // Keep in sync with ALLOWED_AI_HOSTS in src-tauri/src/lib.rs.
     private val ALLOWED_HOSTS = setOf(
@@ -90,6 +97,7 @@ object AiOverlay {
     private var webView: WebView? = null
     private var titleView: TextView? = null
     private var onBackPressedCallback: androidx.activity.OnBackPressedCallback? = null
+    private var pendingFolderPurpose: String? = null
 
     /** Last URL we opened: `WebView.url` is briefly empty right after loadUrl. */
     private var lastUrl: String = ""
@@ -660,6 +668,13 @@ object AiOverlay {
         @JavascriptInterface fun float(): String = try { AiOverlay.float(); "ok" } catch (t: Throwable) { "__CSTL_ERROR__" }
         @JavascriptInterface fun flip(): String = "ok"
         @JavascriptInterface fun setExtraHost(host: String): String = try { AiOverlay.setExtraHost(host) } catch (t: Throwable) { "__CSTL_ERROR__" }
+        @JavascriptInterface fun pickFolder(purpose: String): String = try { AiOverlay.pickFolder(purpose) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun listTreeFiles(treeUri: String): String = try { AiOverlay.listTreeFiles(treeUri) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun readTreeFile(treeUri: String, documentId: String): String = try { AiOverlay.readTreeFile(treeUri, documentId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun writeTreeFile(treeUri: String, name: String, base64Data: String): String = try { AiOverlay.writeTreeFile(treeUri, name, base64Data) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun listTreeFilesAsync(treeUri: String, callId: Int): String = try { AiOverlay.listTreeFilesAsync(treeUri, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun readTreeFileAsync(treeUri: String, documentId: String, callId: Int): String = try { AiOverlay.readTreeFileAsync(treeUri, documentId, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun writeTreeFileAsync(treeUri: String, name: String, base64Data: String, callId: Int): String = try { AiOverlay.writeTreeFileAsync(treeUri, name, base64Data, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
 
         @JavascriptInterface fun nativeState(): String = try {
             AiOverlay.nativeState()
@@ -769,6 +784,213 @@ object AiOverlay {
         extraHost = if (h.isEmpty() || HOST_RE.matches(h)) h else ""
         log("extra host set: '${if (extraHost.isEmpty()) "(none)" else extraHost}'")
         return "ok"
+    }
+
+    /** Opens Android's persisted Storage Access Framework tree picker. */
+    @JvmStatic
+    fun pickFolder(purpose: String): String {
+        if (purpose !in setOf("import", "backup", "restore")) return "__CSTL_ERROR__ Invalid folder action"
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        act.runOnUiThread {
+            try {
+                pendingFolderPurpose = purpose
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    )
+                }
+                act.startActivityForResult(intent, FOLDER_PICK_REQUEST)
+            } catch (t: Throwable) {
+                pendingFolderPurpose = null
+                deliverFolderPick(null, purpose)
+                log("folder picker failed: ${t.message}")
+            }
+        }
+        return "ok"
+    }
+
+    /** Returns true when this result belonged to the SAF folder picker. */
+    @JvmStatic
+    fun onFolderPickerResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode != FOLDER_PICK_REQUEST) return false
+        val purpose = pendingFolderPurpose ?: ""
+        pendingFolderPurpose = null
+        val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+        if (uri != null) {
+            try {
+                val flags = data?.flags?.and(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                ) ?: (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                activity?.contentResolver?.takePersistableUriPermission(uri, flags)
+            } catch (t: Throwable) {
+                log("persist folder permission failed: ${t.message}")
+            }
+        }
+        deliverFolderPick(uri?.toString(), purpose)
+        return true
+    }
+
+    private fun deliverFolderPick(uri: String?, purpose: String) {
+        val main = mainWebView ?: return
+        val uriArg = JSONObject.quote(uri ?: "")
+        val purposeArg = JSONObject.quote(purpose)
+        main.post {
+            try {
+                main.evaluateJavascript(
+                    "window.__cstlAndroidDirectoryPicked && window.__cstlAndroidDirectoryPicked($uriArg, $purposeArg);",
+                    null
+                )
+            } catch (t: Throwable) {
+                log("deliver folder picker result failed: ${t.message}")
+            }
+        }
+    }
+
+    private fun deliverFolderIo(callId: Int, result: String) {
+        val main = mainWebView ?: return
+        val resultArg = JSONObject.quote(result)
+        main.post {
+            try {
+                main.evaluateJavascript(
+                    "window.__cstlAndroidFileOperationFinished && window.__cstlAndroidFileOperationFinished($callId, $resultArg);",
+                    null
+                )
+            } catch (t: Throwable) {
+                log("deliver folder I/O result failed: ${t.message}")
+            }
+        }
+    }
+
+    private fun runFolderIoAsync(callId: Int, operation: () -> String): String {
+        return try {
+            folderIoExecutor.execute {
+                val result = try { operation() } catch (t: Throwable) {
+                    "__CSTL_ERROR__ ${t.message ?: "Android folder operation failed"}"
+                }
+                deliverFolderIo(callId, result)
+            }
+            "ok"
+        } catch (t: Throwable) {
+            "__CSTL_ERROR__ ${t.message ?: "Could not start Android folder operation"}"
+        }
+    }
+
+    @JvmStatic
+    fun listTreeFilesAsync(rawTreeUri: String, callId: Int): String =
+        runFolderIoAsync(callId) { listTreeFiles(rawTreeUri) }
+
+    @JvmStatic
+    fun readTreeFileAsync(rawTreeUri: String, documentId: String, callId: Int): String =
+        runFolderIoAsync(callId) { readTreeFile(rawTreeUri, documentId) }
+
+    @JvmStatic
+    fun writeTreeFileAsync(rawTreeUri: String, name: String, base64Data: String, callId: Int): String =
+        runFolderIoAsync(callId) { writeTreeFile(rawTreeUri, name, base64Data) }
+
+    @JvmStatic
+    fun listTreeFiles(rawTreeUri: String): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        return try {
+            val treeUri = Uri.parse(rawTreeUri)
+            val result = org.json.JSONArray()
+            val resolver = act.contentResolver
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            )
+            fun visit(parentId: String, relativeDir: String, depth: Int) {
+                if (depth > 32) return
+                val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
+                resolver.query(childrenUri, columns, null, null, null)?.use { cursor ->
+                    val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(idCol) ?: continue
+                        val name = cursor.getString(nameCol) ?: continue
+                        val mime = cursor.getString(mimeCol) ?: ""
+                        val path = if (relativeDir.isEmpty()) name else "$relativeDir/$name"
+                        if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                            visit(id, path, depth + 1)
+                        } else {
+                            result.put(JSONObject().put("name", name).put("relativePath", path).put("documentId", id))
+                        }
+                    }
+                }
+            }
+            visit(DocumentsContract.getTreeDocumentId(treeUri), "", 0)
+            result.toString()
+        } catch (t: Throwable) {
+            "__CSTL_ERROR__ ${t.message ?: "Could not list selected folder"}"
+        }
+    }
+
+    @JvmStatic
+    fun readTreeFile(rawTreeUri: String, documentId: String): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        return try {
+            val treeUri = Uri.parse(rawTreeUri)
+            val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)
+            val output = ByteArrayOutputStream()
+            act.contentResolver.openInputStream(uri)?.use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    output.write(buffer, 0, count)
+                }
+            } ?: return "__CSTL_ERROR__ Provider did not open the selected file"
+            Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+        } catch (t: Throwable) {
+            "__CSTL_ERROR__ ${t.message ?: "Could not read selected file"}"
+        }
+    }
+
+    @JvmStatic
+    fun writeTreeFile(rawTreeUri: String, rawName: String, base64Data: String): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        val name = rawName.substringAfterLast('/').substringAfterLast('\\').trim()
+        if (name.isEmpty() || name.any { it in "\\/:*?\"<>|" }) return "__CSTL_ERROR__ Invalid backup filename"
+        return try {
+            val treeUri = Uri.parse(rawTreeUri)
+            val rootId = DocumentsContract.getTreeDocumentId(treeUri)
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootId)
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            )
+            var targetUri: Uri? = null
+            act.contentResolver.query(childrenUri, columns, null, null, null)?.use { cursor: Cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameCol) == name && cursor.getString(mimeCol) != DocumentsContract.Document.MIME_TYPE_DIR) {
+                        targetUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idCol))
+                        break
+                    }
+                }
+            }
+            if (targetUri == null) {
+                targetUri = DocumentsContract.createDocument(
+                    act.contentResolver,
+                    DocumentsContract.buildDocumentUriUsingTree(treeUri, rootId),
+                    "application/json",
+                    name
+                )
+            }
+            val outputUri = targetUri ?: return "__CSTL_ERROR__ Could not create backup document"
+            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+            act.contentResolver.openOutputStream(outputUri, "wt")?.use { it.write(bytes) }
+                ?: return "__CSTL_ERROR__ Provider did not open the backup document"
+            "ok"
+        } catch (t: Throwable) {
+            "__CSTL_ERROR__ ${t.message ?: "Could not write backup document"}"
+        }
     }
 
     private fun <T> uiValue(timeoutMs: Long, fallback: T, block: () -> T): T {

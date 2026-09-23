@@ -23,6 +23,10 @@ import { init } from './ui-init';
 import { initExtensionBridge } from './extension-bridge';
 import { APP_VERSION } from './constants';
 import { isTauri } from './native-storage';
+import { initGlobalDialogs } from './dialog';
+import { initTutorial } from './tutorial';
+
+initGlobalDialogs();
 
 // Inject critical dynamic CSS that Vite may strip from external stylesheet
 (function injectDynamicStyles() {
@@ -97,10 +101,11 @@ async function ensureFreshBuild(): Promise<boolean> {
   // in-place updates. The web/PWA build *wants* its service worker and cache.
   if (!isTauri()) return true;
 
-  const leftOverState = await purgeWebCaches();
-
   const rustStamp = await invokeNative('get_build_stamp');
   if (rustStamp == null) {
+    // Older native builds do not expose a stamp, so retain the one-time
+    // service-worker cleanup fallback for those installs.
+    const leftOverState = await purgeWebCaches();
     // Older native build without the stamp command: a leftover service worker is
     // the only thing we can detect, so reload once when we removed one.
     if (leftOverState) {
@@ -115,6 +120,10 @@ async function ensureFreshBuild(): Promise<boolean> {
     sessionStorage.removeItem('cstl_stale_purge');
     return true;
   }
+
+  // The app shell is current on the common path. Only inspect/remove caches
+  // when the native and frontend versions disagree and a repair is needed.
+  const leftOverState = await purgeWebCaches();
 
   console.warn(`[Boot] frontend ${APP_VERSION} does not match native ${rustStamp} — repairing.`);
 
@@ -147,6 +156,7 @@ async function bootstrap() {
   try {
     if (!(await ensureFreshBuild())) return;
     await init();
+    initTutorial();
   } finally {
     removeLoader();
   }

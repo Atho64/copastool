@@ -86,6 +86,46 @@ if (src.includes('CSTL-OVERLAY-BG')) {
   console.log('[patch-android-overlay] Lifecycle hook ter-patch.');
 }
 
+// 3b) Route the Android Storage Access Framework folder-picker result to the
+// WebView bridge. This is separate from the existing overlay marker so older
+// generated projects receive the folder-import/backup callback too.
+if (src.includes('CSTL-SAF-FOLDER')) {
+  console.log('[patch-android-overlay] SAF folder callback sudah ada (idempoten).');
+} else {
+  if (!/^import android\.content\.Intent$/m.test(src)) {
+    src = src.replace(/^import android\.os\.Bundle$/m, 'import android.os.Bundle\nimport android.content.Intent');
+  }
+  const safHook = `
+  // CSTL-SAF-FOLDER — return Android's selected document tree to the frontend
+  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+    AiOverlay.onFolderPickerResult(requestCode, resultCode, data)
+  }
+`;
+  const lastBrace = src.lastIndexOf('}');
+  if (lastBrace === -1) {
+    console.error('[patch-android-overlay] Gagal mem-patch SAF callback — closing brace tidak ditemukan.');
+    process.exit(1);
+  }
+  src = src.slice(0, lastBrace) + safHook + src.slice(lastBrace);
+  writeFileSync(mainActivityPath, src);
+  console.log('[patch-android-overlay] SAF folder callback ter-patch.');
+}
+
+// The line-editor bottom sheet must resize above Android's keyboard so the
+// Save/Cancel footer remains reachable while typing.
+const manifestPath = join(genDir, 'app', 'src', 'main', 'AndroidManifest.xml');
+if (existsSync(manifestPath)) {
+  let manifest = readFileSync(manifestPath, 'utf8');
+  const activityTag = /<activity\b[^>]*android:name="\.MainActivity"[^>]*>/s;
+  const match = manifest.match(activityTag);
+  if (match && !match[0].includes('android:windowSoftInputMode=')) {
+    manifest = manifest.replace(activityTag, match[0].replace(/>$/, ' android:windowSoftInputMode="adjustResize">'));
+    writeFileSync(manifestPath, manifest);
+    console.log('[patch-android-overlay] MainActivity soft-input resize ter-patch.');
+  }
+}
+
 // 4) Ensure ic_launcher_background color matches the icon theme (#241e47) instead of white (#fff)
 const bgXmlPath = join(genDir, 'app', 'src', 'main', 'res', 'values', 'ic_launcher_background.xml');
 if (existsSync(bgXmlPath)) {

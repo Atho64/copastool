@@ -189,14 +189,14 @@ async fn native_read_file(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     name: String,
-) -> Result<String, String> {
+) -> Result<tauri::ipc::Response, String> {
     ensure_main_window(&window)?;
     let target_path = resolve_storage_path(&app, &name)?;
     if !target_path.exists() {
         return Err("File not found".to_string());
     }
     let bytes = fs::read(&target_path).map_err(|e| e.to_string())?;
-    Ok(BASE64.encode(bytes))
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]
@@ -273,8 +273,15 @@ async fn open_ai_window(
 
     if let Some(ai_window) = app.get_webview_window(AI_WINDOW_LABEL) {
         let _ = ai_window.show();
+        let _ = ai_window.unminimize();
         let _ = ai_window.set_focus();
-        let _ = ai_window.eval(&format!("window.location.href = {};", safe_url));
+        let needs_nav = match ai_window.url() {
+            Ok(current) => current.origin() != parsed_url.origin(),
+            Err(_) => true,
+        };
+        if needs_nav {
+            let _ = ai_window.eval(&format!("window.location.href = {};", safe_url));
+        }
         return Ok(());
     }
 
@@ -321,7 +328,7 @@ async fn open_ai_window(
 fn close_ai_window(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
     ensure_main_window(&window)?;
     if let Some(ai_window) = app.get_webview_window(AI_WINDOW_LABEL) {
-        let _ = ai_window.close();
+        let _ = ai_window.destroy();
     }
     Ok(())
 }
@@ -450,7 +457,14 @@ pub fn run() {
         .manage(AiCaptureBuffer::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_notification::init())
+        .on_window_event(|window, event| {
+            if window.label() == AI_WINDOW_LABEL {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             native_save_file,
             native_save_file_text,

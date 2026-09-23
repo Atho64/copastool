@@ -4,6 +4,7 @@ import { state, ui, isTranslated } from './state';
 import { concatBytes, splitBufferToLines, latin1BytesToString, decodeUtf8Bytes, base64ToBytes, bytesToBase64, base64ToArrayBuffer, decodeArrayBuffer } from './binary-utils';
 import { CLANNAD_PROTAGONIST_TOKENS, DEFAULT_LUCA_MC_DISPLAY_NAME } from './constants';
 import type { Line } from './types';
+import { parseAsync } from './storage-worker';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -126,7 +127,7 @@ export function patchMessageQuotedArgBytes(lineBytes: Uint8Array, slotIndex: num
 }
 
 export async function parseJsonFromFileObject(file: File): Promise<any> {
-  return JSON.parse(decodeArrayBuffer(await file.arrayBuffer()));
+  return parseAsync(decodeArrayBuffer(await file.arrayBuffer()));
 }
 
 export function parseJsonEntries(jsonArray: any[], fileName: string, startLineNum: number): Line[] {

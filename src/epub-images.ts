@@ -8,7 +8,6 @@ const epubImageCache = new Map<string, string>();
 const fileToImagesMap = new Map<string, string[]>();
 
 // Shared in-flight preload so concurrent callers await the same completion
-// (an early `return` while loading would resolve before the cache is filled).
 let inFlightPreload: Promise<void> | null = null;
 // Bumped on clear; a preload finishing for a stale generation drops what it added.
 let cacheGeneration = 0;
@@ -17,9 +16,52 @@ function tryDecodePath(p: string): string {
   try { return decodeURIComponent(p); } catch (_) { return p; }
 }
 
+// Cached JSZip instance and O(1) file index for the currently active EPUB project session
+let activeZip: any = null;
+let activeZipSourceId: string | null = null;
+let activeZipPromise: Promise<any> | null = null;
+let activeZipFileIndex: Map<string, string> | null = null;
+
+export async function getActiveEpubZip(): Promise<any> {
+  const sourceId = state.epubSourceId;
+  if (!sourceId) return null;
+  if (activeZip && activeZipSourceId === sourceId) return activeZip;
+  if (activeZipPromise && activeZipSourceId === sourceId) return activeZipPromise;
+
+  activeZipSourceId = sourceId;
+  activeZipPromise = (async () => {
+    try {
+      const root = await getOpfsRoot();
+      const fh = await (root as any).getFileHandle(sourceId);
+      const file = await fh.getFile();
+      const zip = await (window as any).JSZip.loadAsync(file);
+      activeZip = zip;
+
+      // Build O(1) filename lookup index
+      const index = new Map<string, string>();
+      zip.forEach((relPath: string, entry: any) => {
+        if (!entry.dir) {
+          const fn = relPath.includes('/') ? relPath.substring(relPath.lastIndexOf('/') + 1) : relPath;
+          index.set(fn, relPath);
+          index.set(tryDecodePath(fn), relPath);
+        }
+      });
+      activeZipFileIndex = index;
+      return zip;
+    } finally {
+      activeZipPromise = null;
+    }
+  })();
+  return activeZipPromise;
+}
+
 export function clearEpubImageCache(): void {
   cacheGeneration++;
   inFlightPreload = null;
+  activeZip = null;
+  activeZipSourceId = null;
+  activeZipPromise = null;
+  activeZipFileIndex = null;
   for (const url of epubImageCache.values()) {
     try {
       URL.revokeObjectURL(url);
@@ -51,91 +93,101 @@ export function resolveZipPath(baseFile: string, relPath: string): string {
 async function runPreload(): Promise<void> {
   const gen = cacheGeneration;
   const sourceId = state.epubSourceId!;
-  // Bookkeeping so a stale run (project closed/switched mid-load) can undo itself.
   const createdUrls: string[] = [];
   const addedKeys: string[] = [];
   const mappedFiles: string[] = [];
 
   try {
-    const root = await getOpfsRoot();
-    const fh = await (root as any).getFileHandle(sourceId);
-    const file = await fh.getFile();
-    const zip = await (window as any).JSZip.loadAsync(file);
+    const zip = await getActiveEpubZip();
+    if (!zip) return;
 
-    // Extract all image files in zip (in parallel)
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.avif'];
-    const imageFiles: string[] = [];
-
-    zip.forEach((relativePath: string, zipEntry: any) => {
-      if (!zipEntry.dir) {
-        const lower = relativePath.toLowerCase();
-        if (imageExtensions.some(ext => lower.endsWith(ext))) {
-          imageFiles.push(relativePath);
+    // 1. Populate the file map from inline text images and standalone image
+    // assets. Image-only paragraphs are kept out of the translation line list.
+    let hasLineImg = false;
+    for (const l of state.lines) {
+      if (l.epub_img_src && l.file) {
+        hasLineImg = true;
+        let arr = fileToImagesMap.get(l.file);
+        if (!arr) {
+          arr = [];
+          fileToImagesMap.set(l.file, arr);
+          mappedFiles.push(l.file);
         }
+        if (!arr.includes(l.epub_img_src)) arr.push(l.epub_img_src);
       }
-    });
+    }
+    for (const image of state.epubImages) {
+      hasLineImg = true;
+      let arr = fileToImagesMap.get(image.file);
+      if (!arr) {
+        arr = [];
+        fileToImagesMap.set(image.file, arr);
+        mappedFiles.push(image.file);
+      }
+      if (!arr.includes(image.src)) arr.push(image.src);
+    }
 
-    const cacheImage = (key: string, blobUrl: string) => {
-      if (!key || epubImageCache.has(key)) return;
-      epubImageCache.set(key, blobUrl);
-      addedKeys.push(key);
-    };
+    // 2. Collect only images referenced by this project
+    const referencedImages: string[] = [];
+    for (const l of state.lines) {
+      if (l.epub_img_src && !referencedImages.includes(l.epub_img_src)) {
+        referencedImages.push(l.epub_img_src);
+      }
+    }
+    for (const image of state.epubImages) {
+      if (image.src && !referencedImages.includes(image.src)) referencedImages.push(image.src);
+    }
 
-    // Extract images sequentially with event loop yielding to prevent freezing mobile UI
-    for (const imgPath of imageFiles) {
+    // Preload referenced images smoothly in background
+    for (const imgPath of referencedImages) {
+      if (gen !== cacheGeneration || state.epubSourceId !== sourceId) break;
       if (epubImageCache.has(imgPath)) continue;
-      try {
-        const zipEntry = zip.file(imgPath);
-        if (zipEntry) {
-          const blob = await zipEntry.async('blob');
-          const blobUrl = URL.createObjectURL(blob);
-          createdUrls.push(blobUrl);
-          cacheImage(imgPath, blobUrl);
-          const fileName = imgPath.includes('/') ? imgPath.substring(imgPath.lastIndexOf('/') + 1) : imgPath;
-          cacheImage(fileName, blobUrl);
-          cacheImage(tryDecodePath(imgPath), blobUrl);
-          cacheImage(tryDecodePath(fileName), blobUrl);
-        }
-      } catch (e) {
-        console.warn('[CSTL] Error loading EPUB image:', imgPath, e);
+      const url = await loadEpubImage(imgPath);
+      if (url) {
+        createdUrls.push(url);
+        addedKeys.push(imgPath);
       }
       await new Promise(r => setTimeout(r, 0));
     }
 
-    // Scan XHTML spine files to map chapters to images
-    const htmlExtensions = ['.xhtml', '.html', '.htm', '.xml'];
-    const htmlPaths = Object.keys(zip.files).filter((relativePath) => {
-      const lower = relativePath.toLowerCase();
-      return htmlExtensions.some(ext => lower.endsWith(ext));
-    });
+    // Fallback: If project had no inline epub_img_src, scan html files with regex
+    if (!hasLineImg) {
+      const htmlExtensions = ['.xhtml', '.html', '.htm', '.xml'];
+      const htmlPaths = Object.keys(zip.files).filter((relativePath) => {
+        const lower = relativePath.toLowerCase();
+        return htmlExtensions.some(ext => lower.endsWith(ext));
+      });
 
-    for (const relativePath of htmlPaths) {
-      try {
-        const entry = zip.file(relativePath);
-        if (!entry) continue;
-        const text = await entry.async('text');
-        const doc = new DOMParser().parseFromString(text, relativePath.toLowerCase().endsWith('.xhtml') ? 'application/xhtml+xml' : 'text/html');
-        const imgEls = Array.from(doc.querySelectorAll('img, image'));
-        const found: string[] = [];
-        for (const imgEl of imgEls) {
-          const src = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
-          if (src) {
-            const resolved = resolveZipPath(relativePath, src);
-            if (resolved) found.push(resolved);
+      const IMG_TAG_RE = /<(?:img|image)\b[^>]*?(?:src|href|xlink:href)=["']([^"']+)["'][^>]*>/gi;
+
+      for (const relativePath of htmlPaths) {
+        if (gen !== cacheGeneration || state.epubSourceId !== sourceId) break;
+        try {
+          const entry = zip.file(relativePath);
+          if (!entry) continue;
+          const text = await entry.async('text');
+          const found: string[] = [];
+          let m: RegExpExecArray | null;
+          IMG_TAG_RE.lastIndex = 0;
+          while ((m = IMG_TAG_RE.exec(text)) !== null) {
+            const raw = m[1];
+            if (raw) {
+              const resolved = resolveZipPath(relativePath, raw);
+              if (resolved) found.push(resolved);
+            }
           }
-        }
-        if (found.length > 0) {
-          fileToImagesMap.set(relativePath, found);
-          mappedFiles.push(relativePath);
-        }
-      } catch (_) {}
-      await new Promise(r => setTimeout(r, 0));
+          if (found.length > 0) {
+            fileToImagesMap.set(relativePath, found);
+            mappedFiles.push(relativePath);
+          }
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 0));
+      }
     }
   } catch (err) {
     console.error('[CSTL] Failed to preload EPUB images:', err);
   } finally {
     if (gen !== cacheGeneration || state.epubSourceId !== sourceId) {
-      // Project was closed/switched while loading — drop everything this run added.
       for (const k of addedKeys) epubImageCache.delete(k);
       for (const f of mappedFiles) fileToImagesMap.delete(f);
       for (const u of createdUrls) {
@@ -152,20 +204,15 @@ export async function loadEpubImage(targetSrc: string): Promise<string | null> {
 
   if (!state.epubSourceId) return null;
   try {
-    const root = await getOpfsRoot();
-    const fh = await (root as any).getFileHandle(state.epubSourceId);
-    const file = await fh.getFile();
-    const zip = await (window as any).JSZip.loadAsync(file);
+    const zip = await getActiveEpubZip();
+    if (!zip) return null;
 
     let zipEntry = zip.file(targetSrc);
     if (!zipEntry) zipEntry = zip.file(tryDecodePath(targetSrc));
-    if (!zipEntry) {
+    if (!zipEntry && activeZipFileIndex) {
       const fileName = targetSrc.includes('/') ? targetSrc.substring(targetSrc.lastIndexOf('/') + 1) : targetSrc;
-      zip.forEach((path: string, entry: any) => {
-        if (!zipEntry && !entry.dir && (path.endsWith(fileName) || path.endsWith(tryDecodePath(fileName)))) {
-          zipEntry = entry;
-        }
-      });
+      const indexedPath = activeZipFileIndex.get(fileName) || activeZipFileIndex.get(tryDecodePath(fileName));
+      if (indexedPath) zipEntry = zip.file(indexedPath);
     }
 
     if (zipEntry) {
@@ -174,6 +221,8 @@ export async function loadEpubImage(targetSrc: string): Promise<string | null> {
       epubImageCache.set(targetSrc, blobUrl);
       const fileName = targetSrc.includes('/') ? targetSrc.substring(targetSrc.lastIndexOf('/') + 1) : targetSrc;
       epubImageCache.set(fileName, blobUrl);
+      epubImageCache.set(tryDecodePath(targetSrc), blobUrl);
+      epubImageCache.set(tryDecodePath(fileName), blobUrl);
       return blobUrl;
     }
   } catch (err) {
@@ -188,7 +237,6 @@ export function preloadEpubImages(): Promise<void> {
   }
   if (inFlightPreload) return inFlightPreload;
   const p = runPreload().finally(() => {
-    // Only clear our own slot — an older run must not unset a newer preload.
     if (inFlightPreload === p) inFlightPreload = null;
   });
   inFlightPreload = p;
@@ -206,27 +254,45 @@ export function getEpubImageBlobUrl(pathOrFilename: string): string | null {
   if (decoded !== pathOrFilename) {
     const byDecoded = epubImageCache.get(decoded);
     if (byDecoded) return byDecoded;
-    const decodedName = tryDecodePath(fileName);
-    if (decodedName !== fileName) {
-      return epubImageCache.get(decodedName) || null;
-    }
   }
   return null;
 }
 
-export function getEpubImagesForFile(filePath: string): string[] {
-  return fileToImagesMap.get(filePath) || [];
+export function getEpubImagesForFile(file: string): string[] {
+  return fileToImagesMap.get(file) || [];
 }
 
-export function openImageLightbox(src: string): void {
-  const modal = document.getElementById('imageLightboxModal');
-  const img = document.getElementById('imageLightboxImg') as HTMLImageElement | null;
-  if (!modal || !img || !src) return;
-  img.src = src;
+export function openImageLightbox(blobUrl: string): void {
+  let modal = document.getElementById('epubImageLightboxModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'epubImageLightboxModal';
+    modal.className = 'modal-backdrop';
+    modal.style.zIndex = '3000';
+    modal.innerHTML = `
+      <div class="epub-lightbox-dialog" style="position: relative; max-width: 95vw; max-height: 95vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); border-radius: var(--radius-lg); padding: 12px; box-shadow: var(--shadow-xl);">
+        <button type="button" class="btn btn-icon btn-secondary epub-lightbox-close" style="position: absolute; top: -14px; right: -14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Tutup">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <img class="epub-lightbox-img" style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: var(--radius); user-select: none;" alt="Preview" />
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || (e.target as HTMLElement).closest('.epub-lightbox-close')) {
+        modal!.classList.remove('open');
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal!.classList.contains('open')) {
+        modal!.classList.remove('open');
+      }
+    });
+  }
+
+  const img = modal.querySelector('.epub-lightbox-img') as HTMLImageElement;
+  if (img) img.src = blobUrl;
   modal.classList.add('open');
-}
-
-export function closeImageLightbox(): void {
-  const modal = document.getElementById('imageLightboxModal');
-  if (modal) modal.classList.remove('open');
 }

@@ -1,9 +1,9 @@
 // @module import-source.ts — Import source files: JSON, EPUB, ZIP, LucaTxt
 
 import { state, ui, getOpfsRoot } from './state';
-import { normalizeLineDict, EPUB_ILUSTRASI_MARKER } from './state';
+import { normalizeLineDict } from './state';
 import { decodeArrayBuffer, arrayBufferToBase64, splitBufferToLines } from './binary-utils';
-import { parseLucaTxt, getLucaProfile, getActiveLucaProfile, getLucaExportSlotOptions, normalizeLucaHeavyQuoteFields, parseJsonEntries, parseJsonFromFileObject, clearLucaFileLineBytesCache, DEFAULT_LUCA_PROFILE } from './luca-engine';
+import { parseLucaTxt, getLucaProfile, getActiveLucaProfile, getLucaExportSlotOptions, normalizeLucaHeavyQuoteFields, clearLucaFileLineBytesCache, DEFAULT_LUCA_PROFILE } from './luca-engine';
 import { WINDOWS_FILE_ORDER_COLLATOR } from './constants';
 import { normalizeFileBaseName, windowsFileOrderCompare, getFileOrderPath } from './string-utils';
 import { refreshAll, flashHint, renumberLinesToDisplayOrder } from './render';
@@ -12,6 +12,8 @@ import { findCustomParserForFile, getCustomParser, buildParserOptions } from './
 import { runCustomParse } from './custom-parser-runner';
 import { resetSelectionHistory } from './selection';
 import { resolveZipPath, preloadEpubImages } from './epub-images';
+import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
+import { parseJsonEntriesAsync } from './storage-worker';
 import type { Line, CustomParser } from './types';
 
 const esc = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -237,6 +239,7 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
     let cur = 1, lines: Line[] = [];
+    const epubImageAssets: Array<{ file: string; src: string; afterLineNum: number }> = [];
     let maxExistingLineNum = state.lines.length > 0 ? state.lines.reduce((m, l) => l.line_num > m ? l.line_num : m, 0) : 0;
     cur = maxExistingLineNum + 1;
     const existingFiles = new Set(state.importedFiles);
@@ -257,8 +260,8 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
           continue;
         }
         try {
-          const jsonContent = JSON.parse(decodeArrayBuffer(await zip.file(n).async('uint8array')));
-          const p = parseJsonEntries(jsonContent, baseName, cur);
+          const jsonText = decodeArrayBuffer(await zip.file(n).async('uint8array'));
+          const p = await parseJsonEntriesAsync(jsonText, baseName, cur);
           if (p.length) {
             existingFiles.add(baseName);
             for (let i = 0; i < p.length; i++) lines.push(p[i]);
@@ -331,21 +334,27 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
 
             let fileHasContent = false;
             let imgIdx = 0;
+            let lastLineNumInFile = 0;
+            const referencedDocumentImages = new Set<string>();
 
+            let paragraphIndex = 0;
             for (const el of els) {
               const text = (el.textContent || '').replace(/\r?\n/g, ' ').trim();
               const elImgSrcs = Array.from(el.querySelectorAll('img, image')).map(imgEl => {
                 const raw = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
                 return raw ? resolveZipPath(href, raw) : '';
               }).filter(Boolean);
+              for (const imageSrc of elImgSrcs) referencedDocumentImages.add(imageSrc);
               let lineImgSrc: string | undefined = elImgSrcs[0];
               if (!lineImgSrc && imgIdx < docImages.length && !fileHasContent) {
                 lineImgSrc = docImages[imgIdx++];
+                referencedDocumentImages.add(lineImgSrc);
               }
 
               if (text) {
+                const lineNum = cur++;
                 lines.push({
-                  line_num: cur++,
+                  line_num: lineNum,
                   file: href,
                   name: null,
                   message: text,
@@ -354,39 +363,29 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
                   is_translated: false,
                   epub_img_src: lineImgSrc
                 });
+                lastLineNumInFile = lineNum;
+                for (const extraImage of elImgSrcs.slice(lineImgSrc ? 1 : 0)) {
+                  epubImageAssets.push({ file: href, src: extraImage, afterLineNum: lineNum });
+                }
                 fileHasContent = true;
               } else if (elImgSrcs.length > 0) {
-                // Image-only paragraph mid-chapter — keep each image as its own line
-                // so the illustration is not lost from the workspace.
                 for (const imgSrc of elImgSrcs) {
-                  lines.push({
-                    line_num: cur++,
-                    file: href,
-                    name: null,
-                    message: EPUB_ILUSTRASI_MARKER,
-                    trans_name: null,
-                    trans_message: null,
-                    is_translated: false,
-                    epub_img_src: imgSrc
-                  });
+                  epubImageAssets.push({ file: href, src: imgSrc, afterLineNum: lastLineNumInFile });
                 }
                 fileHasContent = true;
               }
+              if (++paragraphIndex % 160 === 0) {
+                flashHint(`Membaca EPUB… ${href} (${paragraphIndex}/${els.length})`, true);
+                await new Promise(resolve => setTimeout(resolve, 0));
+              }
             }
 
-            // Standalone illustration page without matching text tags
-            if (!fileHasContent && docImages.length > 0) {
-              for (const imgPath of docImages) {
-                lines.push({
-                  line_num: cur++,
-                  file: href,
-                  name: null,
-                  message: EPUB_ILUSTRASI_MARKER,
-                  trans_name: null,
-                  trans_message: null,
-                  is_translated: false,
-                  epub_img_src: imgPath
-                });
+            // Preserve standalone images, including images outside the selected
+            // text tags in chapters that also contain translatable paragraphs.
+            const unassociatedImages = docImages.filter(image => !referencedDocumentImages.has(image));
+            if (unassociatedImages.length > 0) {
+              for (const imgPath of unassociatedImages) {
+                epubImageAssets.push({ file: href, src: imgPath, afterLineNum: lastLineNumInFile });
               }
               fileHasContent = true;
             }
@@ -406,7 +405,7 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
             skippedFiles.push(baseName);
             continue;
           }
-          const p = parseJsonEntries(await parseJsonFromFileObject(f), baseName, cur);
+          const p = await parseJsonEntriesAsync(await f.text(), baseName, cur);
           if (p.length) {
             existingFiles.add(baseName);
             for (let i = 0; i < p.length; i++) lines.push(p[i]);
@@ -417,7 +416,7 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
       }
     }
 
-    if (lines.length > 0) {
+    if (lines.length > 0 || epubImageAssets.length > 0) {
       if (pendingEpubSourceId && pendingEpubFile) {
         const root = await getOpfsRoot();
         const fh = await (root as any).getFileHandle(pendingEpubSourceId, { create: true });
@@ -427,6 +426,9 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
         state.projectType = 'epub';
         state.epubSourceId = pendingEpubSourceId;
         preloadEpubImages();
+      }
+      if (epubImageAssets.length > 0) {
+        state.epubImages = state.epubImages.concat(epubImageAssets);
       }
       state.lines = state.lines.concat(lines);
       state.importedFiles = Array.from(existingFiles);
@@ -439,6 +441,7 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
       refreshAll();
       queueAutoSave();
       let msg = `Berhasil impor ${lines.length} baris.`;
+      if (epubImageAssets.length > 0) msg += ` ${epubImageAssets.length} gambar EPUB ditambahkan.`;
       if (skippedFiles.length > 0) {
         msg += ` (${skippedFiles.length} file duplikat diabaikan)`;
       }
@@ -686,6 +689,41 @@ export async function onImportFolderChange(ev: Event): Promise<void> {
   if (!target.files?.length) return;
   await importWithCustomRouting(target.files);
   target.value = '';
+}
+
+async function collectAndroidFolderFiles(extensions: readonly string[] | undefined, label: string): Promise<File[] | null> {
+  try {
+    const files = await pickAndroidFolderFiles(extensions, (current, total) => {
+      flashHint(`Membaca folder Android (${label})… ${current}/${total}`, true);
+    });
+    if (files && files.length === 0) flashHint(`Tidak ada file yang cocok di folder ${label}.`, false);
+    return files;
+  } catch (err: any) {
+    console.error(`[Import] Android ${label} folder import failed:`, err);
+    flashHint(`Gagal membaca folder ${label}: ${err?.message || err}`, false);
+    return null;
+  }
+}
+
+export async function importAndroidCustomFolder(): Promise<void> {
+  if (!isAndroidNativeApp()) return;
+  const files = await collectAndroidFolderFiles(undefined, 'Plugin/Parser');
+  if (files?.length) await handleImportCustomLogic(files);
+}
+
+export async function importAndroidLucaTxtFolder(): Promise<void> {
+  if (!isAndroidNativeApp()) return;
+  const files = await collectAndroidFolderFiles(['.txt'], 'Luca TXT');
+  if (files?.length) await handleImportLucaTxtLogic(files);
+}
+
+/** Android WebView does not implement the directory file-input behavior
+ * consistently, so use the native SAF tree picker and create File objects
+ * from the selected folder's supported source files. */
+export async function importAndroidFolder(): Promise<void> {
+  if (!isAndroidNativeApp()) return;
+  const files = await collectAndroidFolderFiles(['.json', '.epub'], 'proyek');
+  if (files?.length) await importWithCustomRouting(files);
 }
 
 export async function onImportZipChange(ev: Event): Promise<void> {

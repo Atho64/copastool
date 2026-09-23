@@ -14,11 +14,11 @@
   <meta name="theme-color" content="#161412" />
   <title>Copas Tool</title>
   <link rel="icon" type="image/svg+xml" href="./icon.svg" />
-  <link rel="icon" type="image/png" sizes="32x32" href="./icon.png" />
   <link rel="apple-touch-icon" href="./icon.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=26" />
+  <link rel="stylesheet" href="./styles.css?v=27" />
+  <link rel="stylesheet" href="./src/immersive.css" />
 
   <script type="module" src="./src/app.ts"></script>
 </head>
@@ -28,6 +28,26 @@
       <div class="loader-spinner"></div>
       <h1 class="loader-title">Copas Tool</h1>
     </div>
+  </div>
+  <div id="tutorialOverlay" class="tutorial-overlay" aria-modal="true" role="dialog" aria-labelledby="tutorialTitle" hidden>
+    <div class="tutorial-shade"></div>
+    <svg id="tutorialArrow" class="tutorial-arrow" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><marker id="tutorialArrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" /></marker></defs><path id="tutorialArrowPath" /></svg>
+    <section id="tutorialCard" class="tutorial-card">
+      <button id="tutorialClose" class="tutorial-close" type="button" aria-label="Lewati tutorial"><svg class="lucide-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+      <img class="tutorial-mascot" src="./tutorial-chibi.png" alt="Chibi pemandu tutorial" />
+      <div class="tutorial-copy">
+        <div class="tutorial-kicker">PANDUAN INTERAKTIF <span id="tutorialProgress"></span></div>
+        <h2 id="tutorialTitle"></h2>
+        <p id="tutorialText"></p>
+        <div class="tutorial-controls">
+          <button id="tutorialVoice" class="btn btn-outline" type="button" aria-pressed="true" title="Putar ulang atau matikan suara"></button>
+          <button id="tutorialPracticeAction" class="btn btn-outline" type="button" hidden></button>
+          <span class="tutorial-spacer"></span>
+          <button id="tutorialSkip" class="btn btn-outline" type="button">Lewati</button>
+          <button id="tutorialNext" class="btn btn-primary" type="button">Berikutnya</button>
+        </div>
+      </div>
+    </section>
   </div>
   <div id="dashboardView" class="dashboard-shell open">
     <div class="dashboard-aurora" aria-hidden="true">
@@ -98,6 +118,10 @@
         <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         <span>Buat Project</span>
       </button>
+      <button id="btnReplayTutorial" class="btn btn-outline btn-cta tutorial-replay-button" type="button" title="Putar ulang tutorial">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="m19 14 1.1 2.9L23 18l-2.9 1.1L19 22l-1.1-2.9L15 18l2.9-1.1L19 14Z"/></svg>
+        <span>Tutorial</span>
+      </button>
       <button id="btnRestoreProject" class="btn btn-outline btn-cta">
         <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
         <span>Pulihkan Project</span>
@@ -140,6 +164,10 @@
           <button id="btnDropdownImport" class="btn dropdown-toggle" aria-expanded="false" aria-haspopup="menu" title="Impor File"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span class="btn-text"> Impor</span> ▾</button>
           <div id="dropdownImportMenu" class="dropdown-content">
             <button id="btnImportFile" class="dropdown-item">Impor File</button>
+            <button id="btnTutorialSampleImport" class="dropdown-item" style="display:none;">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
+              Impor Contoh Latihan
+            </button>
             <button id="btnImportFolder" class="dropdown-item">Impor Folder</button>
             <button id="btnImportZip" class="dropdown-item">Impor ZIP</button>
             <hr class="dropdown-divider">
@@ -171,6 +199,7 @@
             <button id="btnDictHistory" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Riwayat Kamus</span></button>
             <button id="btnTextReplacer" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span>Text Replacer</span></button>
             <button id="btnWorkspaceOpfsExplorerOpen" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>File Explorer (OPFS)</span></button>
+            <button id="btnImmersiveOpen" class="dropdown-item" disabled><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Mode Immersif <kbd style="opacity:.6">Alt+I</kbd></span></button>
           </div>
         </div>
         <div class="dropdown" id="pluginMenuGroup">
@@ -839,23 +868,34 @@
               <input id="settingsRegexFilterInput" class="text-input w-full" type="text" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
             </div>
 
-            <div class="mt-2" id="settingsRefLangWrap">
-              <label class="form-label">Referensi Bahasa Tambahan (JSON)</label>
-              <div class="flex-center gap-2 wrap">
-                <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 120px;">
+            <div class="mt-3" id="settingsRefLangWrap">
+              <label class="form-label" style="margin-bottom: 6px;">Referensi Bahasa Tambahan (JSON)</label>
+              <div class="ref-lang-grid">
+                <!-- Slot 1 -->
+                <div class="ref-lang-card">
+                  <div class="ref-lang-card-header">
+                    <span class="ref-lang-badge">Ref 1</span>
+                  </div>
                   <input id="settingsRefLang1Select" class="text-input w-full" type="text" placeholder="Ref 1 - Belum diimpor" readonly />
+                  <div class="ref-lang-actions">
+                    <button id="btnImportRefLang1" class="btn btn-sm btn-outline" disabled title="Impor satu file JSON untuk Referensi 1">Impor Ref 1</button>
+                    <button id="btnImportRefLang1Folder" class="btn btn-sm btn-outline" disabled title="Impor seluruh folder JSON untuk Referensi 1">Folder Ref 1</button>
+                    <button id="btnClearRefLang1" class="btn btn-sm btn-danger" disabled title="Hapus data Referensi 1 dari seluruh baris">Hapus 1</button>
+                  </div>
                 </div>
-                <div class="flex-col grow" style="flex: 1 1 calc(50% - 4px); min-width: 120px;">
+
+                <!-- Slot 2 -->
+                <div class="ref-lang-card">
+                  <div class="ref-lang-card-header">
+                    <span class="ref-lang-badge">Ref 2</span>
+                  </div>
                   <input id="settingsRefLang2Select" class="text-input w-full" type="text" placeholder="Ref 2 - Belum diimpor" readonly />
+                  <div class="ref-lang-actions">
+                    <button id="btnImportRefLang2" class="btn btn-sm btn-outline" disabled title="Impor satu file JSON untuk Referensi 2">Impor Ref 2</button>
+                    <button id="btnImportRefLang2Folder" class="btn btn-sm btn-outline" disabled title="Impor seluruh folder JSON untuk Referensi 2">Folder Ref 2</button>
+                    <button id="btnClearRefLang2" class="btn btn-sm btn-danger" disabled title="Hapus data Referensi 2 dari seluruh baris">Hapus 2</button>
+                  </div>
                 </div>
-              </div>
-              <div class="inline-actions mt-2">
-                <button id="btnImportRefLang1" class="btn btn-sm btn-outline" disabled>Impor Ref 1</button>
-                <button id="btnImportRefLang1Folder" class="btn btn-sm btn-outline" disabled>Folder Ref 1</button>
-                <button id="btnImportRefLang2" class="btn btn-sm btn-outline" disabled>Impor Ref 2</button>
-                <button id="btnImportRefLang2Folder" class="btn btn-sm btn-outline" disabled>Folder Ref 2</button>
-                <button id="btnClearRefLang1" class="btn btn-sm btn-danger" disabled>Hapus 1</button>
-                <button id="btnClearRefLang2" class="btn btn-sm btn-danger" disabled>Hapus 2</button>
               </div>
             </div>
           </div>
@@ -1049,8 +1089,12 @@
                   <option value="full">Full Auto (Loop Otomatis)</option>
                 </select>
               </div>
+              <div class="flex-col grow">
+                <label class="form-label" for="autoCopasNewTabEveryInput">Chat Baru Tiap N Request</label>
+                <input id="autoCopasNewTabEveryInput" class="text-input w-full" type="number" min="0" max="100" step="1" value="0" placeholder="0 (lanjut chat sama)" title="0 = lanjut chat yang sama, 1 = tiap request, N = tiap N request" />
+              </div>
             </div>
-            <p class="hint mt-2">Dipakai tombol Auto Copas di tab Translate, Glossary, dan AI Check. Tersimpan otomatis begitu diubah.</p>
+            <p class="hint mt-2">Dipakai tombol Auto Copas di tab Translate, Glossary, dan AI Check. "Chat Baru Tiap N Request" mengatur pembukaan obrolan baru setiap beberapa request agar konteks AI tetap bersih (0 = lanjut chat yang sama). Tersimpan otomatis.</p>
           </div>
 
           <!-- SECTION: Format & Eksternal -->
@@ -1890,6 +1934,79 @@
     <div id="dictPopupContent" class="dict-popup-content"></div>
   </div>
 
+  <!-- Immersive Reading Mode (fullscreen reader, not a modal) -->
+  <div id="immersiveView" class="theme-dark is-medium" role="dialog" aria-modal="true" aria-label="Mode Immersif">
+    <div class="immersive-shell">
+      <div id="immersiveBar" class="immersive-bar">
+        <button id="btnImmersiveMode" class="immersive-mode-btn" type="button" aria-pressed="true" title="Terjemahan (klik untuk teks asli)">
+          <svg class="immersive-mode-icon icon-original" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <svg class="immersive-mode-icon icon-translation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+        </button>
+        <span id="immersiveTitle" class="immersive-title"></span>
+        <div class="immersive-bar-actions">
+          <button id="btnImmersiveStyle" class="immersive-icon-btn" type="button" title="Tampilan Teks" aria-expanded="false">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          </button>
+          <button id="btnImmersiveBookmarks" class="immersive-icon-btn" type="button" title="Bookmark" aria-expanded="false">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+            <span id="immersiveBookmarkCount" class="im-bm-count">(0)</span>
+          </button>
+          <button id="btnHideImmersiveHeader" class="immersive-icon-btn" type="button" title="Sembunyikan header">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+          </button>
+          <button id="btnImmersiveClose" class="immersive-icon-btn" type="button" title="Tutup (Escape)">
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+
+        <div id="immersiveStylePanel" class="immersive-style-panel">
+          <div class="immersive-style-row">
+            <span class="immersive-style-label">Ukuran Huruf</span>
+            <span class="immersive-stepper">
+              <button id="btnImmersiveFontDown" type="button" title="Perkecil">−</button>
+              <span id="immersiveFontValue">19</span>
+              <button id="btnImmersiveFontUp" type="button" title="Perbesar">+</button>
+            </span>
+          </div>
+          <div class="immersive-style-row">
+            <span class="immersive-style-label">Lebar Teks</span>
+            <span id="immersiveWidthGroup" class="immersive-seg">
+              <span class="immersive-seg-thumb"></span>
+              <button class="immersive-seg-btn" type="button" data-width="narrow">Sempit</button>
+              <button class="immersive-seg-btn" type="button" data-width="medium">Sedang</button>
+              <button class="immersive-seg-btn" type="button" data-width="wide">Lebar</button>
+            </span>
+          </div>
+          <div class="immersive-style-row">
+            <span class="immersive-style-label">Tema</span>
+            <span id="immersiveThemeGroup" class="immersive-seg">
+              <span class="immersive-seg-thumb"></span>
+              <button class="immersive-seg-btn" type="button" data-theme="dark">Gelap</button>
+              <button class="immersive-seg-btn" type="button" data-theme="sepia">Sepia</button>
+              <button class="immersive-seg-btn" type="button" data-theme="light">Terang</button>
+            </span>
+          </div>
+        </div>
+
+        <div id="immersiveBookmarkPanel" class="immersive-bookmark-panel">
+          <div class="immersive-bookmark-head">
+            <span class="immersive-bookmark-title">Bookmark</span>
+            <span id="immersiveBookmarkPanelCount" class="immersive-bookmark-count">0</span>
+          </div>
+          <div id="immersiveBookmarkList" class="immersive-bookmark-list"></div>
+        </div>
+      </div>
+
+      <button id="btnShowImmersiveHeader" class="immersive-show-header" type="button" title="Tampilkan header">
+        <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+
+      <div id="immersiveViewport" class="immersive-viewport" tabindex="-1">
+        <div id="immersiveContainer" class="immersive-container"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bookmark Modal -->
   <div id="bookmarkModal" class="modal-backdrop">
     <div class="modal modal-wide">
@@ -2024,4 +2141,3 @@
 
 </body>
 </html>
-

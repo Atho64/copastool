@@ -14,17 +14,123 @@ import {
 } from './constants';
 import { getDefaultPromptHeaderForFormat, normalizeAiTranslationFormat } from './ai-format';
 import { normalizeSelectionBatchSize } from './selection';
-import { refreshAll, compileRegexFilter } from './render';
+import { refreshAll, compileRegexFilter, flashHint } from './render';
 import { renderGlossaryPreview } from './glossary';
 import { queueAutoSave, openModal, closeModal } from './project';
 import { applyHtlMode } from './htl-mode';
 import { prefillIncrement } from './increment';
 import { getActiveLucaProfile, populateLucaExportSlotSelect, DEFAULT_LUCA_PROFILE } from './luca-engine';
+import { clearFuriganaCache, initFurigana } from './furigana';
 import { Shortcuts } from './shortcuts';
 
 export type SettingsTabName = 'general' | 'prompts' | 'glossary' | 'shortcuts' | 'plugins';
 
+let settingsOpenToken = 0;
+let initializedSettingsTabs = new Set<SettingsTabName>();
+
+function initializeSettingsTab(tabName: SettingsTabName): void {
+  if (initializedSettingsTabs.has(tabName)) return;
+  if (tabName === 'prompts') {
+    if (ui.settingsEnableBackgroundChaining) {
+      (ui.settingsEnableBackgroundChaining as HTMLInputElement).checked = !!state.enableBackgroundChaining;
+    }
+    if (ui.settingsBackgroundInput) {
+      (ui.settingsBackgroundInput as HTMLTextAreaElement).value = state.currentBackground || '';
+    }
+    if (ui.settingsSummaryPromptInput) {
+      (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = state.summaryPrompt !== undefined && state.summaryPrompt !== ''
+        ? state.summaryPrompt
+        : DEFAULT_SUMMARY_PROMPT;
+    }
+
+    if (state.projectName) {
+      if (ui.settingsPromptInput) (ui.settingsPromptInput as HTMLTextAreaElement).value = state.aiInstructionHeader;
+      if (ui.settingsGlossaryPromptInput) (ui.settingsGlossaryPromptInput as HTMLTextAreaElement).value = state.glossaryPrompt;
+      if (ui.settingsAiCheckPromptInput) (ui.settingsAiCheckPromptInput as HTMLTextAreaElement).value = state.aiCheckPrompt;
+      if (ui.settingsAgentPromptInput) (ui.settingsAgentPromptInput as HTMLTextAreaElement).value = state.agentPrompt;
+    } else {
+      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
+      if (ui.settingsPromptInput) (ui.settingsPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(format);
+      if (ui.settingsGlossaryPromptInput) (ui.settingsGlossaryPromptInput as HTMLTextAreaElement).value = DEFAULT_GLOSSARY_PROMPT;
+      if (ui.settingsAiCheckPromptInput) (ui.settingsAiCheckPromptInput as HTMLTextAreaElement).value = DEFAULT_AI_CHECK_PROMPT;
+      if (ui.settingsAgentPromptInput) (ui.settingsAgentPromptInput as HTMLTextAreaElement).value = DEFAULT_AGENT_PROMPT;
+    }
+
+    const aiChkChainEl = document.getElementById('settingsEnableAiCheckChaining') as HTMLInputElement | null;
+    if (aiChkChainEl) aiChkChainEl.checked = state.enableAiCheckChaining !== false;
+    const aiChkStoryEl = document.getElementById('settingsEnableAiCheckStoryContext') as HTMLInputElement | null;
+    if (aiChkStoryEl) aiChkStoryEl.checked = state.enableAiCheckStoryContext !== false;
+    const aiChkMemEl = document.getElementById('settingsEnableAiCheckAgentMemory') as HTMLInputElement | null;
+    if (aiChkMemEl) aiChkMemEl.checked = state.enableAiCheckAgentMemory !== false;
+    const aiChkLocEl = document.getElementById('settingsAiCheckLocalizationNotes') as HTMLTextAreaElement | null;
+    if (aiChkLocEl) aiChkLocEl.value = state.aiCheckLocalizationNotes || '';
+    const aiChkStoryCtxEl = document.getElementById('settingsAiCheckStoryContextInput') as HTMLTextAreaElement | null;
+    if (aiChkStoryCtxEl) aiChkStoryCtxEl.value = state.aiCheckStoryContext || '';
+    const aiChkRevEl = document.getElementById('settingsAiCheckRevisionsInput') as HTMLTextAreaElement | null;
+    if (aiChkRevEl) aiChkRevEl.value = state.aiCheckRevisionsSummary || '';
+    const aiChkSumPromptEl = document.getElementById('settingsAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
+    if (aiChkSumPromptEl) {
+      aiChkSumPromptEl.value = state.aiCheckSummaryPrompt !== undefined && state.aiCheckSummaryPrompt !== ''
+        ? state.aiCheckSummaryPrompt
+        : DEFAULT_AI_CHECK_SUMMARY_PROMPT;
+    }
+  } else if (tabName === 'glossary' && ui.settingsGlossaryInput) {
+    (ui.settingsGlossaryInput as HTMLTextAreaElement).value = state.glossaryText || '';
+  }
+  initializedSettingsTabs.add(tabName);
+}
+
+function scheduleReferenceLanguageCounts(token: number, lines: typeof state.lines, projectId: typeof state.currentProjectId): void {
+  const updateCounts = () => {
+    const modal = ui.settingsModal as HTMLElement | undefined;
+    if (
+      token !== settingsOpenToken || !modal?.classList.contains('open') ||
+      state.lines !== lines || state.currentProjectId !== projectId
+    ) return;
+
+    let ref1Count = 0;
+    let ref2Count = 0;
+    for (const line of lines) {
+      if (line.ref_lang_1 != null) ref1Count++;
+      if (line.ref_lang_2 != null) ref2Count++;
+    }
+
+    const ref1Input = ui.settingsRefLang1Select as HTMLInputElement | undefined;
+    const ref2Input = ui.settingsRefLang2Select as HTMLInputElement | undefined;
+    if (ref1Input) ref1Input.value = ref1Count ? `Ada (${ref1Count} baris)` : '';
+    if (ref2Input) ref2Input.value = ref2Count ? `Ada (${ref2Count} baris)` : '';
+    if (ui.btnClearRefLang1) (ui.btnClearRefLang1 as HTMLButtonElement).disabled = ref1Count === 0;
+    if (ui.btnClearRefLang2) (ui.btnClearRefLang2 as HTMLButtonElement).disabled = ref2Count === 0;
+  };
+
+  const requestIdle = (window as any).requestIdleCallback as
+    | ((callback: () => void, options?: { timeout: number }) => number)
+    | undefined;
+  if (requestIdle) requestIdle(updateCounts, { timeout: 500 });
+  else window.setTimeout(updateCounts, 32);
+}
+
+export function updateReferenceLanguageCounts(): void {
+  const modal = ui.settingsModal as HTMLElement | undefined;
+  if (!modal || (!modal.classList.contains('open') && !modal.classList.contains('is-open'))) return;
+
+  let ref1Count = 0;
+  let ref2Count = 0;
+  for (const line of state.lines) {
+    if (line.ref_lang_1 != null) ref1Count++;
+    if (line.ref_lang_2 != null) ref2Count++;
+  }
+
+  const ref1Input = ui.settingsRefLang1Select as HTMLInputElement | undefined;
+  const ref2Input = ui.settingsRefLang2Select as HTMLInputElement | undefined;
+  if (ref1Input) ref1Input.value = ref1Count ? `Ada (${ref1Count} baris)` : '';
+  if (ref2Input) ref2Input.value = ref2Count ? `Ada (${ref2Count} baris)` : '';
+  if (ui.btnClearRefLang1) (ui.btnClearRefLang1 as HTMLButtonElement).disabled = ref1Count === 0;
+  if (ui.btnClearRefLang2) (ui.btnClearRefLang2 as HTMLButtonElement).disabled = ref2Count === 0;
+}
+
 export function switchSettingsTab(tabName: SettingsTabName): void {
+  initializeSettingsTab(tabName);
   const tabs: Record<SettingsTabName, { btnId: string; paneId: string }> = {
     general: { btnId: 'btnTabSettingsGeneral', paneId: 'settingsTabGeneral' },
     prompts: { btnId: 'btnTabSettingsPrompts', paneId: 'settingsTabPrompts' },
@@ -142,6 +248,8 @@ export function saveLucaSettingsFromUI(): void {
 }
 
 export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
+  const openToken = ++settingsOpenToken;
+  initializedSettingsTabs = new Set();
   // === 1. General Settings ===
   if (ui.settingsSourceLangSelect) (ui.settingsSourceLangSelect as HTMLSelectElement).value = state.sourceLang || 'Japanese';
   if (ui.settingsTargetLangSelect) (ui.settingsTargetLangSelect as HTMLSelectElement).value = state.targetLang || 'Indonesian';
@@ -157,20 +265,14 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
     (ui.settingsRefLangWrap as HTMLElement).style.display = isJson ? 'block' : 'none';
   }
   if (isJson) {
-    const hasRef1 = state.lines.some(l => l.ref_lang_1 != null);
-    const hasRef2 = state.lines.some(l => l.ref_lang_2 != null);
-    if (ui.settingsRefLang1Select) {
-      (ui.settingsRefLang1Select as HTMLInputElement).value = hasRef1 ? `Ada (${state.lines.filter(l => l.ref_lang_1 != null).length} baris)` : '';
-    }
-    if (ui.settingsRefLang2Select) {
-      (ui.settingsRefLang2Select as HTMLInputElement).value = hasRef2 ? `Ada (${state.lines.filter(l => l.ref_lang_2 != null).length} baris)` : '';
-    }
+    if (ui.settingsRefLang1Select) (ui.settingsRefLang1Select as HTMLInputElement).value = '';
+    if (ui.settingsRefLang2Select) (ui.settingsRefLang2Select as HTMLInputElement).value = '';
     if (ui.btnImportRefLang1) (ui.btnImportRefLang1 as HTMLButtonElement).disabled = !state.currentProjectId;
     if (ui.btnImportRefLang2) (ui.btnImportRefLang2 as HTMLButtonElement).disabled = !state.currentProjectId;
     if (ui.btnImportRefLang1Folder) (ui.btnImportRefLang1Folder as HTMLButtonElement).disabled = !state.currentProjectId;
     if (ui.btnImportRefLang2Folder) (ui.btnImportRefLang2Folder as HTMLButtonElement).disabled = !state.currentProjectId;
-    if (ui.btnClearRefLang1) (ui.btnClearRefLang1 as HTMLButtonElement).disabled = !hasRef1;
-    if (ui.btnClearRefLang2) (ui.btnClearRefLang2 as HTMLButtonElement).disabled = !hasRef2;
+    if (ui.btnClearRefLang1) (ui.btnClearRefLang1 as HTMLButtonElement).disabled = true;
+    if (ui.btnClearRefLang2) (ui.btnClearRefLang2 as HTMLButtonElement).disabled = true;
   }
   if (ui.settingsDisableEmptyLineValidation) (ui.settingsDisableEmptyLineValidation as HTMLInputElement).checked = !!state.disableEmptyLineValidation;
   if (ui.settingsShowFurigana) (ui.settingsShowFurigana as HTMLInputElement).checked = !!state.showFurigana;
@@ -222,59 +324,10 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   // === 2. LucaSystem Settings ===
   populateLucaSettingsUI();
 
-  // === 3. Prompt Settings ===
-  if (ui.settingsEnableBackgroundChaining) {
-    (ui.settingsEnableBackgroundChaining as HTMLInputElement).checked = !!state.enableBackgroundChaining;
-  }
-  if (ui.settingsBackgroundInput) {
-    (ui.settingsBackgroundInput as HTMLTextAreaElement).value = state.currentBackground || '';
-  }
-  if (ui.settingsSummaryPromptInput) {
-    (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = state.summaryPrompt !== undefined && state.summaryPrompt !== ''
-      ? state.summaryPrompt
-      : DEFAULT_SUMMARY_PROMPT;
-  }
-
-  if (state.projectName) {
-    if (ui.settingsPromptInput) (ui.settingsPromptInput as HTMLTextAreaElement).value = state.aiInstructionHeader;
-    if (ui.settingsGlossaryPromptInput) (ui.settingsGlossaryPromptInput as HTMLTextAreaElement).value = state.glossaryPrompt;
-    if (ui.settingsAiCheckPromptInput) (ui.settingsAiCheckPromptInput as HTMLTextAreaElement).value = state.aiCheckPrompt;
-    if (ui.settingsAgentPromptInput) (ui.settingsAgentPromptInput as HTMLTextAreaElement).value = state.agentPrompt;
-  } else {
-    const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-    if (ui.settingsPromptInput) (ui.settingsPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(format);
-    if (ui.settingsGlossaryPromptInput) (ui.settingsGlossaryPromptInput as HTMLTextAreaElement).value = DEFAULT_GLOSSARY_PROMPT;
-    if (ui.settingsAiCheckPromptInput) (ui.settingsAiCheckPromptInput as HTMLTextAreaElement).value = DEFAULT_AI_CHECK_PROMPT;
-    if (ui.settingsAgentPromptInput) (ui.settingsAgentPromptInput as HTMLTextAreaElement).value = DEFAULT_AGENT_PROMPT;
-  }
-
-  const aiChkChainEl = document.getElementById('settingsEnableAiCheckChaining') as HTMLInputElement | null;
-  if (aiChkChainEl) aiChkChainEl.checked = state.enableAiCheckChaining !== false;
-  const aiChkStoryEl = document.getElementById('settingsEnableAiCheckStoryContext') as HTMLInputElement | null;
-  if (aiChkStoryEl) aiChkStoryEl.checked = state.enableAiCheckStoryContext !== false;
-  const aiChkMemEl = document.getElementById('settingsEnableAiCheckAgentMemory') as HTMLInputElement | null;
-  if (aiChkMemEl) aiChkMemEl.checked = state.enableAiCheckAgentMemory !== false;
-  const aiChkLocEl = document.getElementById('settingsAiCheckLocalizationNotes') as HTMLTextAreaElement | null;
-  if (aiChkLocEl) aiChkLocEl.value = state.aiCheckLocalizationNotes || '';
-  const aiChkStoryCtxEl = document.getElementById('settingsAiCheckStoryContextInput') as HTMLTextAreaElement | null;
-  if (aiChkStoryCtxEl) aiChkStoryCtxEl.value = state.aiCheckStoryContext || '';
-  const aiChkRevEl = document.getElementById('settingsAiCheckRevisionsInput') as HTMLTextAreaElement | null;
-  if (aiChkRevEl) aiChkRevEl.value = state.aiCheckRevisionsSummary || '';
-  const aiChkSumPromptEl = document.getElementById('settingsAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
-  if (aiChkSumPromptEl) {
-    aiChkSumPromptEl.value = state.aiCheckSummaryPrompt !== undefined && state.aiCheckSummaryPrompt !== ''
-      ? state.aiCheckSummaryPrompt
-      : DEFAULT_AI_CHECK_SUMMARY_PROMPT;
-  }
-
-  // === 4. Glossary Settings ===
-  if (ui.settingsGlossaryInput) {
-    (ui.settingsGlossaryInput as HTMLTextAreaElement).value = state.glossaryText || '';
-  }
-
   // === 5. Switch Tab & Show ===
   switchSettingsTab(tabName);
   openModal(ui.settingsModal as HTMLElement);
+  if (isJson) scheduleReferenceLanguageCounts(openToken, state.lines, state.currentProjectId);
 }
 
 export function onOpenPromptsSettings(): void {
@@ -286,6 +339,9 @@ export function onOpenGlossarySettings(): void {
 }
 
 export function onSavePromptSettings(): void {
+  // Tabs not visited before Save still need their current state in the form.
+  initializeSettingsTab('prompts');
+  initializeSettingsTab('glossary');
   // === General Settings ===
   const sourceLang = (ui.settingsSourceLangSelect as HTMLSelectElement)?.value || 'Japanese';
   const targetLang = (ui.settingsTargetLangSelect as HTMLSelectElement)?.value || 'Indonesian';
@@ -332,8 +388,19 @@ export function onSavePromptSettings(): void {
   state.regexFilter = regexFilter;
   state.regexFilterCase = regexFilterCase;
   state.disableEmptyLineValidation = disableEmptyLineValidation;
+  const prevShowFurigana = state.showFurigana;
+  const prevFuriganaType = state.furiganaType;
   state.showFurigana = showFurigana;
-  state.furiganaType = ((ui.settingsFuriganaType as HTMLSelectElement)?.value as any) || 'furigana';
+  state.furiganaType = ((ui.settingsFuriganaType as HTMLSelectElement)?.value as any) || 'hiragana';
+  if (state.furiganaType !== prevFuriganaType) {
+    clearFuriganaCache();
+  }
+  if (state.showFurigana && !prevShowFurigana) {
+    initFurigana().catch((err: any) => {
+      console.error('[CSTL] Furigana initialization failed:', err);
+      flashHint(`Furigana gagal dimuat: ${err?.message || err}`, false);
+    });
+  }
   state.fontSize = fontSize;
   document.documentElement.style.setProperty('--content-font-size', state.fontSize + 'px');
   state.enableDictionary = enableDictionary;

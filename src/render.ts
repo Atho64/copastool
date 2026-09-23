@@ -12,7 +12,8 @@ import { isClannadProtagonistToken, parseLucaTxtText, resolveLucaDisplayName } f
 import { getFileDisplayOrder } from './file-list';
 import { getEpubImageBlobUrl, getEpubImagesForFile, preloadEpubImages, loadEpubImage, openImageLightbox } from './epub-images';
 import { getCustomParser } from './custom-parsers';
-import type { DisplayRow, Line } from './types';
+import { convertToFurigana, getCachedFurigana } from './furigana';
+import type { DisplayRow, EpubImageAsset, Line } from './types';
 
 // ─── Lazy helpers (break circular deps) ──────────────────────────────────────
 function queueAutoSave() { import('./project').then(m => m.queueAutoSave()); }
@@ -73,14 +74,38 @@ export function rebuildDisplayState(): void {
   fileLineRanges = new Map();
   for (const fileName of orderedImportedFiles) {
     const rows = grouped.get(fileName);
-    if (!rows || !rows.length) continue;
-    fileLineRanges.set(fileName, {
-      first: rows[0].line_num,
-      last: rows[rows.length - 1].line_num,
-    });
+    const images = state.epubImages.filter(image => image.file === fileName);
+    if ((!rows || !rows.length) && !images.length) continue;
+    if (rows?.length) {
+      fileLineRanges.set(fileName, {
+        first: rows[0].line_num,
+        last: rows[rows.length - 1].line_num,
+      });
+    }
     separatorIndices.push(state.displayRows.length);
     state.displayRows.push({ type: 'separator', file: fileName });
-    for (const line of rows) state.displayRows.push({ type: 'line', line });
+    const afterLine = new Map<number, EpubImageAsset[]>();
+    for (const image of images) {
+      const anchor = Number(image.afterLineNum) || 0;
+      const list = afterLine.get(anchor);
+      if (list) list.push(image); else afterLine.set(anchor, [image]);
+    }
+    const appendImages = (anchor: number) => {
+      for (const image of afterLine.get(anchor) || []) {
+        state.displayRows.push({ type: 'image', file: fileName, src: image.src });
+      }
+      afterLine.delete(anchor);
+    };
+    appendImages(0);
+    for (const line of rows || []) {
+      state.displayRows.push({ type: 'line', line });
+      appendImages(line.line_num);
+    }
+    // If an edited/deleted anchor no longer exists, keep the asset visible at
+    // the end of the chapter instead of silently dropping it.
+    for (const assets of afterLine.values()) {
+      for (const image of assets) state.displayRows.push({ type: 'image', file: fileName, src: image.src });
+    }
   }
 }
 
@@ -98,18 +123,29 @@ export function renumberLinesToDisplayOrder(): void {
   }
   const out: Line[] = [];
   let n = 1;
+  const remappedLineNumbers = new Map<number, number>();
   const flush = (arr?: Line[]) => {
     if (!arr) return;
-    for (const line of arr) { line.line_num = n++; out.push(line); }
+    for (const line of arr) {
+      const oldNum = line.line_num;
+      line.line_num = n++;
+      remappedLineNumbers.set(oldNum, line.line_num);
+      out.push(line);
+    }
   };
   for (const f of order) flush(byFile.get(f));
   for (const [f, arr] of byFile) {
     if (!orderSet.has(f)) flush(arr);
   }
   state.lines = out;
+  state.epubImages = state.epubImages.map(image => ({
+    ...image,
+    afterLineNum: image.afterLineNum ? (remappedLineNumbers.get(image.afterLineNum) || 0) : 0,
+  }));
 }
 
 export function renderPreviewRows(): void {
+  initPreviewContainerDelegation();
   const mainScroller = getMainScroller();
   if (!mainScroller) return;
   if (mainScroller.items && mainScroller.items.length === state.displayRows.length && mainScroller.items.length > 0) {
@@ -172,9 +208,142 @@ export function updateCurrentFileBar(startIndex: number): void {
 
 // ─── Row Renderer (VirtualScroller callback) ──────────────────────────────────
 
-export function renderMainRow(rowData: DisplayRow): HTMLElement {
-  const row = document.createElement('div');
+let _bmSvgUnset: SVGSVGElement | null = null;
+let _bmSvgSet: SVGSVGElement | null = null;
+
+function getBookmarkSvg(bookmarked: boolean): SVGSVGElement {
+  if (!_bmSvgUnset) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('class', 'lucide-icon');
+    s.setAttribute('width', '13');
+    s.setAttribute('height', '13');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2');
+    s.setAttribute('stroke-linecap', 'round');
+    s.setAttribute('stroke-linejoin', 'round');
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z');
+    s.appendChild(p);
+    _bmSvgUnset = s.cloneNode(true) as SVGSVGElement;
+    _bmSvgUnset.setAttribute('fill', 'none');
+    _bmSvgSet = s.cloneNode(true) as SVGSVGElement;
+    _bmSvgSet.setAttribute('fill', 'currentColor');
+  }
+  return (bookmarked ? _bmSvgSet! : _bmSvgUnset!).cloneNode(true) as SVGSVGElement;
+}
+
+let _imgRemeasureTimer: any = null;
+function onEpubImgLoad(): void {
+  if (_imgRemeasureTimer) return;
+  _imgRemeasureTimer = setTimeout(() => {
+    _imgRemeasureTimer = null;
+    getMainScroller()?.requestRemeasure();
+  }, 50);
+}
+
+let _delegationInitialized = false;
+export function initPreviewContainerDelegation(): void {
+  if (_delegationInitialized || !ui.previewContainer) return;
+  _delegationInitialized = true;
+
+  const container = ui.previewContainer as HTMLElement;
+  container.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target) return;
+
+    // 1. Bookmark button click
+    const bmBtn = target.closest('.line-bookmark-btn') as HTMLElement | null;
+    if (bmBtn) {
+      e.stopPropagation();
+      const row = bmBtn.closest('.preview-row') as HTMLElement | null;
+      const num = row?.dataset.lineNum ? parseInt(row.dataset.lineNum) : null;
+      if (num) {
+        import('./bookmark').then(m => m.toggleBookmark(num));
+      }
+      return;
+    }
+
+    // 2. EPUB illustration image click -> Lightbox
+    const img = target.closest('.epub-preview-img') as HTMLImageElement | null;
+    if (img && img.src) {
+      e.stopPropagation();
+      openImageLightbox(img.src);
+      return;
+    }
+
+    // 3. Text content click -> Line Editor
+    const contentWrap = target.closest('.text-content') as HTMLElement | null;
+    if (contentWrap) {
+      const row = contentWrap.closest('.preview-row') as HTMLElement | null;
+      const num = row?.dataset.lineNum ? parseInt(row.dataset.lineNum) : null;
+      if (num) {
+        openLineEditor(num);
+      }
+    }
+  });
+
+  container.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement;
+    if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'checkbox') {
+      const input = target as HTMLInputElement;
+      if (input.dataset.file) {
+        // Separator checkbox
+        const range = fileLineRanges.get(input.dataset.file);
+        if (range) {
+          for (let n = range.first; n <= range.last; n++) {
+            const l = state.lineByNum.get(n);
+            if (l && !l._hidden && isSelectableForActiveTab(l)) {
+              if (input.checked) state.selectedLines.add(n);
+              else state.selectedLines.delete(n);
+            }
+          }
+        }
+        recordSelectionHistory();
+        syncCheckboxUI();
+      } else if (input.dataset.num) {
+        // Line checkbox
+        const num = parseInt(input.dataset.num);
+        if (input.checked) state.selectedLines.add(num);
+        else state.selectedLines.delete(num);
+        recordSelectionHistory();
+        syncCheckboxUI();
+      }
+    }
+  });
+}
+
+export function renderMainRow(rowData: DisplayRow, recycledRow?: HTMLElement): HTMLElement {
+  const row = recycledRow || document.createElement('div');
+  row.replaceChildren();
+  row.removeAttribute('style');
+  row.removeAttribute('data-line-num');
   row.className = 'preview-row';
+  if (rowData.type === 'image') {
+    row.classList.add('epub-image-row');
+    const wrap = document.createElement('div');
+    wrap.className = 'epub-preview-image-wrap';
+    const img = document.createElement('img');
+    img.className = 'epub-preview-img';
+    img.alt = 'EPUB illustration';
+    img.loading = 'lazy';
+    const src = rowData.src || '';
+    const blobUrl = getEpubImageBlobUrl(src);
+    if (blobUrl) {
+      img.src = blobUrl;
+      img.onload = onEpubImgLoad;
+    } else {
+      loadEpubImage(src).then(url => {
+        if (url && img.isConnected) {
+          img.src = url;
+          img.onload = onEpubImgLoad;
+        }
+      });
+    }
+    wrap.appendChild(img);
+    row.appendChild(wrap);
+    return row;
+  }
   if (rowData.type === 'separator') {
     row.classList.add('separator');
     const range = fileLineRanges.get(rowData.file);
@@ -198,20 +367,7 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
     cb.type = 'checkbox';
     (cb as any).dataset.file = rowData.file;
     cb.checked = isAllSelected;
-    cb.addEventListener('change', (e) => {
-      const isChecked = (e.target as HTMLInputElement).checked;
-      if (range) {
-        for (let n = range.first; n <= range.last; n++) {
-          const l = state.lineByNum.get(n);
-          if (l && !l._hidden && isSelectableForActiveTab(l)) {
-            if (isChecked) state.selectedLines.add(n);
-            else state.selectedLines.delete(n);
-          }
-        }
-      }
-      recordSelectionHistory();
-      syncCheckboxUI();
-    });
+
     const label = document.createElement('div');
     label.className = 'mono grow';
     label.style.fontWeight = '700';
@@ -240,24 +396,12 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
     (cb as any).dataset.num = line.line_num;
     cb.checked = isChecked;
     cb.disabled = !isSelectableForActiveTab(line);
-    cb.addEventListener('change', (e) => {
-      if ((e.target as HTMLInputElement).checked) state.selectedLines.add(line.line_num);
-      else state.selectedLines.delete(line.line_num);
-      recordSelectionHistory();
-      syncCheckboxUI();
-    });
 
     const bmBtn = document.createElement('button');
     bmBtn.type = 'button';
     bmBtn.className = 'line-bookmark-btn' + (line.bookmarked ? ' is-bookmarked' : '');
     bmBtn.setAttribute('title', line.bookmarked ? 'Hapus bookmark' : 'Bookmark baris ini');
-    bmBtn.innerHTML = line.bookmarked
-      ? `<svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`
-      : `<svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
-    bmBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      import('./bookmark').then(m => m.toggleBookmark(line.line_num));
-    });
+    bmBtn.appendChild(getBookmarkSvg(!!line.bookmarked));
 
     leftControls.append(cb, bmBtn);
 
@@ -273,15 +417,20 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
     origDiv.className = 'original';
     const rawOrig = formatLineLabel(line);
     if (state.showFurigana) {
-      origDiv.textContent = rawOrig;
-      import('./furigana').then(m => m.convertToFurigana(rawOrig)).then(html => {
-        origDiv.innerHTML = html;
-        getMainScroller()?.requestRemeasure();
-      }).catch((e) => {
-        console.error('[CSTL] Furigana render error:', e);
-        origDiv.textContent = rawOrig + ` (Furigana Error: ${e.message || e})`;
-        origDiv.style.color = 'red';
-      });
+      const cached = getCachedFurigana(rawOrig);
+      if (cached !== null) {
+        origDiv.innerHTML = cached;
+      } else {
+        origDiv.textContent = rawOrig;
+        convertToFurigana(rawOrig).then(html => {
+          if (origDiv.isConnected) {
+            origDiv.innerHTML = html;
+            getMainScroller()?.requestRemeasure();
+          }
+        }).catch((e) => {
+          console.error('[CSTL] Furigana render error:', e);
+        });
+      }
     } else {
       origDiv.textContent = rawOrig;
     }
@@ -309,34 +458,22 @@ export function renderMainRow(rowData: DisplayRow): HTMLElement {
         img.loading = 'lazy';
         if (blobUrl) {
           img.src = blobUrl;
-          img.onload = () => getMainScroller()?.requestRemeasure();
-          img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openImageLightbox(blobUrl);
-          });
+          img.onload = onEpubImgLoad;
         } else {
           loadEpubImage(targetSrc).then((url) => {
             if (url && imgBox.isConnected) {
               img.src = url;
-              img.onload = () => getMainScroller()?.requestRemeasure();
-              img.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openImageLightbox(url);
-              });
+              img.onload = onEpubImgLoad;
             }
           });
         }
-        const badge = document.createElement('span');
-        badge.className = 'epub-preview-badge';
-        badge.innerHTML = `<svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Ilustrasi EPUB`;
-        imgBox.append(img, badge);
+        imgBox.appendChild(img);
         contentWrap.appendChild(imgBox);
       }
     }
 
     cbWrap.append(leftControls, contentWrap);
     row.appendChild(cbWrap);
-    contentWrap.addEventListener('click', () => openLineEditor(line.line_num));
   }
   return row;
 }
@@ -507,6 +644,7 @@ export function refreshAll(): void {
   renderPreviewRows();
   renderNameTable();
   updateStatusBar();
+  import('./immersive').then(m => m.syncImmersiveAfterRefresh()).catch(() => {});
   import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
   (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
   if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
@@ -604,20 +742,11 @@ export function pushUndoSnapshot(clearRedo = true, targetLineNums?: Iterable<num
   (ui.btnUndo as HTMLButtonElement).disabled = false;
 }
 
-// ─── Flash Hint — top-center toast; inline copy-status only for non-toasted text ──
+// ─── Flash Hint — the app's single in-page notification location ─────────────
 
 export function flashHint(msg: string, keepAlive = false): void {
   const bare = String(msg ?? '').trim();
   if (!bare) return;
-  const q = bare.toLowerCase();
-  const isStopLike = q.includes('dibatalkan') || q.includes('dihentikan') || q.includes('berhenti') || q.includes('canceled') || q.includes('cancelled') || bare.includes('Menghentikan');
-  const isWarnLike = isStopLike || q.includes('gagal') || q.includes('error') || q.includes('ditolak');
-  const isOkLike = q.startsWith('disalin') || q.includes('selesai') || q.includes('diterapkan') || q.includes('disimpan') || q.includes('berhasil') || q.includes('download') || q.includes('backup') || q.includes('ekspor');
-  const kind: 'success' | 'info' | 'warn' | 'danger' = isWarnLike ? (q.includes('ditolak') || q.includes('gagal') ? 'danger' : 'warn') : isOkLike ? 'success' : 'info';
-
-  // Always show top-center toast so user gets immediate visual feedback on any view (Dashboard, Modals, Workspace)
-  void import('./notify').then(m => m.notify(bare, { kind, withSound: isStopLike })).catch(() => {});
-
   const el = ui.copyStatus as HTMLElement | undefined;
   if (!el) return;
   el.textContent = msg;
@@ -693,6 +822,7 @@ function _runUpdateButtonStates(): void {
   setDisabled('btnProofread', !hasData);
   setDisabled('btnQaCheck', !hasData);
   setDisabled('btnFileList', !hasData);
+  setDisabled('btnImmersiveOpen', !hasData);
   setDisabled('btnImportTranslatedFile', !hasData);
   setDisabled('btnImportTranslatedFolder', !hasData);
   setDisabled('btnSelectAll', !hasData);

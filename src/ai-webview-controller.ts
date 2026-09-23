@@ -729,6 +729,82 @@ function buildPokeScript(): string {
 
 // ─── Workflows ────────────────────────────────────────────────────────────────
 
+let nativeSendCounts: Record<string, number> = {};
+let forceNextNewChat = false;
+
+export function triggerNextNewChat(): void {
+  forceNextNewChat = true;
+}
+
+export function resetNativeSendCounts(): void {
+  nativeSendCounts = {};
+}
+
+function checkShouldNewChat(target: CopasTargetId, every: number): { forceNew: boolean; count: number } {
+  if (forceNextNewChat) {
+    forceNextNewChat = false;
+    const current = (nativeSendCounts[target] || 0) + 1;
+    nativeSendCounts[target] = current;
+    return { forceNew: true, count: current };
+  }
+  if (!every || every <= 0) return { forceNew: false, count: 0 };
+  const current = (nativeSendCounts[target] || 0) + 1;
+  nativeSendCounts[target] = current;
+  const forceNew = every === 1 ? true : current % every === 0;
+  return { forceNew, count: current };
+}
+
+/**
+ * Triggers a fresh chat in the companion window / overlay.
+ * Tries clicking the UI "New Chat" button first; if not found, reloads the canonical root URL.
+ */
+export async function triggerWebviewNewChat(targetId: CopasTargetId): Promise<boolean> {
+  const clickScript = `(function() {
+    try {
+      var selectors = [
+        'button[aria-label*="New chat" i]',
+        'button[aria-label*="Chat baru" i]',
+        'button[aria-label*="Obrolan baru" i]',
+        'button[aria-label*="Percakapan baru" i]',
+        'button[data-testid*="new-chat" i]',
+        'a[aria-label*="New chat" i]',
+        'a[data-testid*="new-chat" i]',
+        'button[data-testid="create-new-chat-button"]',
+        'div[aria-label*="New chat" i]',
+        'div[aria-label*="Obrolan baru" i]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var el = document.querySelector(selectors[i]);
+        if (el && el.offsetParent !== null) {
+          el.click();
+          return 'ok';
+        }
+      }
+    } catch (_) {}
+    return 'none';
+  })();`;
+
+  try {
+    const res = await evalAiWindowResult(clickScript);
+    if (res && res.includes('ok')) {
+      await sleep(600);
+      return true;
+    }
+  } catch (_) {}
+
+  // Fallback: navigate to target root URL to start a fresh chat
+  const rootUrl = AI_TARGET_URLS[targetId];
+  if (rootUrl) {
+    try {
+      await evalAiWindow(`window.location.href = ${JSON.stringify(rootUrl)};`);
+      await waitForAiPageReady(15000);
+      await sleep(600);
+      return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
 /**
  * Injects automation script into the AI companion window and waits for response.
  * Delivery is platform specific (see the module header) and never requires the
@@ -738,15 +814,23 @@ export async function executeAiWorkflow(
   targetId: CopasTargetId,
   promptText: string,
   mode: 'semi' | 'full',
-  onProgress?: (stage: string, detail?: string) => void
+  onProgress?: (stage: string, detail?: string) => void,
+  newTabEvery = 0
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
   // Always copy prompt to clipboard so user can immediately paste in any AI window/browser
   try {
     await writeClipboardText(promptText);
   } catch (_) {}
 
+  const chatPolicy = checkShouldNewChat(targetId, newTabEvery);
+
   // Open or focus AI Companion window (or external browser)
   await openAiCompanion(targetId);
+
+  if (chatPolicy.forceNew) {
+    onProgress?.('Chat Baru', `Obrolan baru (#${chatPolicy.count}, tiap ${newTabEvery || 1} req)...`);
+    await triggerWebviewNewChat(targetId);
+  }
 
   if (mode === 'semi') {
     onProgress?.('pasted', 'Tersalin ke Clipboard & Web AI terbuka');

@@ -6,6 +6,8 @@ import { switchWorkspaceTab } from './selection';
 import { refreshAll, flashHint } from './render';
 import { queueAutoSave } from './project';
 import { applyProjectLoggingVisibility } from './logging';
+import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
+import { cstlConfirm } from './dialog';
 
 const REFLANG_1 = 'ref_lang_1';
 const REFLANG_2 = 'ref_lang_2';
@@ -137,6 +139,7 @@ async function importRefJson(slot: number, file: File): Promise<void> {
     const applied = await applyRefJsonToLines(slot, json);
     refreshAll();
     queueAutoSave();
+    import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
     flashHint(`Berhasil impor ${applied} baris Referensi ${slot} (${file.name}).`);
   } catch (err: any) {
     alert(`Gagal impor Referensi ${slot}: ${err.message}`);
@@ -193,6 +196,7 @@ async function importRefJsonFolder(slot: number, files: File[]): Promise<void> {
 
   refreshAll();
   queueAutoSave();
+  import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
   let msg = `Berhasil impor ${totalApplied} baris Referensi ${slot} dari ${matched.length} file.`;
   if (unmatched.length) msg += ` (${unmatched.length} file tanpa pasangan, dilewati)`;
   flashHint(msg);
@@ -203,8 +207,8 @@ async function importRefJsonFolder(slot: number, files: File[]): Promise<void> {
   if (lines.length) alert(`Impor Referensi ${slot} selesai:\n\n` + lines.filter(Boolean).join('\n'));
 }
 
-function clearRefLang(slot: number): void {
-  if (!confirm(`Hapus data Referensi ${slot} dari semua baris?`)) return;
+async function clearRefLang(slot: number): Promise<void> {
+  if (!await cstlConfirm(`Hapus data Referensi ${slot} dari semua baris?`, { danger: true, title: `Hapus Referensi ${slot}` })) return;
   for (const l of state.lines) {
     if (slot === 1) {
       delete l.ref_lang_1;
@@ -216,6 +220,7 @@ function clearRefLang(slot: number): void {
   }
   refreshAll();
   queueAutoSave();
+  import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
   flashHint(`Referensi ${slot} dihapus dari semua baris.`);
 }
 
@@ -223,8 +228,22 @@ function clearRefLang(slot: number): void {
 
 export function onImportRefLang1(): void { ui.refLang1Input.click(); }
 export function onImportRefLang2(): void { ui.refLang2Input.click(); }
-export function onImportRefLang1Folder(): void { ui.refLang1FolderInput.click(); }
-export function onImportRefLang2Folder(): void { ui.refLang2FolderInput.click(); }
+async function chooseRefLangFolder(slot: number, input: HTMLInputElement | undefined): Promise<void> {
+  if (!isAndroidNativeApp()) { input?.click(); return; }
+  try {
+    const files = await pickAndroidFolderFiles(['.json'], (current, total) => {
+      flashHint(`Membaca folder Referensi ${slot}… ${current}/${total}`, true);
+    });
+    if (!files) return;
+    if (!files.length) { flashHint('Folder tidak berisi file JSON Referensi.', false); return; }
+    await importRefJsonFolder(slot, files);
+  } catch (err: any) {
+    flashHint(`Gagal membaca folder Referensi ${slot}: ${err?.message || err}`, false);
+  }
+}
+
+export function onImportRefLang1Folder(): void { void chooseRefLangFolder(1, ui.refLang1FolderInput); }
+export function onImportRefLang2Folder(): void { void chooseRefLangFolder(2, ui.refLang2FolderInput); }
 
 export function onRefLang1FileChange(ev: Event): void {
   const target = ev.target as HTMLInputElement;

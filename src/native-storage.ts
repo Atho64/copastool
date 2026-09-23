@@ -43,6 +43,20 @@ function base64ToU8(b64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+const BINARY_EXTENSIONS = ['.epub', '.zip', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bin', '.ico'];
+
+function isBinaryPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return BINARY_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+function toUint8Array(data: any): Uint8Array<ArrayBuffer> {
+  if (data instanceof Uint8Array) return data as Uint8Array<ArrayBuffer>;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (typeof data === 'string') return base64ToU8(data);
+  return new Uint8Array(data || 0);
+}
+
 export class TauriFileHandle {
   readonly kind = 'file' as const;
   constructor(public readonly path: string, public readonly name: string) {}
@@ -54,26 +68,28 @@ export class TauriFileHandle {
       return await invoke('native_read_file_text', { name: this.path });
     } catch (err: any) {
       if (String(err || '').toLowerCase().includes('not found')) throw err;
-      const b64: string = await invoke('native_read_file', { name: this.path });
-      return new TextDecoder().decode(base64ToU8(b64));
+      const res = await invoke('native_read_file', { name: this.path });
+      return new TextDecoder().decode(toUint8Array(res));
     }
   }
 
   async getFile(): Promise<File> {
     const invoke = await getInvoke();
     if (!invoke) throw new Error('Tauri invoke not available');
-    try {
-      const textContent: string = await invoke('native_read_file_text', { name: this.path });
-      const f = new File([textContent], this.name, { type: 'application/json' });
-      // Override text() to return the already retrieved string immediately
-      f.text = async () => textContent;
-      return f;
-    } catch (err: any) {
-      if (String(err || '').toLowerCase().includes('not found')) throw err;
-      const b64: string = await invoke('native_read_file', { name: this.path });
-      const u8 = base64ToU8(b64);
-      return new File([u8], this.name);
+    if (!isBinaryPath(this.path)) {
+      try {
+        const textContent: string = await invoke('native_read_file_text', { name: this.path });
+        const f = new File([textContent], this.name, { type: 'application/json' });
+        // Override text() to return the already retrieved string immediately
+        f.text = async () => textContent;
+        return f;
+      } catch (err: any) {
+        if (String(err || '').toLowerCase().includes('not found')) throw err;
+      }
     }
+    const res = await invoke('native_read_file', { name: this.path });
+    const u8 = toUint8Array(res);
+    return new File([u8 as any], this.name);
   }
 
   async createWritable() {

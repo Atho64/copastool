@@ -28,6 +28,7 @@ import { onExport } from './export';
 import { Shortcuts } from './shortcuts';
 import { OpfsExplorer } from './opfs-explorer';
 import { onImportVndbNames, onImportAnilistNames } from './vndb-anilist';
+import { cstlConfirm } from './dialog';
 import { onExtractEpubRubyNames } from './epub-ruby';
 import { openFileListModal, closeFileListModal, onAddFile, onDeleteSelectedFiles } from './file-list';
 import {
@@ -37,13 +38,14 @@ import {
 } from './htl-mode';
 import { loadApiSettings, onOpenApiSettings, onSaveApiSettings, onAutoTranslate, updateDelayPreview, onFetchModels, resolveReviewAction, onLoadProfile, onSaveProfile, onDeleteProfile, updateProfileButtonsState } from './auto-translate';
 import {
-  onImportFileChange, onImportFolderChange, onImportZipChange,
+  onImportFileChange, onImportFolderChange, onImportZipChange, importAndroidFolder,
   onImportLucaTxtChange, onImportLucaTxtFolderChange,
-  onImportCustomChange, onImportCustomFolderChange,
+  onImportCustomChange, onImportCustomFolderChange, importAndroidCustomFolder, importAndroidLucaTxtFolder,
 } from './import-source';
 import { initCustomParserModal, updateCustomImportAccept } from './custom-parser-modal';
 import { setPyodideColdStartHint } from './custom-parser-runner';
-import { onImportTranslatedFileChange, onImportTranslatedFolderChange } from './import-translated';
+import { handleTranslatedImport, onImportTranslatedFileChange, onImportTranslatedFolderChange } from './import-translated';
+import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
 import {
   createNewProject, closeProject, onRestoreProject, renderDashboardProjects,
   openDashboardSettings, saveDashboardSettings, resetDashboardSettings,
@@ -57,6 +59,7 @@ import { getMainScroller } from './state';
 import { initDictionary } from './dictionary';
 import { initExtensionBridge, isExtensionAvailable } from './extension-bridge';
 import { applyProjectLoggingVisibility, appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
+import { Immersive } from './immersive';
 import './plugins';
 import { createPluginHostBridge } from './plugin-host-bridge';
 import { ensureStoragePersistence, checkStorageQuota } from './project';
@@ -132,6 +135,7 @@ export function cacheElements(): void {
     'btnFileList', 'fileListModal', 'fileListContainer', 'btnFileListAdd', 'btnFileListDelete', 'btnFileListClose',
     'btnToolbarBookmark', 'toolbarBookmarkBadge', 'btnLineBookmark',
     'bookmarkModal', 'bookmarkModalCount', 'btnBookmarkModalCloseIcon', 'bookmarkSearchInput', 'btnClearAllBookmarks', 'bookmarkListContainer', 'btnBookmarkClose',
+    'btnImmersiveOpen', 'immersiveView', 'immersiveBar', 'immersiveViewport', 'immersiveContainer', 'btnImmersiveMode', 'immersiveTitle', 'btnImmersiveClose', 'btnImmersiveStyle', 'immersiveStylePanel', 'btnImmersiveFontDown', 'immersiveFontValue', 'btnImmersiveFontUp', 'immersiveWidthGroup', 'immersiveThemeGroup', 'btnHideImmersiveHeader', 'btnShowImmersiveHeader', 'btnImmersiveBookmarks', 'immersiveBookmarkCount', 'immersiveBookmarkPanel', 'immersiveBookmarkList',
     'imageLightboxModal', 'imageLightboxImg', 'btnImageLightboxClose',
     'btnPluginManagerOpen', 'btnWorkspacePluginsOpen', 'pluginManagerModal', 'btnPluginRefresh', 'btnInstallPlugin', 'btnCreateCustomParser', 'btnPluginFilterAll', 'btnPluginFilterPlugins', 'btnPluginFilterParsers', 'pluginCountAll', 'pluginCountPlugins', 'pluginCountParsers', 'pluginFileInput', 'pluginList', 'btnPluginManagerClose', 'btnOpenPlugins', 'pluginMenu', 'pluginPanels', 'storageWarningBanner', 'storageWarningText',
     'btnShortcutsOpen', 'btnWorkspaceShortcutsOpen', 'shortcutModal', 'shortcutList', 'shortcutStatus', 'btnShortcutsResetAll', 'btnShortcutsClose',
@@ -147,7 +151,7 @@ export function cacheElements(): void {
 // ─── Scroller Initialization ──────────────────────────────────────────────────
 
 export function initScrollers(): void {
-  const mainScroller = new VirtualScroller(ui.previewViewport as HTMLElement, ui.previewContainer as HTMLElement, 85, renderMainRow);
+  const mainScroller = new VirtualScroller(ui.previewViewport as HTMLElement, ui.previewContainer as HTMLElement, 65, renderMainRow, true);
   mainScroller.onVisibleRangeChange = (start) => updateCurrentFileBar(start);
   setMainScroller(mainScroller);
   const proofreadViewport = (ui.proofreadContainer as HTMLElement).closest('.proofread-results-wrap') as HTMLElement;
@@ -394,6 +398,13 @@ export function bindEvents(): void {
       e.preventDefault();
       return;
     }
+
+    // 5. Close the immersive reader last (its own handler closes panels first)
+    if (Immersive.isOpen()) {
+      Immersive.close();
+      e.preventDefault();
+      return;
+    }
   });
   window.addEventListener('resize', () => {
     document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
@@ -415,9 +426,9 @@ export function bindEvents(): void {
   });
   ui.btnNewProject?.addEventListener('click', createNewProject);
   ui.btnBackupAllProjects?.addEventListener('click', backupAllProjectsAsZip);
-  // Folder Backup butuh showDirectoryPicker (desktop Chromium) — di browser
-  // lain tombolnya disembunyikan dan user pakai ZIP/download seperti biasa.
-  if (isFolderBackupSupported()) {
+  // Desktop Chromium uses File System Access; Android uses its native SAF
+  // folder picker. Other mobile browsers retain the ZIP/download fallback.
+  if (isFolderBackupSupported() || isAndroidNativeApp()) {
     ui.btnFolderBackup?.addEventListener('click', backupAllToFolder);
     ui.btnFolderRestore?.addEventListener('click', openFolderRestorePicker);
   } else {
@@ -529,14 +540,37 @@ export function bindEvents(): void {
   ui.btnDashboardSettingsReset?.addEventListener('click', resetDashboardSettings);
   ui.btnDashboardSettingsCancel?.addEventListener('click', () => (ui.dashboardSettingsModal as HTMLElement).classList.remove('open'));
   ui.btnImportFile?.addEventListener('click', () => (ui.importFileInput as HTMLInputElement).click());
-  ui.btnImportFolder?.addEventListener('click', () => (ui.importFolderInput as HTMLInputElement).click());
+  ui.btnImportFolder?.addEventListener('click', () => {
+    if (isAndroidNativeApp()) void importAndroidFolder();
+    else (ui.importFolderInput as HTMLInputElement).click();
+  });
   ui.btnImportZip?.addEventListener('click', () => (ui.importZipInput as HTMLInputElement).click());
   ui.btnImportLucaTxt?.addEventListener('click', () => (ui.importLucaTxtInput as HTMLInputElement).click());
-  ui.btnImportLucaTxtFolder?.addEventListener('click', () => (ui.importLucaTxtFolderInput as HTMLInputElement).click());
+  ui.btnImportLucaTxtFolder?.addEventListener('click', () => {
+    if (isAndroidNativeApp()) void importAndroidLucaTxtFolder();
+    else (ui.importLucaTxtFolderInput as HTMLInputElement).click();
+  });
   ui.btnImportCustom?.addEventListener('click', () => (ui.importCustomInput as HTMLInputElement).click());
-  ui.btnImportCustomFolder?.addEventListener('click', () => (ui.importCustomFolderInput as HTMLInputElement).click());
+  ui.btnImportCustomFolder?.addEventListener('click', () => {
+    if (isAndroidNativeApp()) void importAndroidCustomFolder();
+    else (ui.importCustomFolderInput as HTMLInputElement).click();
+  });
   ui.btnImportTranslatedFile?.addEventListener('click', () => (ui.importTranslatedFileInput as HTMLInputElement).click());
-  ui.btnImportTranslatedFolder?.addEventListener('click', () => (ui.importTranslatedFolderInput as HTMLInputElement).click());
+  ui.btnImportTranslatedFolder?.addEventListener('click', () => {
+    if (!isAndroidNativeApp()) { (ui.importTranslatedFolderInput as HTMLInputElement).click(); return; }
+    void (async () => {
+      try {
+        const files = await pickAndroidFolderFiles(['.json', '.epub', '.txt'], (current, total) => {
+          flashHint(`Membaca folder TL Android… ${current}/${total}`, true);
+        });
+        if (!files) return;
+        if (!files.length) { flashHint('Folder tidak berisi file TL .json, .epub, atau .txt.', false); return; }
+        await handleTranslatedImport(files);
+      } catch (err: any) {
+        flashHint(`Gagal membaca folder TL: ${err?.message || err}`, false);
+      }
+    })();
+  });
 
   ui.importFileInput?.addEventListener('change', onImportFileChange);
   ui.importFolderInput?.addEventListener('change', onImportFolderChange);
@@ -797,8 +831,8 @@ export function bindEvents(): void {
   ui.btnShortcutsOpen?.addEventListener('click', () => Shortcuts.openModal());
   ui.btnWorkspaceShortcutsOpen?.addEventListener('click', () => Shortcuts.openModal());
   ui.btnShortcutsClose?.addEventListener('click', () => Shortcuts.closeModal());
-  ui.btnShortcutsResetAll?.addEventListener('click', () => {
-    if (!confirm('Kembalikan semua konfigurasi shortcut ke default?')) return;
+  ui.btnShortcutsResetAll?.addEventListener('click', async () => {
+    if (!await cstlConfirm('Kembalikan semua konfigurasi shortcut ke default?', { danger: true, title: 'Reset Shortcut' })) return;
     Shortcuts.resetBindings();
   });
 
@@ -917,6 +951,7 @@ if (ui.settingsCheckSimilarity) {
 
   // File List
   ui.btnFileList?.addEventListener('click', () => openFileListModal());
+  ui.btnImmersiveOpen?.addEventListener('click', () => Immersive.open());
   ui.btnFileListClose?.addEventListener('click', () => closeFileListModal());
   ui.btnFileListAdd?.addEventListener('click', () => onAddFile());
   ui.btnFileListDelete?.addEventListener('click', () => onDeleteSelectedFiles());
@@ -1233,7 +1268,7 @@ if (ui.settingsCheckSimilarity) {
   }
 
   ui.btnAgentClear?.addEventListener('click', async () => {
-    if (!confirm('Hapus semua riwayat chat untuk proyek ini?')) return;
+    if (!await cstlConfirm('Hapus semua riwayat chat untuk proyek ini?', { danger: true, title: 'Hapus Riwayat Chat' })) return;
     const { clearChatHistory } = await import('./ai-agent');
     clearChatHistory();
   });
@@ -1492,7 +1527,9 @@ function applyPalette(name: string): void {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', palette['--bg']);
 
-  const iconUrl = `./icon-${paletteKey}.svg`;
+  // 'indigo' is byte-identical to icon.svg — reuse the canonical file so the
+  // PWA precaches one indigo icon instead of two.
+  const iconUrl = paletteKey === 'indigo' ? './icon.svg' : `./icon-${paletteKey}.svg`;
   const logoImg = document.querySelector('.hero-logo-img') as HTMLImageElement | null;
   if (logoImg) logoImg.src = iconUrl;
   const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
@@ -1524,6 +1561,7 @@ export async function init(): Promise<void> {
   cacheElements();
   initScrollers();
   bindEvents();
+  Immersive.init();
 
   if (!navigator.storage || !navigator.storage.getDirectory) {
     alert('Browser kamu tidak mendukung Sistem File OPFS. Beberapa fitur tidak akan berjalan optimal.');

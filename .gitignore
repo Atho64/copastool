@@ -48,3 +48,4 @@ docs/ANDROID_SIGNING.md
 src-tauri/gen/
 *.apk
 *.aab
+signed-apk/

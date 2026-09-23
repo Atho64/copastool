@@ -30,6 +30,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'work.back', label: 'Kembali ke Dashboard', scope: 'workspace', def: 'Alt+B', run: () => document.getElementById('btnBackToDashboard')?.click() },
   { id: 'work.bookmarks', label: 'Buka Daftar Bookmark', scope: 'workspace', def: 'Alt+M', run: () => document.getElementById('btnToolbarBookmark')?.click() },
   { id: 'work.autoTranslate', label: 'Jalankan Auto Translate', scope: 'workspace', def: 'Alt+T', run: () => document.getElementById('btnAutoTranslate')?.click() },
+  { id: 'work.immersive', label: 'Buka Mode Immersif', scope: 'workspace', def: 'Alt+I', run: () => { import('./immersive').then(m => m.Immersive.open()); } },
 
   // Workspace Selection & Navigation
   { id: 'work.selectAll', label: 'Pilih Semua Baris', scope: 'workspace', def: 'Alt+A', run: () => document.getElementById('btnSelectAll')?.click() },

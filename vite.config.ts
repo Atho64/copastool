@@ -50,7 +50,9 @@ export default defineConfig(() => ({
     htmlAppVersion(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.jpg', 'icon.png', 'icon.svg', 'notif.mp3'],
+      // icon.png (the 567 KB 1024x1024 master) lives in icons-src/ and is only
+      // used to regenerate launcher/desktop icons — it is not shipped to the web build.
+      includeAssets: ['icon.jpg', 'icon.svg'],
       workbox: {
         // The Kuromoji dictionaries (~17 MB in public/dict) are deliberately kept out
         // of the precache manifest so the first launch only pulls the ~1 MB app shell.
@@ -79,9 +81,9 @@ export default defineConfig(() => ({
         start_url: './',
         icons: [
           {
-            src: 'icon.png',
-            sizes: '1024x1024',
-            type: 'image/png',
+            src: 'icon.jpg',
+            sizes: '784x784',
+            type: 'image/jpeg',
             purpose: 'any'
           },
           {

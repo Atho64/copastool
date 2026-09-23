@@ -58,6 +58,14 @@ export interface Line {
   custom_index?: any;
 }
 
+/** EPUB illustrations live outside the numbered, translatable line list. */
+export interface EpubImageAsset {
+  file: string;
+  src: string;
+  /** Text line before this image; 0 places it before the first text line. */
+  afterLineNum: number;
+}
+
 // ─── Custom Parser (user-defined import/export formats) ───────────────────────
 
 export interface CustomParser {
@@ -172,6 +180,7 @@ export interface AppState {
   jsonRefLang: string;
   epubTags: string;
   epubSourceId: string | null;
+  epubImages: EpubImageAsset[];
   showEpubImages: boolean;
   lucaExportLang: string;
   lucaProfile: string;
@@ -297,9 +306,10 @@ export interface FileActionSnapshot {
 // ─── Display / Render ─────────────────────────────────────────────────────────
 
 export interface DisplayRow {
-  type: 'line' | 'separator';
+  type: 'line' | 'separator' | 'image';
   line?: Line;
   file?: string;
+  src?: string;
 }
 
 // ─── Proofread ────────────────────────────────────────────────────────────────

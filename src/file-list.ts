@@ -19,6 +19,7 @@ import { rebuildDisplayState, renderPreviewRows, refreshAll, flashHint } from '.
 import { switchWorkspaceTab } from './selection';
 import type { FileActionSnapshot, Line } from './types';
 import { windowsFileOrderCompare } from './string-utils';
+import { cstlConfirm } from './dialog';
 
 // ─── Module state ──────────────────────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export function onAddFile(): void {
 }
 
 /** Delete selected files. */
-export function onDeleteSelectedFiles(): void {
+export async function onDeleteSelectedFiles(): Promise<void> {
   const checkboxes = (ui.fileListContainer as HTMLElement).querySelectorAll<HTMLInputElement>(
     '.file-list-item .file-checkbox:checked'
   );
@@ -171,7 +172,7 @@ export function onDeleteSelectedFiles(): void {
     return item.dataset.file as string;
   });
 
-  if (!confirm(`Hapus ${filesToDelete.length} file dari proyek ini? Semua baris terkait akan dihapus.`)) {
+  if (!await cstlConfirm(`Hapus ${filesToDelete.length} file dari proyek ini? Semua baris terkait akan dihapus.`, { danger: true, title: 'Hapus File' })) {
     return;
   }
 

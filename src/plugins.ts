@@ -25,6 +25,7 @@ import {
 } from './luca-engine';
 import { decodeArrayBuffer, splitBufferToLines, bytesToBase64 } from './binary-utils';
 import { saveOrDownloadBlob } from './download-helper';
+import { cstlPrompt, cstlConfirm } from './dialog';
 
 const PLUGIN_API_VERSION = 1;
 const MANIFEST_FILE = 'manifest.json';
@@ -1482,9 +1483,9 @@ export const Sandbox = {
       setTheme: (vars: Record<string, string>) => (host.ui.setTheme ? host.ui.setTheme(vars) : null),
 
       prompt: (title: string, def: string = '') =>
-        host.ui.prompt ? host.ui.prompt(title, def) : Promise.resolve(window.prompt(title, def)),
+        host.ui.prompt ? host.ui.prompt(title, def) : cstlPrompt(title, def),
       confirm: (title: string, body?: string) =>
-        host.ui.confirm ? host.ui.confirm(title, body) : Promise.resolve(window.confirm(`${title}${body ? `\n\n${body}` : ''}`)),
+        host.ui.confirm ? host.ui.confirm(title, body) : cstlConfirm(`${title}${body ? `\n\n${body}` : ''}`, { title }),
       alert: (title: string, body?: string) =>
         host.ui.alert ? host.ui.alert(title, body) : Promise.resolve(host.ui.flash(`${title}${body ? `: ${body}` : ''}`)),
 
@@ -3175,7 +3176,7 @@ export const PluginUI = {
     row.querySelector('.btn-plugin-export')?.addEventListener('click', () => Runtime.exportPlugin(p.id));
     row.querySelector('.btn-plugin-delete')?.addEventListener('click', async () => {
       if (p.isLegacy) {
-        if (!confirm(`Hapus custom parser "${p.name}"?`)) return;
+        if (!await cstlConfirm(`Hapus custom parser "${p.name}"?`, { danger: true, title: 'Hapus Parser' })) return;
         deleteCustomParser(p.id);
         deleteParserSettingValues(p.id);
         await Runtime.sync();

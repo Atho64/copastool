@@ -11,18 +11,23 @@ class Gunzip {
   constructor(data: Uint8Array) {
     this._data = data;
   }
-  decompress() {
+  decompress(): Uint8Array {
     try {
-      return pako.ungzip(this._data);
+      const res = pako.ungzip(this._data);
+      if (res.byteOffset !== 0 || res.byteLength !== res.buffer.byteLength) {
+        return new Uint8Array(res.buffer.slice(res.byteOffset, res.byteOffset + res.byteLength));
+      }
+      return res;
     } catch (e: any) {
-      // If the browser already decompressed the gzip file transparently 
-      // (due to Content-Encoding headers from the CDN or server), pako will throw an error.
-      // In that case, the data is already decompressed, so we just return it.
-      console.warn('[ZLIB-SHIM] pako.ungzip failed (likely already decompressed):', e?.message || e);
-      return this._data;
+      // Passing the compressed bytes through made Kuromoji fail later with an
+      // unrelated Int32Array alignment RangeError. Keep the original cause.
+      throw new Error(`Dictionary gzip decompression failed: ${e?.message || e}`);
     }
   }
 }
 
-export const Zlib = { Gunzip };
-export default { Zlib };
+const Zlib: any = { Gunzip };
+Zlib.Zlib = Zlib;
+
+export { Zlib, Gunzip };
+export default { Zlib, Gunzip };

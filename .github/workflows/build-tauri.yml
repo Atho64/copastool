@@ -156,11 +156,21 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Initialize & Build Android APK
+      - name: Initialize Android project
         run: |
           npx tauri android init --ci --skip-targets-install || true
           node scripts/patch-android-overlay.mjs
-          npm run tauri android build -- --apk --ci --target aarch64 --target armv7 --target x86_64
+
+      # gen/ is gitignored and `tauri android init` scaffolds the DEFAULT Tauri
+      # template launcher icons into it. `tauri icon` writes the real launcher
+      # mipmaps (from icons-src/icon.png, the tracked 1024x1024 master) directly
+      # into the generated Android project, so it must run after init and before
+      # the build — otherwise the published APK ships with the default Tauri icon.
+      - name: Regenerate Android launcher icons
+        run: npx tauri icon ./icons-src/icon.png
+
+      - name: Build Android APK
+        run: npm run tauri android build -- --apk --ci --target aarch64 --target armv7 --target x86_64
 
       - name: Sign & Align Android APK
         env:

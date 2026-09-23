@@ -25,11 +25,7 @@ import { getCustomParser, isValidCustomParser, upsertCustomParser } from './cust
 import { prefillIncrement } from './increment';
 import { stringifyAsync, parseAsync } from './storage-worker';
 import { saveOrDownloadBlob } from './download-helper';
-
-/** Best-effort native OS notification for save failures (no-op on plain web). */
-function notifySaveError(message: string): void {
-  void import('./native-notify').then(m => m.nativeNotify('CopasTool — Penyimpanan', message)).catch(() => {});
-}
+import { cstlPrompt, cstlConfirm } from './dialog';
 
 export function isProjectFile(name: string): boolean {
   return name.endsWith(PROJECT_EXT) || name.endsWith(LEGACY_PROJECT_EXT);
@@ -182,7 +178,9 @@ export function applyPalette(name: string): void {
       root.style.removeProperty(prop);
     }
   }
-  const iconUrl = `./icon-${key}.svg`;
+  // 'indigo' is byte-identical to icon.svg — reuse the canonical file so the
+  // PWA precaches one indigo icon instead of two.
+  const iconUrl = key === 'indigo' ? './icon.svg' : `./icon-${key}.svg`;
   const logoImg = document.querySelector('.hero-logo-img') as HTMLImageElement | null;
   if (logoImg) logoImg.src = iconUrl;
   const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
@@ -458,10 +456,10 @@ export function removeProjectMetaFromCache(id: string): void {
 }
 
 export function syncProjectMetaCache(id: string, dataObj: any): void {
-  const lines = Array.isArray(dataObj.lines) ? dataObj.lines : [];
+  const lines = Array.isArray(dataObj.lines) ? dataObj.lines.filter((line: any) => !isIlustrasiLine(line)) : [];
   let translatedLines = 0;
   for (const l of lines) {
-    if (isIlustrasiLine(l) || (l && l.is_translated && (dataObj.disable_empty_line_validation || !!String(l.trans_message || '').trim()))) {
+    if (l && !isIlustrasiLine(l) && l.is_translated && (dataObj.disable_empty_line_validation || !!String(l.trans_message || '').trim())) {
       translatedLines++;
     }
   }
@@ -547,11 +545,18 @@ export async function loadDashboardProjects(): Promise<void> {
             };
           } else {
             const lines = Array.isArray(data.lines) ? data.lines : [];
-            const totalLines = lines.length;
+            let totalLines = 0;
             let translatedLines = 0;
-            for (const l of lines) {
-              if (isIlustrasiLine(l) || (l && l.is_translated && (data.disable_empty_line_validation || !!String(l.trans_message || '').trim()))) {
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              if (!isIlustrasiLine(line)) totalLines++;
+              if (line && !isIlustrasiLine(line) && line.is_translated && (data.disable_empty_line_validation || !!String(line.trans_message || '').trim())) {
                 translatedLines++;
+              }
+              // First-time indexing can touch hundreds of thousands of lines.
+              // Yield regularly so dashboard animations and input keep frames.
+              if ((i + 1) % 2048 === 0) {
+                await new Promise<void>(resolve => setTimeout(resolve, 0));
               }
             }
             const fileCount = Array.isArray(data.imported_files) && data.imported_files.length > 0
@@ -729,7 +734,7 @@ export function renderDashboardProjects(): void {
       });
 
       card.querySelector('.btn-delete')?.addEventListener('click', async function(this: HTMLButtonElement) {
-        if (!confirm(`Hapus permanen proyek "${p.name}"?`)) return;
+        if (!await cstlConfirm(`Hapus permanen proyek "${p.name}"?`, { danger: true })) return;
         this.disabled = true;
         this.textContent = 'Menghapus...';
         try {
@@ -856,7 +861,7 @@ export function renderDashboardProjects(): void {
     });
 
     card.querySelector('.btn-delete')?.addEventListener('click', async function(this: HTMLButtonElement) {
-      if (!confirm(`Hapus permanen proyek "${p.name}"?`)) return;
+      if (!await cstlConfirm(`Hapus permanen proyek "${p.name}"?`, { danger: true })) return;
       this.disabled = true;
       this.textContent = 'Menghapus...';
       try {
@@ -883,7 +888,10 @@ export function renderDashboardProjects(): void {
 
 // ─── Project CRUD ─────────────────────────────────────────────────────────────
 export async function createNewProject(): Promise<void> {
-  const name = prompt('Masukkan nama proyek baru:');
+  const name = await cstlPrompt('Masukkan nama proyek baru:', '', {
+    title: 'Buat Proyek Baru',
+    placeholder: 'Nama proyek baru...',
+  });
   if (!name || !name.trim()) return;
   const id = 'proj_' + Date.now() + PROJECT_EXT;
   const d = getDefaultSettings();
@@ -1014,7 +1022,7 @@ async function loadProjectDataForOpen(id: string): Promise<any> {
 }
 
 export async function deleteProject(id: string, data: any): Promise<void> {
-  if (!confirm('Hapus proyek ini secara permanen?')) return;
+  if (!await cstlConfirm('Hapus proyek ini secara permanen?', { danger: true })) return;
   invalidatePrefetch(id);
   try {
     if (activeAutoSavePromise) {
@@ -1100,7 +1108,10 @@ export async function tryRepairProject(id: string): Promise<{ repaired: boolean;
 }
 
 export async function renameDashboardProject(id: string, oldName: string, data: any): Promise<void> {
-  const newName = prompt('Masukkan nama baru untuk proyek:', oldName);
+  const newName = await cstlPrompt('Masukkan nama baru untuk proyek:', oldName, {
+    title: 'Ubah Nama Proyek',
+    placeholder: 'Nama proyek...',
+  });
   if (!newName || newName.trim() === '' || newName === oldName) return;
   data.projectName = newName.trim();
   try {
@@ -1224,6 +1235,7 @@ function buildProjectPersistenceData(): Record<string, any> {
     source_lang: state.sourceLang, target_lang: state.targetLang,
     translationMode: state.translationMode || 'ai', jsonRefLang: state.jsonRefLang || '',
     epubTags: state.epubTags, epubSourceId: state.epubSourceId,
+    epub_images: state.epubImages,
     lucaExportLang: state.lucaExportLang,
     luca_profile: state.lucaProfile || DEFAULT_LUCA_PROFILE,
     luca_mc_display_name: state.lucaMcDisplayName || DEFAULT_LUCA_MC_DISPLAY_NAME,
@@ -1287,7 +1299,7 @@ export async function backupAllProjectsAsZip(): Promise<void> {
   // the whole backup; they are already flagged on the dashboard.
   const projects = (state.dashboardProjects || []).filter((p: any) => !p.corrupt);
   if (!projects.length) { alert('Belum ada proyek untuk dibackup.'); return; }
-  if (!confirm(`Backup semua ${projects.length} proyek sebagai satu file ZIP?`)) return;
+  if (!await cstlConfirm(`Backup semua ${projects.length} proyek sebagai satu file ZIP?`, { title: 'Backup Semua Proyek' })) return;
   const button = ui.btnBackupAllProjects as HTMLButtonElement | undefined;
   const originalLabel = button?.textContent || 'Backup Semua ZIP';
   if (button) {
@@ -1712,7 +1724,6 @@ export function queueAutoSave(): void {
     } catch (err) {
       console.error('Failed to autosave project', err);
       flashHint('Gagal menyimpan ke storage!');
-      notifySaveError('Gagal menyimpan proyek ke storage. Coba buka-tutup proyek atau periksa kuota penyimpanan.');
     } finally {
       if (activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
       if (getSaveTimeout() === timeout) setSaveTimeout(null);
@@ -1841,6 +1852,12 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.agentMaxTurns = (typeof data.agent_max_turns === 'number' && data.agent_max_turns >= 3) ? data.agent_max_turns : 10;
   state.showFurigana = !!data.show_furigana;
   state.furiganaType = data.furigana_type || 'hiragana';
+  if (state.showFurigana) {
+    import('./furigana').then(m => m.initFurigana()).catch((err: any) => {
+      console.error('[CSTL] Furigana initialization failed:', err);
+      import('./render').then(m => m.flashHint(`Furigana gagal dimuat: ${err?.message || err}`, false));
+    });
+  }
   state.showEpubImages = data.show_epub_images !== undefined ? !!data.show_epub_images : (getDefaultSettings().showEpubImages !== false);
   state.enableDictionary = !!data.enable_dictionary;
   state.dictionaryEngine = data.dictionary_engine === 'jisho' ? 'jisho' : 'llm';
@@ -1849,11 +1866,35 @@ export async function openProject(id: string, data: any): Promise<void> {
   document.documentElement.style.setProperty('--content-font-size', state.fontSize + 'px');
   state.similarityThreshold = (typeof data.similarity_threshold === 'number' && data.similarity_threshold > 0 && data.similarity_threshold < 1)
     ? data.similarity_threshold : 0.7;
-  state.lines = data.__linesNormalized
+  const sourceLines = data.__linesNormalized
     ? (data.lines || [])
     : (data.lines || []).map(normalizeLineDict);
+  const imageAssets = Array.isArray(data.epub_images)
+    ? data.epub_images.filter((image: any) => image && image.file && image.src).map((image: any) => ({
+        file: String(image.file), src: String(image.src), afterLineNum: Number(image.afterLineNum) || 0,
+      }))
+    : [];
+  const legacyImageAssets: Array<{ file: string; src: string; afterLineNum: number }> = [];
+  const previousTextLineByFile = new Map<string, number>();
+  state.lines = [];
+  for (const line of sourceLines as Line[]) {
+    if (isIlustrasiLine(line)) {
+      legacyImageAssets.push({
+        file: line.file,
+        src: line.epub_img_src!,
+        afterLineNum: previousTextLineByFile.get(line.file) || 0,
+      });
+      continue;
+    }
+    state.lines.push(line);
+    previousTextLineByFile.set(line.file, line.line_num);
+  }
+  state.epubImages = imageAssets.concat(legacyImageAssets);
   state.importedFiles = data.imported_files || [];
   state.fileOrder = data.file_order || [];
+  if (legacyImageAssets.length > 0) {
+    (await import('./render')).renumberLinesToDisplayOrder();
+  }
   state.aiInstructionHeader = data.prompt_header || DEFAULT_PROMPT_HEADER;
   state.aiTranslationFormat = data.ai_translation_format != null
     ? normalizeAiTranslationFormat(data.ai_translation_format)
@@ -1930,9 +1971,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   (ui.workspaceView as HTMLElement).style.display = 'flex';
   await new Promise(r => setTimeout(r, 0));
   if (state.projectType === 'epub' && state.epubSourceId && state.showEpubImages === true) {
-    preloadEpubImages().then(() => {
-      refreshAll();
-    });
+    preloadEpubImages();
   }
   // Rows first, derived views after the first paint: the workspace shows up
   // immediately instead of waiting for the name table and status bar passes.
@@ -1983,7 +2022,6 @@ export async function closeProject(): Promise<void> {
     await savePromise;
   } catch (err: any) {
     console.error('Failed to save project before closing', err);
-    notifySaveError('Gagal menyimpan proyek saat ditutup.');
     alert('Gagal menyimpan proyek terakhir!\n\nBuka kembali proyek tersebut dan lakukan backup manual.\n\n' + (err?.message || err));
   } finally {
     if (savePromise && activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
@@ -1993,10 +2031,12 @@ export async function closeProject(): Promise<void> {
 
 export function finishClose(): void {
   try { (window as any).CSTL?.plugins?.onProjectClosed(); } catch (_) {}
+  import('./immersive').then(m => m.Immersive.closeIfOpen()).catch(() => {});
   releaseProjectLock(state.currentProjectId);
   state.currentProjectId = null;
   state.projectLoggingEnabled = false;
   state.lines = [];
+  state.epubImages = [];
   state.selectedLines.clear();
   resetSelectionHistory();
   clearEpubImageCache();

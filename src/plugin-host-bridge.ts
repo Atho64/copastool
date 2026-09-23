@@ -11,6 +11,7 @@ import { flashHint, refreshAll } from './render';
 import { onCopyForAi } from './translate';
 import { updateCustomImportAccept } from './custom-parser-modal';
 import jszipSource from 'jszip/dist/jszip.min.js?raw';
+import { cstlPrompt, cstlConfirm } from './dialog';
 
 export function createPluginHostBridge(): PluginHostBridge {
   try {
@@ -403,10 +404,10 @@ export function createPluginHostBridge(): PluginHostBridge {
         return fn ? fn() : (document.getElementById(name) || document.querySelector(name) || null);
       },
       prompt: async (title: string, def: string = ''): Promise<string | null> => {
-        return window.prompt(title, def);
+        return cstlPrompt(title, def);
       },
       confirm: async (title: string, body?: string): Promise<boolean | null> => {
-        return window.confirm(`${title}${body ? `\n\n${body}` : ''}`);
+        return cstlConfirm(`${title}${body ? `\n\n${body}` : ''}`, { title });
       },
       alert: async (title: string, body?: string): Promise<void> => {
         flashHint(`${title}${body ? `: ${body}` : ''}`);

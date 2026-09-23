@@ -150,7 +150,7 @@ export async function onAgentTranslate(): Promise<void> {
 
   if (isAgentTranslating) {
     isAgentTranslating = false;
-    void import('./notify').then(m => m.notifyStop('Agent Translate dihentikan.', 'warn'));
+      flashHint('Agent Translate dihentikan.');
     btn.textContent = 'Menghentikan...';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
@@ -202,7 +202,7 @@ export async function onAgentTranslate(): Promise<void> {
           flashHint(`Agent menyarankan ${glossarySuggestions.length} istilah glosarium — periksa di tab Glosarium.`);
         }
         alert('Selesai! Semua baris target telah diterjemahkan oleh Agent.');
-        void import('./notify').then(m => m.notifyStop('Agent Translate selesai.', 'success'));
+      flashHint('Agent Translate selesai.');
         break;
       }
 
@@ -383,7 +383,7 @@ export async function onAgentTranslate(): Promise<void> {
     }
   } catch (err: any) {
     if (isAgentTranslating) {
-      void import('./notify').then(m => m.notifyStop(`Agent Translate berhenti: ${String(err?.message || err)}`, 'danger'));
+      flashHint(`Agent Translate berhenti: ${String(err?.message || err)}`);
       alert('Agent Translate berhenti karena error:\n\n' + err.message);
     }
   } finally {

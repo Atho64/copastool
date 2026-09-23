@@ -37,6 +37,8 @@ import {
   openAiCompanion,
   fetchCurrentAiResult,
   setOverlayBackgroundWork,
+  triggerNextNewChat,
+  resetNativeSendCounts,
 } from './ai-webview-controller';
 import { readClipboardText } from './native-clipboard';
 import JSZip from 'jszip';
@@ -60,17 +62,30 @@ type ExtMsg = {
   stage?: string;
   detail?: string;
   extensionVersion?: string;
-  settings?: { target?: CopasTargetId; mode?: CopasMode; [key: string]: any };
+  settings?: { target?: CopasTargetId; mode?: CopasMode; newTabEvery?: number; [key: string]: any };
   capabilities?: { targets?: string[]; modes?: string[] };
 };
 
 let available = false;
 let extensionVersion = '';
-let lastSettings: { target: CopasTargetId; mode: CopasMode } = {
+let lastSettings: { target: CopasTargetId; mode: CopasMode; newTabEvery: number } = {
   target: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_target')) as CopasTargetId) || 'gemini',
   mode: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_mode')) as CopasMode) || 'semi',
+  newTabEvery: (typeof localStorage !== 'undefined' && Number(localStorage.getItem('cstl_copas_new_tab_every'))) || 0,
 };
 let statusText = 'Extension: mengecek…';
+
+export function getConnectedStatusMsg(): string {
+  const hint = lastSettings.newTabEvery > 0 ? ` (tiap ${lastSettings.newTabEvery} req)` : '';
+  return `Auto Copas · ${lastSettings.target}/${lastSettings.mode}${hint}`;
+}
+
+export function updateAutoCopasStatusMessages(): void {
+  const msg = getConnectedStatusMsg();
+  setStatus(msg);
+  setGlossaryStatus(msg);
+  setAiCheckExtStatus(msg);
+}
 
 function isAutoRepeatEnabled(): boolean {
   const el = (ui.checkAutoRepeatOnFailure as HTMLInputElement | undefined)
@@ -133,6 +148,7 @@ function retryLabel(): string {
 }
 
 async function prepareRetry(): Promise<void> {
+  triggerNextNewChat();
   if (lastSettings.target !== 'arena') await triggerExtensionNewChat();
 }
 
@@ -227,7 +243,7 @@ async function handleTauriNativeRequest(msg: Record<string, unknown>, workflow?:
       requestId,
       ok: true,
       extensionVersion: 'Tauri Native 2.0',
-      settings: { target: lastSettings.target, mode: lastSettings.mode },
+      settings: { target: lastSettings.target, mode: lastSettings.mode, newTabEvery: lastSettings.newTabEvery || 0 },
       capabilities: {
         targets: ['gemini', 'chatgpt', 'deepseek', 'meta', 'claude', 'qwen', 'arena', 'freebuff'],
         modes: ['semi', 'full'],
@@ -240,7 +256,7 @@ async function handleTauriNativeRequest(msg: Record<string, unknown>, workflow?:
       type: 'COPAS_SETTINGS',
       requestId,
       ok: true,
-      settings: { target: lastSettings.target, mode: lastSettings.mode, newTabEvery: 0 },
+      settings: { target: lastSettings.target, mode: lastSettings.mode, newTabEvery: lastSettings.newTabEvery || 0 },
     };
   }
 
@@ -249,12 +265,16 @@ async function handleTauriNativeRequest(msg: Record<string, unknown>, workflow?:
       const s = msg.settings as any;
       if (s.target) lastSettings.target = s.target;
       if (s.mode) lastSettings.mode = s.mode;
+      if (s.newTabEvery !== undefined) {
+        lastSettings.newTabEvery = Math.max(0, Math.min(100, Math.floor(Number(s.newTabEvery) || 0)));
+        try { localStorage.setItem('cstl_copas_new_tab_every', String(lastSettings.newTabEvery)); } catch (_) {}
+      }
     }
     return {
       type: 'COPAS_SETTINGS',
       requestId,
       ok: true,
-      settings: { target: lastSettings.target, mode: lastSettings.mode },
+      settings: { target: lastSettings.target, mode: lastSettings.mode, newTabEvery: lastSettings.newTabEvery || 0 },
     };
   }
 
@@ -297,7 +317,8 @@ async function handleTauriNativeRequest(msg: Record<string, unknown>, workflow?:
       } as unknown as MessageEvent);
     };
 
-    const res = await executeAiWorkflow(target, payload, mode, onProgress);
+    const newTabEvery = lastSettings.newTabEvery || 0;
+    const res = await executeAiWorkflow(target, payload, mode, onProgress, newTabEvery);
     if (!res.ok) {
       return {
         type: 'COPAS_RESULT',
@@ -451,12 +472,16 @@ export async function pingExtension(): Promise<boolean> {
     if (res.settings?.mode === 'semi' || res.settings?.mode === 'full') {
       lastSettings.mode = res.settings.mode;
     }
+    if (typeof res.settings?.newTabEvery === 'number') {
+      lastSettings.newTabEvery = res.settings.newTabEvery;
+      const newTabInput = document.getElementById('autoCopasNewTabEveryInput') as HTMLInputElement | null;
+      if (newTabInput) {
+        newTabInput.value = String(lastSettings.newTabEvery);
+      }
+    }
     syncSettingsUi();
     setAutoCopasVisible(true);
-    const connectedMsg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
-    setStatus(connectedMsg);
-    setGlossaryStatus(connectedMsg);
-    setAiCheckExtStatus(connectedMsg);
+    updateAutoCopasStatusMessages();
     updateButtonStates();
     return true;
   }
@@ -481,7 +506,11 @@ export async function applyLocalSettingsToExtension(): Promise<void> {
   await request({
     type: 'COPAS_SET_SETTINGS',
     requestId: rid(),
-    settings: { target: lastSettings.target, mode: lastSettings.mode },
+    settings: {
+      target: lastSettings.target,
+      mode: lastSettings.mode,
+      newTabEvery: lastSettings.newTabEvery || 0,
+    },
   }, 2000);
 }
 
@@ -654,7 +683,6 @@ async function runFullAutoBatches(): Promise<void> {
       }
     }
     if (isFullAutoRunning) {
-      void import('./notify').then(m => m.notifyStop(`Full Auto selesai: ${appliedCount} baris diterapkan.`, 'success'));
       flashHint(`Full auto selesai: ${appliedCount} baris diterapkan.`);
       setStatus(`Full auto selesai — ${appliedCount} baris diterapkan`);
     }
@@ -799,7 +827,6 @@ async function runGlossaryFullAuto(): Promise<void> {
       retryCount = 0;
     }
     if (isGlossaryAutoRunning) {
-      void import('./notify').then(m => m.notifyStop(`Auto Glossary selesai: ${processed} baris, ${totalAdded} entri baru, ${totalUpdated} diperbarui.`, 'success'));
       flashHint(`Auto Glossary selesai: ${processed} baris, ${totalAdded} entri baru, ${totalUpdated} diperbarui.`);
       setGlossaryStatus(`Selesai — ${processed} baris · ${totalAdded} baru · ${totalUpdated} diperbarui.`);
     }
@@ -880,7 +907,7 @@ export function cancelGlossaryAutoCopas(): void {
   }
   showGlossaryCancelButton(false);
   setGlossaryStatus('Dibatalkan.');
-  void import('./notify').then(m => m.notifyStop('Auto Glossary dibatalkan.', 'warn'));
+      flashHint('Auto Glossary dibatalkan.');
 }
 
 // ─── AI Check helpers ─────────────────────────────────────────────────────────
@@ -1085,7 +1112,6 @@ async function runAiCheckFullAuto(): Promise<void> {
       const msg = reviewMode
         ? `Auto AI Check selesai: ${processed} baris diproses.`
         : `Auto AI Check selesai: ${processed} baris diproses, ${totalApplied} koreksi diterapkan.`;
-      void import('./notify').then(m => m.notifyStop(msg, 'success'));
       flashHint(msg);
       setAiCheckExtStatus(`Selesai.`);
       setAiCheckStatus(msg);
@@ -1170,7 +1196,7 @@ export function cancelAiCheckAutoCopas(): void {
   }
   showAiCheckCancelButton(false);
   setAiCheckExtStatus('Dibatalkan.');
-  void import('./notify').then(m => m.notifyStop('Auto AI Check dibatalkan.', 'warn'));
+      flashHint('Auto AI Check dibatalkan.');
 }
 
 export async function sendAutoCopas(): Promise<void> {
@@ -1224,7 +1250,7 @@ export async function cancelAutoCopas(): Promise<void> {
   if (!translateRequestId) {
     showCancelButton(false);
     setStatus('Dibatalkan');
-    void import('./notify').then(m => m.notifyStop('Auto Copas dibatalkan.', 'warn'));
+      flashHint('Auto Copas dibatalkan.');
     return;
   }
   const reqId = translateRequestId;
@@ -1232,7 +1258,7 @@ export async function cancelAutoCopas(): Promise<void> {
   cancelRequest(reqId, 'translate');
   showCancelButton(false);
   translateRequestId = null;
-  void import('./notify').then(m => m.notifyStop('Auto Copas dibatalkan.', 'warn'));
+      flashHint('Auto Copas dibatalkan.');
   setStatus('Dibatalkan');
 }
 
@@ -1307,16 +1333,14 @@ export function initExtensionBridge(): void {
   // Wire up Target AI select and Mode select
   const targetSel = document.getElementById('autoCopasTargetSelect') as HTMLSelectElement | null;
   const modeSel = document.getElementById('autoCopasModeSelect') as HTMLSelectElement | null;
+  const newTabInput = document.getElementById('autoCopasNewTabEveryInput') as HTMLInputElement | null;
 
   if (targetSel) {
     targetSel.value = lastSettings.target;
     targetSel.addEventListener('change', () => {
       lastSettings.target = targetSel.value as CopasTargetId;
       try { localStorage.setItem('cstl_copas_target', lastSettings.target); } catch (_) {}
-      const msg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
-      setStatus(msg);
-      setGlossaryStatus(msg);
-      setAiCheckExtStatus(msg);
+      updateAutoCopasStatusMessages();
       void applyLocalSettingsToExtension();
     });
   }
@@ -1326,18 +1350,25 @@ export function initExtensionBridge(): void {
     modeSel.addEventListener('change', () => {
       lastSettings.mode = modeSel.value as CopasMode;
       try { localStorage.setItem('cstl_copas_mode', lastSettings.mode); } catch (_) {}
-      const msg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
-      setStatus(msg);
-      setGlossaryStatus(msg);
-      setAiCheckExtStatus(msg);
+      updateAutoCopasStatusMessages();
       void applyLocalSettingsToExtension();
     });
   }
 
-  const connectedMsg = `Auto Copas · ${lastSettings.target}/${lastSettings.mode}`;
-  setStatus(connectedMsg);
-  setGlossaryStatus(connectedMsg);
-  setAiCheckExtStatus(connectedMsg);
+  if (newTabInput) {
+    newTabInput.value = String(lastSettings.newTabEvery || 0);
+    newTabInput.addEventListener('change', () => {
+      const val = Math.max(0, Math.min(100, Math.floor(Number(newTabInput.value) || 0)));
+      lastSettings.newTabEvery = val;
+      newTabInput.value = String(val);
+      try { localStorage.setItem('cstl_copas_new_tab_every', String(val)); } catch (_) {}
+      resetNativeSendCounts();
+      updateAutoCopasStatusMessages();
+      void applyLocalSettingsToExtension();
+    });
+  }
+
+  updateAutoCopasStatusMessages();
   updateButtonStates();
 
   window.setTimeout(() => { void pingExtension(); }, 400);

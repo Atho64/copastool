@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.7-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.8-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -15,10 +15,9 @@ Tool bantu penerjemahan visual novel dan novel (EPUB) yang ditenagai oleh **Taur
 ## Fitur
 
 ### Impor
-- **File / Folder** — Impor file `.json` atau `.epub` satu-satu atau sekalian satu folder
+- **File / Folder** — Impor file `.json` atau `.epub` satu-satu atau sekalian satu folder. Di Android, pemilih folder native membaca subfolder melalui Storage Access Framework.
 - **ZIP** — Impor banyak file sekaligus dari arsip `.zip`
-- **TXT LucaSystem** — Impor script dari game berbasis LucaSystem (format `.txt` khusus: Summer Pockets Steam, CLANNAD Switch, Tomoyo After Switch, CLANNAD Side Stories)
-- **Impor File (Plugin/Parser)** — Impor format game lain yang didukung plugin terpasang (menu khusus + routing otomatis berdasarkan ekstensi/magic signature)
+- **Impor File (Plugin/Parser)** — Impor format game yang didukung plugin terpasang (menu khusus + routing otomatis berdasarkan ekstensi/magic signature)
 - **Sistem Plugin & Parser (.zip / JS / Python)** — Pasang plugin ekstensi untuk format game, tema kustom, atau utilitas khusus. Lihat panduan lengkap di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
 - **File / Folder Terjemahan** — Merge hasil terjemahan ke proyek yang sudah ada
 
@@ -105,7 +104,24 @@ Kelola nama karakter, tempat, dan istilah khusus supaya terjemahan konsisten.
 - Replace All
 
 ### Editor Baris
-Klik baris manapun untuk buka editor individual. Di sini bisa edit nama karakter, teks asli, terjemahan, dan tandai status terjemahan. Untuk proyek LucaSystem, referensi teks EN/ZH ditampilkan berdampingan.
+Klik baris manapun untuk buka editor individual. Di sini bisa edit nama karakter, teks asli, terjemahan, dan tandai status terjemahan. Di Android editor muncul sebagai panel dari bawah agar tetap mudah dipakai bersama keyboard.
+
+### EPUB
+- Gambar berdiri sendiri tampil sebagai ilustrasi di antara bab/baris dan tidak menambah nomor baris terjemahan.
+- Gambar yang menyertai paragraf teks tetap tampil pada baris teksnya.
+
+### Mode Immersif (Fullscreen Reader)
+Membaca terjemahan novel/visual novel tanpa distraksi dengan tampilan layar penuh:
+- **Toggle Teks Asli / Terjemahan** — Tombol instan di header untuk beralih antara teks asli Jepang dan hasil terjemahan.
+- **Kustomisasi Tampilan** — Ukuran font fleksibel (*stepper* + / -), opsi lebar teks (Sempit, Sedang, Lebar), dan tema nyaman di mata (Gelap, Sepia, Terang).
+- **Drawer Bookmark Terintegrasi** — Akses daftar bookmark langsung di mode baca untuk loncat ke baris tertentu tanpa keluar dari layar immersif.
+- **Shortcut & Kontrol Cepat** — `Alt + I` untuk buka/tutup, `Esc` untuk keluar, dan tombol sembunyikan/tampilkan header untuk fokus membaca penuh.
+
+### Tampilan & Furigana
+- **Konversi Furigana Otomatis** — Didukung mesin Kuroshiro + Kuromoji yang berjalan di Web Worker terpisah agar antarmuka tetap responsif 60fps saat membaca naskah ribuan baris.
+- **Pilihan Format Furigana** — Hiragana (default), Katakana, atau Romaji.
+- **Cache Furigana Cerdas** — Menyimpan hasil konversi kanji sehingga tidak membebani CPU saat scrolling berulang.
+- **Kamus & Morfologi Kata** — Fitur pencarian arti kata bawaan untuk melihat cara baca, bentuk dasar, dan terjemahan langsung dari teks.
 
 ### Seleksi & Auto-Increment
 - Pilih semua, pilih range (baris X–Y), atau klik manual
@@ -116,30 +132,37 @@ Klik baris manapun untuk buka editor individual. Di sini bisa edit nama karakter
 
 ### Pengaturan
 - Bahasa sumber & target
+- **Referensi Bahasa Tambahan (JSON)** — Impor teks referensi bahasa lain (misalnya terjemahan Inggris/Mandarin) per file atau seluruh folder (Storage Access Framework Android) dengan kontrol kartu per slot (Ref 1 & Ref 2).
 - Jumlah baris per batch (terjemahan, glosarium, AI check)
 - Jumlah baris konteks yang ikut di-copy ke AI
-- Regex filter kustom
-- Konfigurasi LucaSystem: profil game, nama MC, bahasa ekspor
+- Regex filter kustom (dengan opsi case-sensitive)
 - Tag HTML untuk parsing EPUB
 
+### Alat Tambahan (Menu Tools)
+- **File Explorer OPFS** — Jelajahi dan kelola file virtual workspace internal browser/native (lihat ukuran file, unduh, atau bersihkan file direktori OPFS).
+- **Riwayat Kamus** — Buka kembali riwayat pencarian kosakata Jepang dan arti kata.
+- **Text Replacer** — Penggantian teks massal cepat di luar alur kerja proofread.
+
 ### Penyimpanan
-Semua proyek disimpan langsung di penyimpanan native OS (bebas batas kuota browser) atau browser **OPFS**. Proyek bisa di-backup dan dipulihkan lewat file `.copas` (format `.cstl` tetap didukung penuh). Di desktop ada juga **Backup ke Folder** yang menulis backup langsung ke folder lokal pilihan (bisa disinkronkan ke cloud — lihat [di bawah](#backup-ke-folder-desktop)).
+Semua proyek disimpan langsung di penyimpanan native OS (bebas batas kuota browser) atau browser **OPFS**. Proyek bisa di-backup dan dipulihkan lewat file `.copas` (format `.cstl` tetap didukung penuh). **Backup ke Folder** tersedia di Chrome/Edge desktop dan aplikasi Android: desktop memakai File System Access API, sedangkan Android memakai pemilih folder native. Lihat [petunjuk backup folder](#backup-ke-folder).
 
-Data biner besar (file mentah LucaSystem) disimpan di file penyimpanan terpisah supaya auto-save tetap ringan. Dashboard hanya memuat metadata proyek, bukan seluruh isi data — jadi tetap cepat meski proyek sudah banyak.
+Data biner besar dan aset file disimpan di file penyimpanan terpisah supaya auto-save tetap ringan. Dashboard hanya memuat metadata proyek, bukan seluruh isi data — jadi tetap cepat meski proyek sudah banyak.
 
-#### Backup ke Folder (Desktop)
+#### Backup ke Folder
 
-> Hanya tersedia di **Chrome / Edge / Brave / Opera desktop**. Di HP atau Firefox/Safari tombolnya otomatis disembunyikan — pakai **Backup Semua ZIP** sebagai gantinya.
+> Di desktop fitur ini tersedia pada **Chrome / Edge / Brave / Opera**. Di aplikasi Android native, folder dipilih melalui pemilih folder sistem. Firefox/Safari dan browser mobile lain tetap memakai **Backup Semua ZIP**.
 
-CSTL bisa menulis file backup **langsung ke satu folder di komputer kamu** yang kamu pilih sendiri — tanpa download, tanpa upload, tanpa login akun apa pun. Ini pakai izin bawaan browser (*File System Access API*): kamu memberi CSTL akses ke **satu folder itu saja**, bukan seluruh komputer, dan CSTL tidak pernah tahu apa yang terjadi pada folder itu selanjutnya.
+CSTL menulis file backup **langsung ke satu folder yang kamu pilih** — tanpa download atau upload ke layanan cloud. Desktop menggunakan izin folder bawaan browser (*File System Access API*). Android menggunakan izin folder Storage Access Framework; izin baca/tulis disimpan oleh Android supaya folder yang sama bisa dipakai lagi setelah aplikasi dibuka ulang.
 
 **Cara pakai:**
 
-1. Klik **Backup ke Folder** di dashboard → muncul dialog pemilih folder bawaan Windows → pilih foldernya (misal `D:\CopasTool Backups`).
-2. Semua proyek ditulis ke folder itu sebagai file `nama_proyek_backup.copas` — isinya sama persis dengan backup download (termasuk data mentah Luca dan file EPUB asli). Klik tombol yang sama lain kali untuk menimpa dengan versi terbaru.
-3. Klik **Pulihkan dari Folder** untuk melihat daftar file backup (`.copas` dan `.cstl`) di folder itu beserta ukuran dan tanggalnya, lalu pulihkan yang kamu mau. Hasil pemulihan selalu jadi proyek baru — proyek yang sekarang tidak tertimpa.
+1. Klik **Backup ke Folder** di dashboard, lalu pilih folder pada dialog sistem (desktop atau Android).
+2. Proyek disimpan di sana sebagai file `nama_proyek_backup.copas` — termasuk file EPUB asli dan aset data pendukung. Menjalankan backup lagi akan memperbarui file bernama sama.
+3. Klik **Pulihkan dari Folder** untuk memilih backup `.copas`, `.copas.zip`, atau `.cstl`. Pemulihan membuat proyek baru.
 
-**Soal izin "Allow":** selama browser masih jalan, izin diingat dan backup berjalan tanpa popup. Setelah browser ditutup dan dibuka lagi, klik backup pertama memunculkan satu popup kecil konfirmasi — pilih **Allow on every visit** supaya tidak ditanya lagi selamanya.
+**Android:** folder dapat berada di penyimpanan perangkat atau penyedia dokumen seperti Google Drive. Berikan akses saat dialog Android memintanya. Untuk backup portabel satu file atau jika pemilih folder tidak tersedia, gunakan **Backup Semua ZIP**.
+
+**Desktop:** browser dapat meminta izin folder lagi setelah dimulai ulang. Pilih **Allow on every visit** jika browser menawarkan opsi tersebut.
 
 **Sinkron ke cloud (opsional):** folder itu folder biasa, jadi bisa diarahkan ke folder milik aplikasi sinkron supaya backup naik ke cloud otomatis:
 
@@ -162,6 +185,7 @@ CSTL dilengkapi sistem pintasan keyboard bawaan yang dapat dikustomisasi dan dir
 | | Kembali ke Dashboard | `Alt + B` |
 | | Buka Daftar Bookmark | `Alt + M` |
 | | Jalankan Auto Translate | `Alt + T` |
+| | Buka Mode Immersif | `Alt + I` |
 | **Seleksi & Navigasi** | Pilih Semua Baris | `Alt + A` |
 | | Batal Pilih Baris | `Alt + Q` |
 | | Pilih Rentang Baris | `Alt + L` |
@@ -182,7 +206,7 @@ CSTL dilengkapi sistem pintasan keyboard bawaan yang dapat dikustomisasi dan dir
 
 ### 1. Mulai Proyek Baru
 
-Buka [atho64.github.io/cstl](https://atho64.github.io/cstl/), klik **Buat Proyek Baru**, isi nama proyek dan pilih tipe file yang akan diimpor (JSON, EPUB, atau LucaSystem). Setelah proyek dibuat, klik **Buka** untuk masuk ke workspace.
+Buka aplikasi CSTL di desktop atau Android, klik **Buat Project**, isi nama proyek dan pilih tipe file yang akan diimpor (JSON atau EPUB). Setelah proyek dibuat, klik **Buka** untuk masuk ke workspace.
 
 ### 2. Impor Script
 
@@ -251,7 +275,7 @@ Gunakan tab **Proofread** untuk cari dan ganti teks secara massal:
 
 ### 9. Ekspor
 
-Kalau sudah selesai, klik **Ekspor** di toolbar. File hasil terjemahan akan didownload dalam format aslinya (`.json`, `.epub`, atau `.txt` LucaSystem). Untuk format game lain, ekspor round-trip dijalankan oleh plugin parser terpasang (`pack()`) — termasuk format biner dan multi-file arsip.
+Kalau sudah selesai, klik **Ekspor** di toolbar. File hasil terjemahan akan didownload dalam format aslinya (`.json` atau `.epub`). Untuk format game lain, ekspor round-trip dijalankan oleh plugin parser terpasang (`pack()`) — termasuk format biner dan multi-file arsip.
 
 Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard — file `.copas` akan tersimpan dan bisa dipulihkan kapanpun lewat tombol **Pulihkan** (file format lama `.cstl` juga tetap didukung).
 
@@ -264,7 +288,7 @@ Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard 
 | `.epub` | ✅ | ✅ | |
 | `.zip` | ✅ | — | Berisi banyak file |
 | `.copas` / `.cstl` | ✅ | ✅ | Backup proyek (format baru `.copas`, legacy `.cstl` tetap didukung) |
-| LucaSystem `.txt` | ✅ | ✅ | Format script khusus LucaSystem |
+| Plugin / Parser Kustom | ✅ | ✅ | Format game/naskah tambahan via paket plugin (`.zip`) |
 
 ---
 
@@ -286,13 +310,12 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 
 **TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework berat. Dependensi utama:
 - **Tauri v2** — runtime desktop (Windows NSIS & MSI) dan mobile (Android APK)
-- **@tauri-apps/plugin-notification** — notifikasi sistem native (Windows Action Center & status toast)
 - **@tauri-apps/plugin-clipboard-manager** — sinkronisasi clipboard background untuk Auto Copas
 - **Web Worker Storage** — isolasi parsing dan commit IndexedDB/OPFS di thread terpisah agar UI tetap responsif 60fps
-- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, dan penyimpanan file langsung ke folder `Download`
+- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, pemilih folder Storage Access Framework untuk impor/backup, dan penyimpanan file langsung ke folder `Download`
 - **JSZip** — parsing file `.zip`
 - **Kuroshiro + Kuromoji** — konversi furigana (hiragana/romaji) untuk teks Jepang
-- **Pako** — kompresi/dekompresi data (dipakai untuk format LucaSystem)
+- **Pako** — kompresi/dekompresi data
 - **OPFS API & IndexedDB** — penyimpanan lokal file & database proyek
 - **vite-plugin-pwa** — PWA support (install ke homescreen, offline cache)
 
@@ -305,7 +328,6 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 - **Node.js 20+** dan npm
 - **Rust stable** + dependensi Tauri
 - Untuk Android: **Android SDK + NDK 26.3.11579264** dan **JDK 17**
-- Untuk Icon Asset: **Python 3** + `Pillow`
 
 ### Perintah
 
@@ -313,14 +335,13 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 |----------|--------|
 | `npm run dev` | Jalankan versi web (Vite dev server, port 5173) |
 | `npm run build` | Type-check (`tsc`) lalu build produksi ke `dist/` |
-| `npm run typecheck` | Type-check saja, tanpa emit |
+| `npm run preview` | Pratinjau lokal build produksi |
+| `npm run typecheck` | Type-check TypeScript saja, tanpa emit |
 | `npm run version:check` | Pastikan semua penanda versi sama dengan `package.json` |
 | `npm run tauri:dev` | Jalankan aplikasi desktop Tauri (mode dev) |
 | `npm run tauri:build` | Build installer Windows (NSIS/MSI) |
 | `npm run android:init` | Buat scaffold Android di `src-tauri/gen/` (sekali per clone) |
-| `npm run android:build` | Build APK Android |
-| `python scripts/generate-icons.py` | Generate icon karakter anime, varian tema SVG, dan multi-resolution ICO/PNG |
-| `scripts\gen-android-keystore.ps1` | Generate keystore rilis Android + file kredensial lokal |
+| `npm run android:build` | Patch bridge Android lalu build APK |
 | `scripts\build-and-install-android.ps1` | Build, align, sign & install langsung ke HP Android via ADB |
 
 > `src-tauri/gen/` masuk `.gitignore`, jadi **clone baru wajib menjalankan `npm run android:init`** sebelum build Android. Build desktop tidak butuh langkah ini.
@@ -352,12 +373,12 @@ CopasTool dapat dijalankan sebagai aplikasi native maupun aplikasi web (PWA):
 - **Windows Desktop (Native):**
   - Mendukung Windows 10 dan Windows 11 (64-bit).
   - Tersedia pilihan installer NSIS (`.exe`) dan Windows Installer (`.msi`).
-  - Menggunakan penyimpanan filesystem native (bebas kuota browser), Action Center notification, dan jendela pendamping AI terpisah.
+  - Menggunakan penyimpanan filesystem native (bebas kuota browser), notifikasi status dalam aplikasi, dan jendela pendamping AI terpisah.
 
 - **Android (Native):**
   - Mendukung Android 8.0 (Oreo / API level 26) ke atas.
   - APK Universal (`CopasTool_universal.apk`) mendukung arsitektur `arm64-v8a`, `armeabi-v7a`, dan `x86_64`.
-  - Dilengkapi in-app AI companion WebView overlay, background lifecycle keep-alive saat multitasking, dan penyimpanan langsung ke folder `Download`.
+  - Dilengkapi in-app AI companion WebView overlay, background lifecycle keep-alive saat multitasking, impor folder dan backup folder melalui pemilih Android, serta penyimpanan langsung ke folder `Download`.
 
 - **Web Browser & PWA:**
   - Dapat diinstall sebagai PWA ke homescreen/desktop dengan dukungan offline cache.

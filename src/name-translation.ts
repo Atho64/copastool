@@ -7,6 +7,7 @@ import { flashHint, rebuildDisplayState, renderPreviewRows, renderNameTable, upd
 import { queueAutoSave } from './project';
 import { applyPromptVariables } from './ai-format';
 import { DEFAULT_NAME_TRANSLATION_PROMPT } from './constants';
+import { cstlConfirm } from './dialog';
 
 
 export function buildNameTranslationPrompt(nameRows: any[]): string {
@@ -134,11 +135,11 @@ export function onApplyNameTranslations(): void {
   flashHint(`Diterapkan ${changedNames} nama ke ${affectedLineNums.length} baris.`);
 }
 
-export function onResetNameTranslations(): void {
+export async function onResetNameTranslations(): Promise<void> {
   const affectedLines = state.lines.filter(line => (line.name || '').trim() && (line.trans_name || '').trim());
   if (!affectedLines.length) return;
   const affectedNames = new Set(affectedLines.map(line => String(line.name || '').trim()));
-  if (!confirm(`Reset semua terjemah nama karakter?\n\nIni akan mengosongkan ${affectedNames.size} nama di ${affectedLines.length} baris.`)) return;
+  if (!await cstlConfirm(`Reset semua terjemah nama karakter?\n\nIni akan mengosongkan ${affectedNames.size} nama di ${affectedLines.length} baris.`, { danger: true, title: 'Reset Terjemah Nama' })) return;
 
   pushUndoSnapshot();
   for (const line of affectedLines) {

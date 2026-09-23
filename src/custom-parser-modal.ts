@@ -19,6 +19,7 @@ import { DEFAULT_LUCA_MC_DISPLAY_NAME } from './constants';
 import { queueAutoSave, closeModal as closeModalEl } from './project';
 import { saveOrDownloadBlob } from './download-helper';
 import type { CustomParser, CustomParsedEntry, CpMatchStrategy, CpMagicPattern, CustomParserAsset, CpSettingSpec } from './types';
+import { cstlConfirm } from './dialog';
 
 let editingId: string | null | undefined = undefined; // undefined = list view, null = parser baru
 let testFile: File | null = null;
@@ -268,7 +269,7 @@ async function addAssetFiles(files: FileList | File[]): Promise<void> {
     if (!name) continue;
     const bytes = new Uint8Array(await f.arrayBuffer());
     const existingIdx = editAssets.findIndex(a => a.name === name);
-    if (existingIdx >= 0 && !confirm(`Aset "${name}" sudah ada. Timpa?`)) continue;
+    if (existingIdx >= 0 && !await cstlConfirm(`Aset "${name}" sudah ada. Timpa?`, { title: 'Aset Sudah Ada' })) continue;
     const entry: CustomParserAsset = { name, dataBase64: base64FromBytes(bytes) };
     if (existingIdx >= 0) editAssets[existingIdx] = entry;
     else editAssets.push(entry);
@@ -732,7 +733,8 @@ export function initCustomParserModal(): void {
   ui.btnCpImportFolderNow?.addEventListener('click', () => {
     closeCpModal();
     updateCustomImportAccept();
-    (ui.importCustomFolderInput as HTMLInputElement).click();
+    // Go through the shared action so Android uses the SAF folder picker.
+    ui.btnImportCustomFolder?.click();
   });
 
   ui.cpParserList?.addEventListener('click', async (ev: Event) => {
@@ -756,7 +758,7 @@ export function initCustomParserModal(): void {
       renderParserList();
       (window as any).CSTL?.plugins?.sync?.().then(() => (window as any).CSTL?.plugins?.renderList?.());
     } else if (action === 'delete') {
-      if (confirm(`Hapus parser "${parser.name}"?\n\nProyek yang memakai parser ini tetap bisa dibuka, tapi ekspornya jatuh ke JSON.`)) {
+      if (await cstlConfirm(`Hapus parser "${parser.name}"?\n\nProyek yang memakai parser ini tetap bisa dibuka, tapi ekspornya jatuh ke JSON.`, { danger: true, title: 'Hapus Parser' })) {
         deleteCustomParser(id);
         deleteParserSettingValues(id);
         hideSettingsEditor();
@@ -786,15 +788,15 @@ export function initCustomParserModal(): void {
   // Tutup editor settings saat modal list ditutup.
   ui.btnCpCancel?.addEventListener('click', hideSettingsEditor);
 
-  ui.btnCpParseTemplate?.addEventListener('click', () => {
+  ui.btnCpParseTemplate?.addEventListener('click', async () => {
     const lang = (ui.cpLanguageSelect as HTMLSelectElement).value;
-    if ((ui.cpParseInput as HTMLTextAreaElement).value.trim() && !confirm('Ganti isi parse(ctx) dengan template contoh?')) return;
+    if ((ui.cpParseInput as HTMLTextAreaElement).value.trim() && !await cstlConfirm('Ganti isi parse(ctx) dengan template contoh?', { title: 'Ganti Template Parse' })) return;
     (ui.cpParseInput as HTMLTextAreaElement).value = lang === 'python' ? PY_PARSE_TEMPLATE : JS_PARSE_TEMPLATE;
   });
 
-  ui.btnCpSerializeTemplate?.addEventListener('click', () => {
+  ui.btnCpSerializeTemplate?.addEventListener('click', async () => {
     const lang = (ui.cpLanguageSelect as HTMLSelectElement).value;
-    if ((ui.cpSerializeInput as HTMLTextAreaElement).value.trim() && !confirm('Ganti isi serialize(ctx) dengan template contoh?')) return;
+    if ((ui.cpSerializeInput as HTMLTextAreaElement).value.trim() && !await cstlConfirm('Ganti isi serialize(ctx) dengan template contoh?', { title: 'Ganti Template Serialize' })) return;
     (ui.cpSerializeInput as HTMLTextAreaElement).value = lang === 'python' ? PY_SERIALIZE_TEMPLATE : JS_SERIALIZE_TEMPLATE;
   });
 
@@ -836,7 +838,7 @@ export function initCustomParserModal(): void {
     }
   });
 
-  ui.btnCpSave?.addEventListener('click', () => {
+  ui.btnCpSave?.addEventListener('click', async () => {
     const existing = editingId != null ? (loadCustomParsers().find(p => p.id === editingId) || null) : null;
     let parser: CustomParser;
     try {
@@ -848,7 +850,7 @@ export function initCustomParserModal(): void {
     if (editAssets.length > 0) parser.assets = editAssets.map(a => ({ ...a }));
     const assetBytes = parserAssetsTotalBytes(parser);
     if (assetBytes > CP_ASSETS_SOFT_LIMIT) {
-      const ok = confirm(
+      const ok = await cstlConfirm(
         `Total aset ${formatBytes(assetBytes)} melebihi batas nyaman ${formatBytes(CP_ASSETS_SOFT_LIMIT)}. ` +
         'localStorage browser ±5MB dan dipakai bersama data lain — terlalu besar berisiko gagal simpan. Tetap simpan?'
       );
@@ -856,14 +858,14 @@ export function initCustomParserModal(): void {
     }
     const builtinOverlap = parser.extensions.filter(ext => ['.json', '.epub', '.txt'].includes(ext));
     if (builtinOverlap.length > 0) {
-      const ok = confirm(
+      const ok = await cstlConfirm(
         `Parser ini mendaftarkan ekstensi bawaan CSTL: ${builtinOverlap.join(', ')}.\n` +
         'Parser custom akan MENGALAHKAN impor built-in untuk ekstensi tersebut.\n\nTetap simpan?'
       );
       if (!ok) return;
     }
     const dupe = loadCustomParsers().find(p => p.id !== parser.id && p.name.toLowerCase() === parser.name.toLowerCase());
-    if (dupe && !confirm(`Sudah ada parser bernama "${dupe.name}". Simpan dengan nama yang sama?`)) return;
+    if (dupe && !await cstlConfirm(`Sudah ada parser bernama "${dupe.name}". Simpan dengan nama yang sama?`, { title: 'Nama Parser Sama' })) return;
     upsertCustomParser(parser);
     updateCustomImportAccept();
     (window as any).CSTL?.plugins?.sync?.().then(() => (window as any).CSTL?.plugins?.renderList?.());

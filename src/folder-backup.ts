@@ -16,10 +16,15 @@ import {
   openModal, closeModal,
 } from './project';
 import { flashHint } from './render';
+import {
+  base64ToBytes, isAndroidNativeApp, listAndroidFolder, pickAndroidFolder,
+  readAndroidTreeFile, utf8ToBase64, writeAndroidTreeFile,
+} from './android-files';
 
 const IDB_NAME = 'cstl-folder-backup';
 const IDB_STORE = 'handles';
 const HANDLE_KEY = 'backupDir';
+const ANDROID_BACKUP_TREE_KEY = 'copastool_android_backup_tree_uri';
 
 export function isFolderBackupSupported(): boolean {
   return typeof (window as any).showDirectoryPicker === 'function';
@@ -87,6 +92,10 @@ export async function ensureBackupDir(): Promise<FileSystemDirectoryHandle | nul
 }
 
 export async function backupAllToFolder(): Promise<void> {
+  if (isAndroidNativeApp()) {
+    await backupAllToAndroidFolder();
+    return;
+  }
   if (!isFolderBackupSupported()) {
     alert('Folder Backup hanya tersedia di Chrome/Edge desktop. Di perangkat lain, pakai Backup Semua ZIP.');
     return;
@@ -113,6 +122,10 @@ export async function backupAllToFolder(): Promise<void> {
 }
 
 export async function openFolderRestorePicker(): Promise<void> {
+  if (isAndroidNativeApp()) {
+    await restoreAndroidFolderBackups();
+    return;
+  }
   if (!isFolderBackupSupported()) {
     alert('Folder Backup hanya tersedia di Chrome/Edge desktop. Di perangkat lain, pakai tombol Pulihkan Proyek.');
     return;
@@ -128,6 +141,65 @@ export async function openFolderRestorePicker(): Promise<void> {
   if (!backups.length) { alert('Tidak ada file backup (.copas / .cstl) di folder backup.'); return; }
   backups.sort((a, b) => b.file.lastModified - a.file.lastModified);
   showFolderRestoreModal(backups);
+}
+
+async function getAndroidBackupTree(purpose: 'backup' | 'restore'): Promise<string | null> {
+  const saved = localStorage.getItem(ANDROID_BACKUP_TREE_KEY);
+  if (saved) return saved;
+  const selected = await pickAndroidFolder(purpose);
+  if (selected) localStorage.setItem(ANDROID_BACKUP_TREE_KEY, selected);
+  return selected;
+}
+
+async function backupAllToAndroidFolder(): Promise<void> {
+  const treeUri = await getAndroidBackupTree('backup');
+  if (!treeUri) return;
+  const projects = (state.dashboardProjects || []).filter((p: any) => !p.corrupt);
+  if (!projects.length) { alert('Belum ada proyek untuk dibackup.'); return; }
+
+  let done = 0;
+  let failed = 0;
+  for (let i = 0; i < projects.length; i++) {
+    const p = projects[i];
+    flashHint(`Mencadangkan ke folder Android… ${i + 1}/${projects.length}`, true);
+    try {
+      const data = await fetchProjectData(p.id);
+      const backupData = await prepareProjectBackupData(data, p.id);
+      if (!backupData) { failed++; continue; }
+      const safeName = String(p.name || p.id).replace(/[^a-z0-9._-]/gi, '_').toLowerCase();
+      await writeAndroidTreeFile(treeUri, `${safeName}_backup${PROJECT_EXT}`, utf8ToBase64(JSON.stringify(backupData)));
+      done++;
+    } catch (err) {
+      failed++;
+      console.error('[Backup] Android folder backup failed:', err);
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  flashHint(`Folder Backup: ${done} proyek tersimpan${failed ? `, ${failed} gagal` : ''}.`, failed === 0);
+}
+
+async function restoreAndroidFolderBackups(): Promise<void> {
+  const treeUri = await getAndroidBackupTree('restore');
+  if (!treeUri) return;
+  try {
+    const entries = (await listAndroidFolder(treeUri))
+      .filter(item => /\.(?:copas|cstl)(?:\.zip)?$/i.test(item.name));
+    if (entries.length === 0) {
+      alert('Tidak ada file backup (.copas / .cstl) di folder yang dipilih.');
+      return;
+    }
+    const backups: { name: string; file: File }[] = [];
+    for (const item of entries) {
+      const bytes = base64ToBytes(await readAndroidTreeFile(treeUri, item.documentId));
+      backups.push({ name: item.relativePath, file: new File([bytes as any], item.name) });
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    backups.sort((a, b) => b.file.lastModified - a.file.lastModified);
+    showFolderRestoreModal(backups);
+  } catch (err: any) {
+    localStorage.removeItem(ANDROID_BACKUP_TREE_KEY);
+    alert(`Tidak dapat membaca folder backup. Pilih folder lagi lalu coba ulangi.\n\n${err?.message || err}`);
+  }
 }
 
 function fmtSize(bytes: number): string {

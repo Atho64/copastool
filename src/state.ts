@@ -55,6 +55,7 @@ export const state: AppState = {
   jsonRefLang: '', // optional reference language code for json projects: "en", "zh", etc. (empty = disabled)
   epubTags: 'p',
   epubSourceId: null,
+  epubImages: [],
   showEpubImages: true,
   lucaExportLang: 'en',
   lucaProfile: 'summer-pockets-steam',

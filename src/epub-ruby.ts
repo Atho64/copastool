@@ -5,7 +5,7 @@ import { addNameGlossaryEntry, mergeGlossaryEntries, hasKanji, isLikelyRubyNameC
 import { normalizeKana, kanaToRomaji } from './string-utils';
 import { flashHint, updateButtonStates } from './render';
 import { getOpfsRoot } from './state';
-import { queueAutoSave } from './project';
+import { getActiveEpubZip } from './epub-images';
 
 export function getRubyBaseText(rubyEl: HTMLElement): string {
   const clone = rubyEl.cloneNode(true) as HTMLElement;
@@ -55,10 +55,8 @@ export async function onExtractEpubRubyNames(): Promise<void> {
   (ui.btnExtractEpubRubyNames as HTMLButtonElement).disabled = true;
   (ui.epubRubyStatus as HTMLElement).textContent = 'Membaca ruby text dari EPUB...';
   try {
-    const root = await getOpfsRoot();
-    const fh = await (root as any).getFileHandle(state.epubSourceId);
-    const f = await fh.getFile();
-    const zip = await (window as any).JSZip.loadAsync(f);
+    const zip = await getActiveEpubZip();
+    if (!zip) throw new Error('File EPUB tidak dapat diakses.');
     const files = state.importedFiles.length
       ? state.importedFiles
       : Object.keys(zip.files).filter(name => /\.(xhtml|html?)$/i.test(name));

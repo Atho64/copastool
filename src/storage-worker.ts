@@ -23,6 +23,9 @@ function getWorker(): Worker | null {
     worker.addEventListener('error', (e) => {
       console.warn('[StorageWorker] worker error, falling back to main thread:', e);
       disabled = true;
+      const failedWorker = worker;
+      worker = null;
+      failedWorker?.terminate();
       for (const [, p] of pending) p.reject(new Error('worker-disabled'));
       pending.clear();
     });
@@ -34,7 +37,14 @@ function getWorker(): Worker | null {
   }
 }
 
-function run(op: 'stringify' | 'parse', payload: { payload?: unknown; text?: string; normalize?: boolean }): Promise<{ text?: string; data?: any }> {
+function run(op: 'stringify' | 'parse' | 'parse-json-entries' | 'export-json-lines', payload: {
+  payload?: unknown;
+  text?: string;
+  normalize?: boolean;
+  fileName?: string;
+  startLineNum?: number;
+  disableEmptyLineValidation?: boolean;
+}): Promise<{ text?: string; data?: any }> {
   const w = getWorker();
   if (!w) return Promise.reject(new Error('worker-disabled'));
   const id = ++seq;
@@ -56,11 +66,9 @@ export async function stringifyAsync(data: unknown): Promise<string> {
     const res = await run('stringify', { payload: data });
     return res.text as string;
   } catch (err: any) {
-    if (String(err?.message) !== 'worker-disabled') {
-      // DataCloneError or transient worker failure — safe synchronous fallback.
-      return JSON.stringify(data);
-    }
-    throw err;
+    // If the worker is unavailable on a WebView build, preserve functionality
+    // with a synchronous fallback; normal Android builds use the worker path.
+    return JSON.stringify(data);
   }
 }
 
@@ -74,15 +82,63 @@ export async function parseAsync(text: string, normalizeLines = false): Promise<
     const res = await run('parse', { text, normalize: normalizeLines });
     return res.data;
   } catch (err: any) {
-    if (String(err?.message) !== 'worker-disabled') {
-      const data = JSON.parse(text);
-      if (normalizeLines && data && typeof data === 'object' && Array.isArray(data.lines)) {
-        const { normalizeLineDict } = await import('./state');
-        data.lines = data.lines.map((l: unknown) => normalizeLineDict(l));
-        data.__linesNormalized = true;
-      }
-      return data;
+    const data = JSON.parse(text);
+    if (normalizeLines && data && typeof data === 'object' && Array.isArray(data.lines)) {
+      const { normalizeLineDict } = await import('./state');
+      data.lines = data.lines.map((l: unknown) => normalizeLineDict(l));
+      data.__linesNormalized = true;
     }
-    throw err;
+    return data;
   }
+}
+
+function parseJsonEntriesFallback(text: string, fileName: string, startLineNum: number): any[] {
+  const rows = JSON.parse(text);
+  if (!Array.isArray(rows)) throw new Error(`File ${fileName} bukan array JSON.`);
+  let lineNum = startLineNum;
+  return rows.filter((entry: any) => entry && typeof entry === 'object' && Object.prototype.hasOwnProperty.call(entry, 'message'))
+    .map((entry: any) => ({
+      line_num: lineNum++,
+      file: fileName,
+      name: entry.name == null ? null : String(entry.name).replace(/\r?\n/g, '\\n').trim(),
+      message: String(entry.message ?? '').replace(/\r?\n/g, '\\n').trim(),
+      trans_name: null,
+      trans_message: null,
+      is_translated: false,
+    }));
+}
+
+/** Parse and project imported JSON rows in the worker, avoiding a large
+ * JSON.parse + object mapping pass on Android's UI thread. */
+export async function parseJsonEntriesAsync(text: string, fileName: string, startLineNum: number): Promise<any[]> {
+  try {
+    const res = await run('parse-json-entries', { text, fileName, startLineNum });
+    return res.data as any[];
+  } catch (_) { return parseJsonEntriesFallback(text, fileName, startLineNum); }
+}
+
+function stringifyExportLinesFallback(lines: any[], disableEmptyLineValidation: boolean): string {
+  const rows = lines.map((line: any) => {
+    const translated = !!line.is_translated && (disableEmptyLineValidation || !!String(line.trans_message || '').trim());
+    const entry: any = {};
+    entry.name = translated
+      ? (String(line.trans_name || line.name || '').replace(/^\[\?\]\s*/, '') || line.name)
+      : line.name;
+    entry.message = translated
+      ? String(line.trans_message || '').replace(/^\[\?\]\s*/, '')
+      : line.message;
+    if (entry.name) entry.name = String(entry.name).replace(/\\n/g, '\n');
+    else delete entry.name;
+    if (entry.message) entry.message = String(entry.message).replace(/\\n/g, '\n');
+    return entry;
+  });
+  return JSON.stringify(rows, null, 2);
+}
+
+/** Convert project lines to the compact export JSON representation off-thread. */
+export async function stringifyExportLinesAsync(lines: unknown[], disableEmptyLineValidation: boolean): Promise<string> {
+  try {
+    const res = await run('export-json-lines', { payload: lines, disableEmptyLineValidation });
+    return res.text as string;
+  } catch (_) { return stringifyExportLinesFallback(lines, disableEmptyLineValidation); }
 }

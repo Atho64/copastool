@@ -6,6 +6,7 @@ import { openModal, closeModal, queueAutoSave } from './project';
 import { formatLineLabel } from './luca-engine';
 import { isTranslated } from './state';
 import type { Line } from './types';
+import { cstlConfirm } from './dialog';
 
 export function getBookmarkedLines(): Line[] {
   return state.lines.filter(l => !!l.bookmarked);
@@ -59,6 +60,9 @@ export function toggleBookmark(lineNum: number, notify = true): void {
 
   updateBookmarkBadge();
 
+  // Keep the immersive reader's rows and panel in sync
+  import('./immersive').then(m => m.Immersive.isOpen() ? m.Immersive.syncBookmark(lineNum, !!line.bookmarked) : undefined).catch(() => {});
+
   // If bookmark modal is currently open, refresh list
   const modal = ui.bookmarkModal as HTMLElement | undefined;
   if (modal && modal.classList.contains('open')) {
@@ -108,11 +112,11 @@ export function jumpToBookmarkedLine(lineNum: number): void {
   }
 }
 
-export function clearAllBookmarks(): void {
+export async function clearAllBookmarks(): Promise<void> {
   const bookmarked = getBookmarkedLines();
   if (bookmarked.length === 0) return;
 
-  if (!confirm(`Hapus semua ${bookmarked.length} bookmark di proyek ini?`)) return;
+  if (!await cstlConfirm(`Hapus semua ${bookmarked.length} bookmark di proyek ini?`, { danger: true, title: 'Hapus Semua Bookmark' })) return;
 
   pushUndoSnapshot();
   for (const line of bookmarked) {
@@ -128,6 +132,7 @@ export function clearAllBookmarks(): void {
 
   updateBookmarkBadge();
   renderBookmarkList();
+  import('./immersive').then(m => m.Immersive.syncAllBookmarks()).catch(() => {});
   queueAutoSave();
   flashHint('Semua bookmark berhasil dihapus.');
 }

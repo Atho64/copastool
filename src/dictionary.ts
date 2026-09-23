@@ -1,5 +1,6 @@
 import { state } from './state';
 import { fetchApiResult } from './auto-translate';
+import { cstlConfirm } from './dialog';
 
 function simpleParseMarkdown(text: string): string {
   if (!text) return '';
@@ -143,8 +144,8 @@ function initHistoryUI() {
   }
   
   if (btnClear) {
-    btnClear.addEventListener('click', () => {
-      if (confirm('Yakin ingin menghapus semua riwayat kamus?')) {
+    btnClear.addEventListener('click', async () => {
+      if (await cstlConfirm('Yakin ingin menghapus semua riwayat kamus?', { danger: true, title: 'Hapus Riwayat Kamus' })) {
         dictHistory = [];
         saveHistory();
         renderHistoryUI();

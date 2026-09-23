@@ -9,7 +9,6 @@
     "clipboard-manager:default",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
-    "clipboard-manager:allow-clear",
-    "notification:default"
+    "clipboard-manager:allow-clear"
   ]
 }

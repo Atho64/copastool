@@ -1,3 +1,5 @@
+param([switch]$BuildOnly)
+
 # scripts/build-and-install-android.ps1
 $ErrorActionPreference = "Stop"
 
@@ -59,6 +61,8 @@ Write-Host "Found APK: $($rawApk.FullName)" -ForegroundColor Green
 $zipalign = "C:\Users\Atho\AppData\Local\Android\Sdk\build-tools\35.0.0\zipalign.exe"
 $apksigner = "C:\Users\Atho\AppData\Local\Android\Sdk\build-tools\35.0.0\apksigner.bat"
 $credentialsFile = Join-Path $appDir "release-keystore-credentials.txt"
+$keystore = Join-Path $appDir "release.jks"
+
 $storePass = $env:ANDROID_KEYSTORE_PASSWORD
 if (-not $storePass -and (Test-Path $credentialsFile)) {
     $content = Get-Content $credentialsFile -Raw
@@ -71,6 +75,10 @@ $keyPass = if ($env:ANDROID_KEY_PASSWORD) { $env:ANDROID_KEY_PASSWORD } else { $
 
 if (-not $storePass) {
     throw "Password keystore tidak ditemukan. Pastikan release-keystore-credentials.txt ada atau set env ANDROID_KEYSTORE_PASSWORD."
+}
+
+if (-not (Test-Path $keystore)) {
+    throw "Keystore tidak ditemukan di $keystore!"
 }
 
 New-Item -ItemType Directory -Force -Path "signed-apk" | Out-Null
@@ -101,13 +109,26 @@ if ($LASTEXITCODE -ne 0) {
 Remove-Item $alignedApk -ErrorAction SilentlyContinue
 Write-Host "Signed APK created: $signedApk" -ForegroundColor Green
 
-Write-Host "=== Step 8: Installing to Android device via ADB ===" -ForegroundColor Cyan
-adb install -r $signedApk
-if ($LASTEXITCODE -ne 0) {
-    throw "adb install failed with exit code $LASTEXITCODE"
+if ($BuildOnly) {
+    Write-Host "BuildOnly selected; leaving the phone untouched." -ForegroundColor Cyan
+    exit 0
 }
 
-Write-Host "=== Step 9: Launching app on device ===" -ForegroundColor Cyan
-adb shell monkey -p com.copastool.app -c android.intent.category.LAUNCHER 1
+Write-Host "=== Step 8: Installing to Android device via ADB ===" -ForegroundColor Cyan
+$devs = @((adb devices) | Where-Object { $_ -match "`tdevice$" } | ForEach-Object { ($_ -split "`t")[0] })
+$adbTarget = if ($devs.Count -gt 0) { $devs[0] } else { $null }
 
-Write-Host "=== Success! CopasTool has been built, signed, installed, and launched successfully ===" -ForegroundColor Green
+if ($adbTarget) {
+    Write-Host "Target device: $adbTarget" -ForegroundColor Green
+    adb -s $adbTarget install -r -d $signedApk
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb install failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "=== Step 9: Launching app on device ===" -ForegroundColor Cyan
+    adb -s $adbTarget shell monkey -p com.copastool.app -c android.intent.category.LAUNCHER 1
+
+    Write-Host "=== Success! CopasTool has been built, signed, installed, and launched successfully ===" -ForegroundColor Green
+} else {
+    Write-Warning "No connected ADB device found. APK was signed successfully at: $signedApk"
+}
