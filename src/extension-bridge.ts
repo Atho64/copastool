@@ -68,12 +68,44 @@ type ExtMsg = {
 
 let available = false;
 let extensionVersion = '';
+function readDefaultCopasSettings(): { target: CopasTargetId; mode: CopasMode; newTabEvery: number } {
+  try {
+    const defaults = JSON.parse(localStorage.getItem('cstl_default_settings') || '{}');
+    const targets: CopasTargetId[] = ['gemini', 'deepseek', 'meta', 'chatgpt', 'claude', 'qwen', 'arena', 'freebuff'];
+    return {
+      target: targets.includes(defaults.autoCopasTarget) ? defaults.autoCopasTarget : 'gemini',
+      mode: defaults.autoCopasMode === 'full' ? 'full' : 'semi',
+      newTabEvery: Math.max(0, Math.min(100, Math.floor(Number(defaults.autoCopasNewTabEvery) || 0))),
+    };
+  } catch (_) {
+    return { target: 'gemini', mode: 'semi', newTabEvery: 0 };
+  }
+}
+const defaultCopasSettings = readDefaultCopasSettings();
 let lastSettings: { target: CopasTargetId; mode: CopasMode; newTabEvery: number } = {
-  target: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_target')) as CopasTargetId) || 'gemini',
-  mode: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_mode')) as CopasMode) || 'semi',
-  newTabEvery: (typeof localStorage !== 'undefined' && Number(localStorage.getItem('cstl_copas_new_tab_every'))) || 0,
+  target: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_target')) as CopasTargetId) || defaultCopasSettings.target,
+  mode: ((typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_mode')) as CopasMode) || defaultCopasSettings.mode,
+  newTabEvery: (typeof localStorage !== 'undefined' && localStorage.getItem('cstl_copas_new_tab_every') !== null)
+    ? Number(localStorage.getItem('cstl_copas_new_tab_every'))
+    : defaultCopasSettings.newTabEvery,
 };
 let statusText = 'Extension: mengecek…';
+
+/** Refresh dashboard defaults when the user saves them; explicit Auto Copas
+ * preferences kept in localStorage continue to take precedence. */
+export function refreshAutoCopasDefaults(): void {
+  const defaults = readDefaultCopasSettings();
+  if (localStorage.getItem('cstl_copas_target') === null) lastSettings.target = defaults.target;
+  if (localStorage.getItem('cstl_copas_mode') === null) lastSettings.mode = defaults.mode;
+  if (localStorage.getItem('cstl_copas_new_tab_every') === null) lastSettings.newTabEvery = defaults.newTabEvery;
+  const targetSel = document.getElementById('autoCopasTargetSelect') as HTMLSelectElement | null;
+  const modeSel = document.getElementById('autoCopasModeSelect') as HTMLSelectElement | null;
+  const newTabInput = document.getElementById('autoCopasNewTabEveryInput') as HTMLInputElement | null;
+  if (targetSel && localStorage.getItem('cstl_copas_target') === null) targetSel.value = lastSettings.target;
+  if (modeSel && localStorage.getItem('cstl_copas_mode') === null) modeSel.value = lastSettings.mode;
+  if (newTabInput && localStorage.getItem('cstl_copas_new_tab_every') === null) newTabInput.value = String(lastSettings.newTabEvery);
+  updateAutoCopasStatusMessages();
+}
 
 export function getConnectedStatusMsg(): string {
   const hint = lastSettings.newTabEvery > 0 ? ` (tiap ${lastSettings.newTabEvery} req)` : '';

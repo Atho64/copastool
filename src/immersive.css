@@ -84,7 +84,9 @@
   gap: 10px;
   min-height: 56px;
   padding: 0 14px;
-  padding-top: max(0px, env(safe-area-inset-top, 0px));
+  /* Android edge-to-edge WebViews report env(safe-area-inset-*) as zero on
+     some OS versions; MainActivity supplies the real system-bar inset. */
+  padding-top: max(env(safe-area-inset-top, 0px), var(--android-safe-area-top, 0px));
   background: var(--im-panel);
   border-bottom: 1px solid var(--im-line);
   backdrop-filter: blur(8px);
@@ -99,7 +101,7 @@
 }
 .immersive-show-header {
   position: absolute;
-  top: max(8px, calc(env(safe-area-inset-top, 0px) + 6px));
+  top: max(8px, calc(max(env(safe-area-inset-top, 0px), var(--android-safe-area-top, 0px)) + 6px));
   left: 50%;
   z-index: 4;
   display: inline-flex;

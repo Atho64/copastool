@@ -58,6 +58,48 @@ if (src.includes('CSTL-OVERLAY')) {
   console.log('[patch-android-overlay] MainActivity.kt ter-patch.');
 }
 
+// Android Back should follow the app's existing Escape dismissal order, and
+// edge-to-edge system bars need to expose their real top inset to the reader.
+if (src.includes('CSTL-ANDROID-BACK-INSETS')) {
+  console.log('[patch-android-overlay] Back/inset handling sudah ada (idempoten).');
+} else {
+  for (const importLine of [
+    'import androidx.activity.OnBackPressedCallback',
+    'import androidx.core.view.ViewCompat',
+    'import androidx.core.view.WindowInsetsCompat',
+  ]) {
+    if (!src.includes(importLine)) src = src.replace(/^import android\.webkit\.WebView$/m, `import android.webkit.WebView\n${importLine}`);
+  }
+  if (!src.includes('private var appWebView: WebView?')) {
+    src = src.replace(/class MainActivity : TauriActivity\(\) \{/, 'class MainActivity : TauriActivity() {\n  private var appWebView: WebView? = null');
+  }
+  src = src.replace(/super\.onCreate\(savedInstanceState\)/, `super.onCreate(savedInstanceState)
+
+    // CSTL-ANDROID-BACK-INSETS — route system Back into the shared Escape flow
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        appWebView?.evaluateJavascript(
+          "(document.activeElement||document).dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))",
+          null
+        )
+      }
+    })
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
+      val topDp = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top / resources.displayMetrics.density
+      appWebView?.evaluateJavascript(
+        "document.documentElement.style.setProperty('--android-safe-area-top','\u0024{topDp}px')",
+        null
+      )
+      insets
+    }
+    ViewCompat.requestApplyInsets(window.decorView)`);
+  if (!src.includes('appWebView = webView')) {
+    src = src.replace(/super\.onWebViewCreate\(webView\)/, 'super.onWebViewCreate(webView)\n    appWebView = webView\n    ViewCompat.requestApplyInsets(window.decorView)');
+  }
+  writeFileSync(mainActivityPath, src);
+  console.log('[patch-android-overlay] Back/inset handling ter-patch.');
+}
+
 // 3) Lifecycle hook: keep Full Auto JS timers alive when backgrounded.
 // WryActivity.onPause() freezes the main WebView; AiOverlay.onActivityPaused()
 // immediately resumes it while background work is active. Separate marker so

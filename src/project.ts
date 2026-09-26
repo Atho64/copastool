@@ -200,6 +200,9 @@ export function getDefaultSettings(): Record<string, any> {
     sourceLang: 'Japanese',
     targetLang: 'Indonesian',
     translationMode: 'ai',
+    autoCopasTarget: 'gemini',
+    autoCopasMode: 'semi',
+    autoCopasNewTabEvery: 0,
     aiFormat: DEFAULT_AI_TRANSLATION_FORMAT,
     contextLines: 10,
     contextType: 'raw',
@@ -244,6 +247,9 @@ export function openDashboardSettings(): void {
   if (ui.dsSourceLang) (ui.dsSourceLang as HTMLSelectElement).value = d.sourceLang || 'Japanese';
   if (ui.dsTargetLang) (ui.dsTargetLang as HTMLSelectElement).value = d.targetLang || 'Indonesian';
   if (ui.dsTranslationMode) (ui.dsTranslationMode as HTMLSelectElement).value = d.translationMode || 'ai';
+  if (ui.dsAutoCopasTarget) (ui.dsAutoCopasTarget as HTMLSelectElement).value = d.autoCopasTarget || 'gemini';
+  if (ui.dsAutoCopasMode) (ui.dsAutoCopasMode as HTMLSelectElement).value = d.autoCopasMode || 'semi';
+  if (ui.dsAutoCopasNewTabEvery) (ui.dsAutoCopasNewTabEvery as HTMLInputElement).value = String(d.autoCopasNewTabEvery ?? 0);
   if (ui.dsAiFormat) (ui.dsAiFormat as HTMLSelectElement).value = d.aiFormat || DEFAULT_AI_TRANSLATION_FORMAT;
   if (ui.dsContextLines) (ui.dsContextLines as HTMLInputElement).value = String(d.contextLines !== undefined ? d.contextLines : 10);
   if (ui.dsContextType) (ui.dsContextType as HTMLSelectElement).value = d.contextType || 'raw';
@@ -300,6 +306,9 @@ export function saveDashboardSettings(): void {
   if (ui.dsSourceLang) d.sourceLang = (ui.dsSourceLang as HTMLSelectElement).value;
   if (ui.dsTargetLang) d.targetLang = (ui.dsTargetLang as HTMLSelectElement).value;
   if (ui.dsTranslationMode) d.translationMode = (ui.dsTranslationMode as HTMLSelectElement)?.value === 'htl' ? 'htl' : 'ai';
+  if (ui.dsAutoCopasTarget) d.autoCopasTarget = (ui.dsAutoCopasTarget as HTMLSelectElement).value || 'gemini';
+  if (ui.dsAutoCopasMode) d.autoCopasMode = (ui.dsAutoCopasMode as HTMLSelectElement).value === 'full' ? 'full' : 'semi';
+  if (ui.dsAutoCopasNewTabEvery) d.autoCopasNewTabEvery = Math.max(0, Math.min(100, Math.floor(Number((ui.dsAutoCopasNewTabEvery as HTMLInputElement).value) || 0)));
   if (ui.dsAiFormat) d.aiFormat = (ui.dsAiFormat as HTMLSelectElement).value;
   if (ui.dsContextLines) d.contextLines = parseInt((ui.dsContextLines as HTMLInputElement).value) || 10;
   if (ui.dsContextType) d.contextType = (ui.dsContextType as HTMLSelectElement).value || 'raw';
@@ -341,6 +350,7 @@ export function saveDashboardSettings(): void {
   if (dsIncCheck) d.incrementEnabled = dsIncCheck.checked;
 
   localStorage.setItem(DS_STORAGE_KEY, JSON.stringify(d));
+  void import('./extension-bridge').then(m => m.refreshAutoCopasDefaults()).catch(() => {});
   applyPalette(d.palette);
   state.projectLoggingEnabled = !!d.enableLogging;
   applyProjectLoggingVisibility();

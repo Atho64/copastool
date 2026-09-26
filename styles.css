@@ -3600,6 +3600,39 @@ body.htl-mode #loggingPanel {
 body.htl-mode .split-layout { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
 body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-height: 0 !important; max-height: none !important; border-right: none !important; border-bottom: none !important; }
 
+/* On phones HTL is a text-only workspace. The mobile split-view rules use
+   stronger selectors, so explicitly override them while HTL is active. */
+@media (max-width: 768px) {
+  body.htl-mode #mobileViewSwitcher { display: none !important; }
+  body.htl-mode .split-layout,
+  body.htl-mode .split-layout.mobile-view-split,
+  body.htl-mode .split-layout.mobile-view-text,
+  body.htl-mode .split-layout.mobile-view-tools {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+  }
+  body.htl-mode .split-layout .panel-left {
+    display: flex !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 8px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+  }
+  body.htl-mode .split-layout .panel-right { display: none !important; }
+  body.htl-mode .panel-header { display: none !important; }
+}
+
 /* Missing utility classes from old CSTL */
 .field-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group { display: flex; flex-direction: column; gap: 8px; }

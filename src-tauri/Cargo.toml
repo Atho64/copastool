@@ -1,6 +1,6 @@
 [package]
 name = "copas-tool"
-version = "0.1.8"
+version = "0.1.9"
 description = "Copas Tool Desktop and Mobile App"
 authors = ["atho"]
 edition = "2021"

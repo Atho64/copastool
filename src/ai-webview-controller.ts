@@ -545,7 +545,17 @@ const FIND_SEND_FN = `function findSendButton() {
 }`;
 
 const FIND_ASSISTANT_FN = `function findAssistantText() {
-  var selectors = [
+  // DeepSeek renders assistant Markdown in its own ds-markdown components;
+  // those don't match the Gemini/OpenAI selectors below.
+  var isDeepSeek = location.hostname.indexOf('deepseek.com') !== -1;
+  var selectors = isDeepSeek ? [
+    '.ds-markdown pre code',
+    '.ds-markdown pre',
+    '.ds-markdown',
+    '[class*="ds-markdown"]',
+    '[data-role="assistant"] [class*="markdown"]',
+    '[class*="assistant"] [class*="markdown"]'
+  ] : [
     'model-response pre code',
     'model-response .markdown',
     'message-content.model-response-text',
@@ -560,9 +570,36 @@ const FIND_ASSISTANT_FN = `function findAssistantText() {
   for (var i = 0; i < selectors.length; i++) {
     var items = document.querySelectorAll(selectors[i]);
     if (items.length > 0) {
-      var last = items[items.length - 1];
-      var text = last.innerText || last.textContent;
-      if (text && text.trim().length > 0) return text.trim();
+      for (var j = items.length - 1; j >= 0; j--) {
+        var last = items[j];
+        // DeepSeek can render its private reasoning beside the final answer.
+        // Never capture a markdown/pre node nested in those thinking panels.
+        if (location.hostname.indexOf('deepseek.com') !== -1) {
+          var parent = last;
+          var isThinking = false;
+          for (var depth = 0; parent && depth < 8; depth++, parent = parent.parentElement) {
+            var marker = [
+              parent.className && typeof parent.className === 'string' ? parent.className : '',
+              parent.getAttribute && (parent.getAttribute('data-testid') || ''),
+              parent.getAttribute && (parent.getAttribute('aria-label') || '')
+            ].join(' ').toLowerCase();
+            if (/think|reason|思考/.test(marker)) {
+              isThinking = true;
+              break;
+            }
+          }
+          if (isThinking) continue;
+        }
+
+        var text = last.innerText || last.textContent;
+        if (text && text.trim().length > 0) {
+          text = text.trim();
+          // Some DeepSeek builds render the user's prompt with the same
+          // Markdown class; never mistake the just-sent prompt for an answer.
+          if (window.__cstlPrompt && text === String(window.__cstlPrompt).trim()) continue;
+          return text;
+        }
+      }
     }
   }
   return '';
@@ -628,6 +665,11 @@ function buildInjectScript(): string {
 
 /** Clears the grab state so the whole answer is streamed again from scratch. */
 const RESET_CAPTURE_SCRIPT = '(function() { window.__cstlCap = { sent: 0, queue: [], stable: 0, done: false, doneSent: false }; return null; })();';
+const BASELINE_CAPTURE_SCRIPT = `(function() {
+  ${FIND_ASSISTANT_FN}
+  if (window.__cstlCap) window.__cstlCap.baseline = findAssistantText();
+  return null;
+})();`;
 
 /**
  * Reads the newest assistant answer, streams only the new part, and reports
@@ -647,12 +689,15 @@ function buildGrabScript(useTitle: boolean): string {
     ${COPY_CLIPBOARD_FN}
 
     function isGenerating() {
-      return !!document.querySelector('button[aria-label*="Stop" i], button[aria-label*="Hentikan" i], button[data-testid="stop-button"]');
+      return !!document.querySelector('button[aria-label*="Stop" i], button[title*="Stop" i], button[aria-label*="Hentikan" i], button[aria-label*="停止"], button[title*="停止"], button[data-testid="stop-button"], [data-testid*="stop-generating" i]');
     }
 
     var text = '';
     if (!st.done) {
       text = findAssistantText();
+      // Ignore the last answer that was already in this chat before this
+      // request; DeepSeek keeps old plaintext artifacts in the conversation.
+      if (text && st.baseline && text === st.baseline) text = '';
       if (text && text.length > st.sent) {
         var delta = text.slice(st.sent);
         st.sent = text.length;
@@ -851,6 +896,7 @@ export async function executeAiWorkflow(
   // Reset any previous grab state, then hand the prompt over in bounded pieces.
   try {
     await evalAiWindow(RESET_CAPTURE_SCRIPT);
+    await evalAiWindow(BASELINE_CAPTURE_SCRIPT);
   } catch (_) {}
   if (!(await deliverPrompt(promptText))) {
     return { ok: false, error: 'Gagal mengirim prompt ke jendela AI Companion.' };

@@ -351,7 +351,8 @@ export function parseTranslationNumberedPaste(
     if (/^\d+$/.test(clean)) return false;
     if (clean.length > 40) return false;
     if (clean.split(/\s+/).filter(Boolean).length > 5) return false;
-    if (/[.,!?~…—–\n\r"“”'«»「」『』]/.test(clean)) return false;
+    // Apostrophes are valid inside romanized names (e.g. Shin'ichirō).
+    if (/[.,!?~…—–\n\r"“”«»「」『』]/.test(clean)) return false;
     return true;
   };
 
