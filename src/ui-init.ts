@@ -2,14 +2,13 @@
 
 import { state, ui, setMainScroller, setProofreadScroller, setQaScroller, getActiveLineEditorLineNum } from './state';
 import {
-  DEFAULT_AI_TRANSLATION_FORMAT, DEFAULT_GLOSSARY_PROMPT, DEFAULT_AI_CHECK_PROMPT,
+  DEFAULT_GLOSSARY_PROMPT, DEFAULT_AI_CHECK_PROMPT,
   DEFAULT_PROMPT_HEADER_NUMBERED, DEFAULT_PROMPT_HEADER_BLOCK,
   DEFAULT_PROMPT_HEADER_XML, DEFAULT_PROMPT_HEADER_JSONL, DEFAULT_PROMPT_HEADER_JSON_ARRAY,
-  DEFAULT_PROMPT_HEADER_COMPLEX_ID, DEFAULT_PROMPT_HEADER_COMPLEX_EN,
   DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO, DEFAULT_PROMPT_HEADER_BLOCK_KAGIKAKKO,
   DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO,
-  DEFAULT_AGENT_PROMPT, DEFAULT_SUMMARY_PROMPT,
-  DEFAULT_AI_CHECK_SUMMARY_PROMPT,
+  DEFAULT_AGENT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_EN,
+  getDefaultAiCheckSummaryPrompt,
   DEFAULT_PROMPT_HEADER_AERA_SIMPLE, DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE
 } from './constants';
 import { VirtualScroller } from './virtual-scroller';
@@ -53,7 +52,13 @@ import {
   backupCurrentProject, backupAllProjectsAsZip, flushAutoSaveNow,
 } from './project';
 import { isFolderBackupSupported, backupAllToFolder, openFolderRestorePicker } from './folder-backup';
-import { getDefaultPromptHeaderForFormat, getKagikakkoPromptHeaderForFormat } from './ai-format';
+import { getStandardPromptHeaderForFormat } from './ai-format';
+
+function standardPrompt(template: string, format: string): string {
+  const english = template === 'english' || template === 'english-kagikakko';
+  const kagikakko = template === 'kagikakko' || template === 'english-kagikakko';
+  return getStandardPromptHeaderForFormat(format, english ? 'en' : 'id', kagikakko);
+}
 import { getLucaProfile, populateLucaExportSlotSelect, DEFAULT_LUCA_PROFILE } from './luca-engine';
 import { getMainScroller } from './state';
 import { initDictionary } from './dictionary';
@@ -514,17 +519,38 @@ export function bindEvents(): void {
       if (ui.dpSummaryPromptInput) {
         (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE;
       }
-    } else if (val === 'complex-id') {
-      (ui.dpPromptInput as HTMLTextAreaElement).value = DEFAULT_PROMPT_HEADER_COMPLEX_ID;
-    } else if (val === 'complex-en') {
-      (ui.dpPromptInput as HTMLTextAreaElement).value = DEFAULT_PROMPT_HEADER_COMPLEX_EN;
+    } else if (val === 'english') {
+      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || 'numbered';
+      (ui.dpPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.dpSummaryPromptInput) (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_EN;
+    } else if (val === 'english-kagikakko') {
+      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || 'numbered';
+      (ui.dpPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.dpSummaryPromptInput) (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_EN;
     } else if (val === 'kagikakko') {
-      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-      (ui.dpPromptInput as HTMLTextAreaElement).value = getKagikakkoPromptHeaderForFormat(format);
+      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || 'numbered';
+      (ui.dpPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.dpSummaryPromptInput) (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT;
     } else {
-      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-      (ui.dpPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(format);
+      const format = (ui.dsAiFormat as HTMLSelectElement)?.value || 'numbered';
+      (ui.dpPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.dpSummaryPromptInput) (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT;
     }
+    const dashboardAiCheckSummaryInput = document.getElementById('dpAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
+    if (dashboardAiCheckSummaryInput) {
+      dashboardAiCheckSummaryInput.value = val === 'english' || val === 'english-kagikakko'
+        ? getDefaultAiCheckSummaryPrompt('English')
+        : val === 'simple' || val === 'kagikakko'
+          ? getDefaultAiCheckSummaryPrompt('Indonesian')
+          : getDefaultAiCheckSummaryPrompt((ui.dsTargetLang as HTMLSelectElement)?.value || state.targetLang);
+    }
+  });
+  ui.dsAiFormat?.addEventListener('change', () => {
+    const promptValue = (ui.dpPromptInput as HTMLTextAreaElement)?.value.trim() || '';
+    if (!promptValue.startsWith('You are a Visual Novel translator.')) return;
+    const template = (ui.dpPromptTemplateSelect as HTMLSelectElement)?.value || 'simple';
+    const format = (ui.dsAiFormat as HTMLSelectElement)?.value || 'numbered';
+    (ui.dpPromptInput as HTMLTextAreaElement).value = standardPrompt(template, format);
   });
   ui.dsCheckSimilarity?.addEventListener('change', () => {
     if (ui.dsSimilarityThresholdWrap) {
@@ -684,9 +710,9 @@ export function bindEvents(): void {
     queueAutoSave();
   });
   ui.btnSettingsAiCheckSummaryPromptReset?.addEventListener('click', () => {
-    state.aiCheckSummaryPrompt = DEFAULT_AI_CHECK_SUMMARY_PROMPT;
+    state.aiCheckSummaryPrompt = getDefaultAiCheckSummaryPrompt(state.targetLang);
     if (ui.settingsAiCheckSummaryPromptInput) {
-      (ui.settingsAiCheckSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_AI_CHECK_SUMMARY_PROMPT;
+      (ui.settingsAiCheckSummaryPromptInput as HTMLTextAreaElement).value = getDefaultAiCheckSummaryPrompt(state.targetLang);
     }
     queueAutoSave();
   });
@@ -754,17 +780,39 @@ export function bindEvents(): void {
   ui.btnSettingsPrompts?.addEventListener('click', () => onOpenSettings('prompts'));
   ui.btnSettingsGlossary?.addEventListener('click', () => onOpenSettings('glossary'));
   ui.btnSettingsReset?.addEventListener('click', () => {
-    const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-    (ui.settingsPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(format);
+    const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || 'numbered';
+    const template = (ui.settingsPromptTemplateSelect as HTMLSelectElement)?.value || 'simple';
+    (ui.settingsPromptInput as HTMLTextAreaElement).value = template === 'aera-simple'
+      ? DEFAULT_PROMPT_HEADER_AERA_SIMPLE
+      : standardPrompt(template, format);
+    if (ui.settingsSummaryPromptInput) {
+      (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = template === 'aera-simple'
+        ? DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE
+        : template === 'english' || template === 'english-kagikakko'
+          ? DEFAULT_SUMMARY_PROMPT_EN
+          : DEFAULT_SUMMARY_PROMPT;
+    }
+    const aiCheckSummaryInput = document.getElementById('settingsAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
+    if (aiCheckSummaryInput) {
+      aiCheckSummaryInput.value = template === 'english' || template === 'english-kagikakko'
+        ? getDefaultAiCheckSummaryPrompt('English')
+        : template === 'simple' || template === 'kagikakko'
+          ? getDefaultAiCheckSummaryPrompt('Indonesian')
+          : getDefaultAiCheckSummaryPrompt(state.targetLang);
+    }
     (ui.settingsEpubTagsInput as HTMLInputElement).value = 'p';
   });
   if (ui.settingsAiTranslationFormatSelect) {
     ui.settingsAiTranslationFormatSelect.addEventListener('change', () => {
-      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement).value || DEFAULT_AI_TRANSLATION_FORMAT;
       const templateVal = (ui.settingsPromptTemplateSelect as HTMLSelectElement)?.value;
-      const currentDefault = templateVal === 'kagikakko'
-        ? getKagikakkoPromptHeaderForFormat(format)
-        : getDefaultPromptHeaderForFormat(format);
+      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement).value || 'numbered';
+      const currentDefault = templateVal === 'english' || templateVal === 'english-kagikakko'
+        ? standardPrompt(templateVal, format)
+        : templateVal === 'kagikakko'
+          ? standardPrompt(templateVal, format)
+          : templateVal === 'aera-simple'
+            ? DEFAULT_PROMPT_HEADER_AERA_SIMPLE
+            : standardPrompt('simple', format);
       
       const allDefaults = [
         DEFAULT_PROMPT_HEADER_NUMBERED, DEFAULT_PROMPT_HEADER_BLOCK,
@@ -773,8 +821,7 @@ export function bindEvents(): void {
         DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO,
       ];
       if (allDefaults.some(d => (ui.settingsPromptInput as HTMLTextAreaElement).value.trim() === d.trim()) ||
-          (ui.settingsPromptInput as HTMLTextAreaElement).value.trim() === DEFAULT_PROMPT_HEADER_COMPLEX_ID.trim() ||
-          (ui.settingsPromptInput as HTMLTextAreaElement).value.trim() === DEFAULT_PROMPT_HEADER_COMPLEX_EN.trim() ||
+          (ui.settingsPromptInput as HTMLTextAreaElement).value.trim().startsWith('You are a Visual Novel translator.') ||
           (ui.settingsPromptInput as HTMLTextAreaElement).value.trim() === DEFAULT_PROMPT_HEADER_AERA_SIMPLE.trim()) {
         (ui.settingsPromptInput as HTMLTextAreaElement).value = currentDefault;
       }
@@ -788,16 +835,29 @@ export function bindEvents(): void {
       if (ui.settingsSummaryPromptInput) {
         (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE;
       }
-    } else if (val === 'complex-id') {
-      (ui.settingsPromptInput as HTMLTextAreaElement).value = DEFAULT_PROMPT_HEADER_COMPLEX_ID;
-    } else if (val === 'complex-en') {
-      (ui.settingsPromptInput as HTMLTextAreaElement).value = DEFAULT_PROMPT_HEADER_COMPLEX_EN;
+    } else if (val === 'english') {
+      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || 'numbered';
+      (ui.settingsPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.settingsSummaryPromptInput) (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_EN;
+    } else if (val === 'english-kagikakko') {
+      (ui.settingsPromptInput as HTMLTextAreaElement).value = standardPrompt(val, (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || 'numbered');
+      if (ui.settingsSummaryPromptInput) (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT_EN;
     } else if (val === 'kagikakko') {
-      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-      (ui.settingsPromptInput as HTMLTextAreaElement).value = getKagikakkoPromptHeaderForFormat(format);
+      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || 'numbered';
+      (ui.settingsPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.settingsSummaryPromptInput) (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT;
     } else {
-      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || DEFAULT_AI_TRANSLATION_FORMAT;
-      (ui.settingsPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(format);
+      const format = (ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value || 'numbered';
+      (ui.settingsPromptInput as HTMLTextAreaElement).value = standardPrompt(val, format);
+      if (ui.settingsSummaryPromptInput) (ui.settingsSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT;
+    }
+    const aiCheckSummaryInput = document.getElementById('settingsAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
+    if (aiCheckSummaryInput) {
+      aiCheckSummaryInput.value = val === 'english' || val === 'english-kagikakko'
+        ? getDefaultAiCheckSummaryPrompt('English')
+        : val === 'simple' || val === 'kagikakko'
+          ? getDefaultAiCheckSummaryPrompt('Indonesian')
+          : getDefaultAiCheckSummaryPrompt(state.targetLang);
     }
   });
 

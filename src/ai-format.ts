@@ -8,6 +8,7 @@ import {
   DEFAULT_PROMPT_HEADER_XML, DEFAULT_PROMPT_HEADER_JSONL, DEFAULT_PROMPT_HEADER_JSON_ARRAY,
   DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO, DEFAULT_PROMPT_HEADER_BLOCK_KAGIKAKKO,
   DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO, DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_STANDARD_ID, DEFAULT_PROMPT_HEADER_STANDARD_EN,
 } from './constants';
 import { unescapeStoredNewlines, escapeStoredNewlines, escapeXml, stripPlaintextFences, stripScrapedAiPreamble, applyReplaceRules, stripLeakedAiSections } from './string-utils';
 import { getLineDisplayName } from './luca-engine';
@@ -46,6 +47,43 @@ export function getKagikakkoPromptHeaderForFormat(format: string): string {
   if (format === AI_TRANSLATION_FORMAT_JSONL)  return DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO;
   if (format === AI_TRANSLATION_FORMAT_JSON_ARRAY) return DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO;
   return DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO;
+}
+
+export function getStandardPromptHeaderForFormat(format: string, language: 'id' | 'en', kagikakko = false): string {
+  const lang = language === 'en' ? 'English' : 'Indonesian';
+  let prompt = language === 'en' ? DEFAULT_PROMPT_HEADER_STANDARD_EN : DEFAULT_PROMPT_HEADER_STANDARD_ID;
+  let formatRules = '';
+  let example = '';
+  const dialogue = language === 'en' ? "I'll go on ahead." : 'Aku duluan ya.';
+  const spoken = kagikakko ? `「${dialogue}」` : language === 'en' ? `"${dialogue}"` : `"${dialogue}"`;
+  const sourceDialogue = '先に行くね。';
+  const sourceNarration = 'どこからともなく声が聞こえた。';
+  const translatedNarration = language === 'en' ? 'A voice could be heard from somewhere nearby.' : 'Suara terdengar dari entah mana.';
+  if (format === AI_TRANSLATION_FORMAT_BLOCK) {
+    formatRules = '- Preserve each [line N] block and its fields. Keep type and line number unchanged.\n- Put the speaker name in the speaker field when present; translate only the text field.';
+    example = `Input:\n[line 12]\nspeaker: スピカ\ntext: 「${sourceDialogue}」\nOutput:\n[line 12]\nspeaker: Spica\ntext: ${spoken}\n\nInput:\n[line 13]\ntext: ${sourceNarration}\nOutput:\n[line 13]\ntext: ${translatedNarration}`;
+  } else if (format === AI_TRANSLATION_FORMAT_XML) {
+    formatRules = '- Preserve all XML elements, attributes, and structure. Keep line numbers unchanged.\n- Put all line elements inside a <lines> root element and place the <summary> element after the translated lines inside that root.\n- Translate speaker attributes and text content only.';
+    example = `Input:\n<line num="12" speaker="スピカ"><text>「${sourceDialogue}」</text></line>\nOutput:\n<line num="12" speaker="Spica"><text>${spoken}</text></line>\n\nInput:\n<line num="13"><text>${sourceNarration}</text></line>\nOutput:\n<line num="13"><text>${translatedNarration}</text></line>`;
+  } else if (format === AI_TRANSLATION_FORMAT_JSONL) {
+    formatRules = '- Return one JSON object per input line. Keep num and other metadata fields unchanged; translate speaker and text values only.';
+    example = `Input:\n{"num":12,"speaker":"スピカ","text":"「${sourceDialogue}」"}\nOutput:\n{"num":12,"speaker":"Spica","text":${JSON.stringify(spoken)}}\n\nInput:\n{"num":13,"text":${JSON.stringify(sourceNarration)}}\nOutput:\n{"num":13,"text":${JSON.stringify(translatedNarration)}}`;
+  } else if (format === AI_TRANSLATION_FORMAT_JSON_ARRAY) {
+    formatRules = '- Return one JSON array per input line: [number,"speaker","text"] when a speaker exists, or [number,"text"] for narration.';
+    example = `Input:\n[12,"スピカ","「${sourceDialogue}」"]\nOutput:\n[12,"Spica",${JSON.stringify(spoken)}]\n\nInput:\n[13,"${sourceNarration}"]\nOutput:\n[13,${JSON.stringify(translatedNarration)}]`;
+  } else {
+    formatRules = `- Dialogue: [number]. [Name]: ${kagikakko ? '「[dialogue]」' : '"[dialogue]"'}\n- Narration: [number]. [translated text]`;
+    example = `12. スピカ: 「${sourceDialogue}」 → 12. Spica: ${spoken}\n13. ${sourceNarration} → 13. ${translatedNarration}`;
+  }
+  if (kagikakko) {
+    formatRules += '\n- Enclose spoken dialogue in Japanese quotation marks 「」.';
+  }
+  const plaintextFence = String.fromCharCode(96).repeat(3) + 'plaintext';
+  prompt = prompt
+    .replace(/- Format:\n[\s\S]*?(?=\n- Keep Japanese honorifics)/, formatRules)
+    .replace(/Output format:\n[\s\S]*?(?=\n\nExample:)/, `Output format:\n1. Return exactly {{lineCount}} translated lines.\n2. After the translations, write an updated story summary in ${lang} inside <summary>...</summary> tags.\n3. Put the entire response inside a single ${plaintextFence} block.`)
+    .replace(/Example:\n[\s\S]*$/, `Example:\n${example}`);
+  return prompt;
 }
 
 export function formatLineForAiExport(line: Line): string {

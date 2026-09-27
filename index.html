@@ -801,11 +801,11 @@
           <div class="flex-between mb-1">
             <label class="form-label m-0">Prompt Terjemahan AI</label>
             <select id="dpPromptTemplateSelect" class="text-input" style="padding: 2px 8px; font-size: 12px;">
-              <option value="simple">Standar (Bawaan CSTL)</option>
-              <option value="kagikakko">Standar (Kagikakko 「」)</option>
+              <option value="simple">Standar Indonesia</option>
+              <option value="english">Standard English</option>
+              <option value="kagikakko">Standar Indonesia (Kagikakko 「」)</option>
+              <option value="english-kagikakko">Standard English (Kagikakko 「」)</option>
               <option value="aera-simple">Aera Simple</option>
-              <option value="complex-id">Kompleks (Indo)</option>
-              <option value="complex-en">Kompleks (Eng)</option>
             </select>
           </div>
           <textarea id="dpPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
@@ -817,6 +817,19 @@
         <div class="settings-section">
           <label class="form-label m-0">Prompt AI Check</label>
           <textarea id="dpAiCheckPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+          <div class="mt-2 pt-2" style="border-top: 1px solid var(--border);">
+            <label class="checkbox-line mb-1"><input type="checkbox" id="dpEnableAiCheckChaining" /><span>Estafet Riwayat Koreksi AI Check (Chaining)</span></label>
+            <label class="checkbox-line mb-1"><input type="checkbox" id="dpEnableAiCheckStoryContext" /><span>Sertakan Ringkasan Cerita pada AI Check</span></label>
+            <label class="checkbox-line mb-2"><input type="checkbox" id="dpEnableAiCheckAgentMemory" /><span>Koneksikan Memori AI Agent ke AI Check</span></label>
+            <label class="form-label m-0" for="dpAiCheckStoryContextInput">Ringkasan Cerita AI Check:</label>
+            <textarea id="dpAiCheckStoryContextInput" class="prompt-input mt-1 w-full" rows="2" placeholder="(Kosong)"></textarea>
+            <label class="form-label m-0 mt-2" for="dpAiCheckSummaryPromptInput">Prompt Ringkasan Cerita AI Check:</label>
+            <textarea id="dpAiCheckSummaryPromptInput" class="prompt-input mt-1 w-full" rows="3"></textarea>
+            <label class="form-label m-0 mt-2" for="dpAiCheckLocalizationNotesInput">Catatan Khusus Lokalisasi AI Check:</label>
+            <textarea id="dpAiCheckLocalizationNotesInput" class="prompt-input mt-1 w-full" rows="2" placeholder="Panduan gaya panggilan, nada bicara, dan istilah."></textarea>
+            <label class="form-label m-0 mt-2" for="dpAiCheckRevisionsInput">Riwayat Koreksi AI Check:</label>
+            <textarea id="dpAiCheckRevisionsInput" class="prompt-input mt-1 w-full" rows="2" placeholder="(Kosong)"></textarea>
+          </div>
         </div>
         <div class="settings-section">
           <label class="form-label m-0">Prompt Agent Mode</label>
@@ -1162,11 +1175,11 @@
               <label class="form-label m-0">Prompt Terjemahan AI</label>
               <div class="flex" style="gap: 8px;">
                 <select id="settingsPromptTemplateSelect" class="text-input" style="padding: 2px 8px; font-size: 12px;">
-                  <option value="simple">Standar (Bawaan CSTL)</option>
-                  <option value="kagikakko">Standar (Kagikakko 「」)</option>
+                  <option value="simple">Standar Indonesia</option>
+                  <option value="english">Standard English</option>
+                  <option value="kagikakko">Standar Indonesia (Kagikakko 「」)</option>
+                  <option value="english-kagikakko">Standard English (Kagikakko 「」)</option>
                   <option value="aera-simple">Aera Simple</option>
-                  <option value="complex-id">Kompleks (Indo)</option>
-                  <option value="complex-en">Kompleks (Eng)</option>
                 </select>
                 <button id="btnSettingsReset" class="btn btn-outline btn-xs" type="button">Reset Default</button>
               </div>

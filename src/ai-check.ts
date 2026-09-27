@@ -8,7 +8,7 @@ import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, updateButtonSta
 import { queueAutoSave } from './project';
 import { applyPromptVariables } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
-import { DEFAULT_AI_CHECK_PROMPT, DEFAULT_AI_CHECK_SUMMARY_PROMPT } from './constants';
+import { DEFAULT_AI_CHECK_PROMPT, getDefaultAiCheckSummaryPrompt } from './constants';
 import { getDisplayOrderedLines } from './selection';
 import type { Line, AiCheckCorrection } from './types';
 
@@ -141,7 +141,7 @@ export function buildAiCheckPrompt(sel: Line[]): string {
   if (localizationBlock) sections.push(localizationBlock);
   if (revisionsBlock) sections.push(revisionsBlock);
   if (state.enableAiCheckStoryContext !== false) {
-    const summaryInstr = sanitizeTagsForChatgpt(applyPromptVariables((state.aiCheckSummaryPrompt || DEFAULT_AI_CHECK_SUMMARY_PROMPT).trim()));
+    const summaryInstr = sanitizeTagsForChatgpt(applyPromptVariables((state.aiCheckSummaryPrompt || getDefaultAiCheckSummaryPrompt(state.targetLang)).trim()));
     if (summaryInstr) sections.push(summaryInstr);
   }
   sections.push(linesBlock);
@@ -269,7 +269,7 @@ export function renderAiCheckSettingsUI(): void {
   const story = state.aiCheckStoryContext || '';
   const storyPrompt = state.aiCheckSummaryPrompt !== undefined && state.aiCheckSummaryPrompt !== ''
     ? state.aiCheckSummaryPrompt
-    : DEFAULT_AI_CHECK_SUMMARY_PROMPT;
+    : getDefaultAiCheckSummaryPrompt(state.targetLang);
 
   // Workspace AI Check panel inputs
   const chkChaining = document.getElementById('aiCheckEnableChainingCheck') as HTMLInputElement | null;

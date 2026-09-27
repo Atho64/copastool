@@ -9,7 +9,7 @@ import {
   DEFAULT_SELECTION_BATCH_SIZE, DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE,
   DEFAULT_AGENT_PROMPT,
   DEFAULT_SUMMARY_PROMPT,
-  DEFAULT_AI_CHECK_SUMMARY_PROMPT,
+  getDefaultAiCheckSummaryPrompt,
   DEFAULT_LUCA_MC_DISPLAY_NAME,
 } from './constants';
 import { getDefaultPromptHeaderForFormat, normalizeAiTranslationFormat } from './ai-format';
@@ -72,7 +72,7 @@ function initializeSettingsTab(tabName: SettingsTabName): void {
     if (aiChkSumPromptEl) {
       aiChkSumPromptEl.value = state.aiCheckSummaryPrompt !== undefined && state.aiCheckSummaryPrompt !== ''
         ? state.aiCheckSummaryPrompt
-        : DEFAULT_AI_CHECK_SUMMARY_PROMPT;
+        : getDefaultAiCheckSummaryPrompt(state.targetLang);
     }
   } else if (tabName === 'glossary' && ui.settingsGlossaryInput) {
     (ui.settingsGlossaryInput as HTMLTextAreaElement).value = state.glossaryText || '';

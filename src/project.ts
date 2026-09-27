@@ -4,14 +4,16 @@ import { state, ui, setSaveTimeout, getSaveTimeout, getOpfsRoot } from './state'
 import {
   APP_VERSION, PROJECT_EXT, LEGACY_PROJECT_EXT,
   DEFAULT_PROMPT_HEADER, DEFAULT_GLOSSARY_PROMPT, DEFAULT_AI_CHECK_PROMPT,
-  DEFAULT_AGENT_PROMPT, DEFAULT_SUMMARY_PROMPT,
+  DEFAULT_AGENT_PROMPT, DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_EN,
+  DEFAULT_PROMPT_HEADER_AERA_SIMPLE, DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE,
+  getDefaultAiCheckSummaryPrompt,
   DEFAULT_LUCA_MC_DISPLAY_NAME,
   DEFAULT_AI_TRANSLATION_FORMAT,
   DEFAULT_SELECTION_BATCH_SIZE, DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE,
 } from './constants';
 import { DEFAULT_LUCA_PROFILE, clearLucaFileLineBytesCache, parseLucaTxt } from './luca-engine';
 import type { Line } from './types';
-import { normalizeAiTranslationFormat, getDefaultPromptHeaderForFormat } from './ai-format';
+import { normalizeAiTranslationFormat, getDefaultPromptHeaderForFormat, getStandardPromptHeaderForFormat } from './ai-format';
 import { readEpubSourceForBackup, writeEpubSourceFromBackup, cloneExistingEpubSource, bytesToBase64, base64ToBytes, decodeArrayBuffer } from './binary-utils';
 import { resetSelectionHistory, switchWorkspaceTab, normalizeSelectionBatchSize } from './selection';
 import { normalizeLineDict, isIlustrasiLine } from './state';
@@ -232,6 +234,9 @@ export function getDefaultSettings(): Record<string, any> {
     checkPunctuation: true,
     checkUntransName: false,
     ignorePasteNames: false,
+    enableAiCheckChaining: false,
+    enableAiCheckStoryContext: true,
+    enableAiCheckAgentMemory: true,
     enableUncertainMarking: false,
     safeTagsForChatgpt: false,
     agentMaxTurns: 10,
@@ -359,13 +364,28 @@ export function saveDashboardSettings(): void {
 
 export function openDashboardPrompts(): void {
   const d = getDefaultSettings();
-  (ui.dpPromptInput as HTMLTextAreaElement).value = d.promptHeader !== undefined ? d.promptHeader : getDefaultPromptHeaderForFormat(d.aiFormat);
+  const template = (ui.dpPromptTemplateSelect as HTMLSelectElement)?.value || 'simple';
+  const english = template === 'english' || template === 'english-kagikakko';
+  const kagikakko = template === 'kagikakko' || template === 'english-kagikakko';
+  const defaultPrompt = template === 'aera-simple'
+    ? DEFAULT_PROMPT_HEADER_AERA_SIMPLE
+    : getStandardPromptHeaderForFormat(d.aiFormat || DEFAULT_AI_TRANSLATION_FORMAT, english ? 'en' : 'id', kagikakko);
+  (ui.dpPromptInput as HTMLTextAreaElement).value = d.promptHeader !== undefined ? d.promptHeader : defaultPrompt;
   (ui.dpGlossaryPromptInput as HTMLTextAreaElement).value = d.glossaryPrompt !== undefined ? d.glossaryPrompt : DEFAULT_GLOSSARY_PROMPT;
   (ui.dpAiCheckPromptInput as HTMLTextAreaElement).value = d.aiCheckPrompt !== undefined ? d.aiCheckPrompt : DEFAULT_AI_CHECK_PROMPT;
   (ui.dpAgentPromptInput as HTMLTextAreaElement).value = d.agentPrompt !== undefined ? d.agentPrompt : DEFAULT_AGENT_PROMPT;
   if (ui.dpSummaryPromptInput) {
-    (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = d.summaryPrompt !== undefined ? d.summaryPrompt : DEFAULT_SUMMARY_PROMPT;
+    (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = d.summaryPrompt !== undefined ? d.summaryPrompt : template === 'aera-simple' ? DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE : english ? DEFAULT_SUMMARY_PROMPT_EN : DEFAULT_SUMMARY_PROMPT;
   }
+  const setCheck = (id: string, value: boolean) => { const el = document.getElementById(id) as HTMLInputElement | null; if (el) el.checked = value; };
+  const setText = (id: string, value: string) => { const el = document.getElementById(id) as HTMLTextAreaElement | null; if (el) el.value = value; };
+  setCheck('dpEnableAiCheckChaining', d.enableAiCheckChaining === true);
+  setCheck('dpEnableAiCheckStoryContext', d.enableAiCheckStoryContext !== false);
+  setCheck('dpEnableAiCheckAgentMemory', d.enableAiCheckAgentMemory !== false);
+  setText('dpAiCheckStoryContextInput', d.aiCheckStoryContext || '');
+  setText('dpAiCheckSummaryPromptInput', d.aiCheckSummaryPrompt || getDefaultAiCheckSummaryPrompt(english ? 'English' : template === 'simple' || template === 'kagikakko' ? 'Indonesian' : d.targetLang || 'Indonesian'));
+  setText('dpAiCheckLocalizationNotesInput', d.aiCheckLocalizationNotes || '');
+  setText('dpAiCheckRevisionsInput', d.aiCheckRevisionsSummary || '');
   (ui.dashboardPromptsModal as HTMLElement).classList.add('open');
 }
 
@@ -378,19 +398,42 @@ export function saveDashboardPrompts(): void {
   if (ui.dpSummaryPromptInput) {
     d.summaryPrompt = (ui.dpSummaryPromptInput as HTMLTextAreaElement).value;
   }
+  const getCheck = (id: string, fallback: boolean) => { const el = document.getElementById(id) as HTMLInputElement | null; return el ? el.checked : fallback; };
+  const getText = (id: string) => (document.getElementById(id) as HTMLTextAreaElement | null)?.value || '';
+  d.enableAiCheckChaining = getCheck('dpEnableAiCheckChaining', true);
+  d.enableAiCheckStoryContext = getCheck('dpEnableAiCheckStoryContext', true);
+  d.enableAiCheckAgentMemory = getCheck('dpEnableAiCheckAgentMemory', true);
+  d.aiCheckStoryContext = getText('dpAiCheckStoryContextInput');
+  d.aiCheckSummaryPrompt = getText('dpAiCheckSummaryPromptInput');
+  d.aiCheckLocalizationNotes = getText('dpAiCheckLocalizationNotesInput');
+  d.aiCheckRevisionsSummary = getText('dpAiCheckRevisionsInput');
   localStorage.setItem(DS_STORAGE_KEY, JSON.stringify(d));
   (ui.dashboardPromptsModal as HTMLElement).classList.remove('open');
 }
 
 export function resetDashboardPrompts(): void {
   const d = getDefaultSettings();
-  (ui.dpPromptInput as HTMLTextAreaElement).value = getDefaultPromptHeaderForFormat(d.aiFormat);
+  const template = (ui.dpPromptTemplateSelect as HTMLSelectElement)?.value || 'simple';
+  const english = template === 'english' || template === 'english-kagikakko';
+  const kagikakko = template === 'kagikakko' || template === 'english-kagikakko';
+  (ui.dpPromptInput as HTMLTextAreaElement).value = template === 'aera-simple'
+    ? DEFAULT_PROMPT_HEADER_AERA_SIMPLE
+    : getStandardPromptHeaderForFormat(d.aiFormat || DEFAULT_AI_TRANSLATION_FORMAT, english ? 'en' : 'id', kagikakko);
   (ui.dpGlossaryPromptInput as HTMLTextAreaElement).value = DEFAULT_GLOSSARY_PROMPT;
   (ui.dpAiCheckPromptInput as HTMLTextAreaElement).value = DEFAULT_AI_CHECK_PROMPT;
   (ui.dpAgentPromptInput as HTMLTextAreaElement).value = DEFAULT_AGENT_PROMPT;
   if (ui.dpSummaryPromptInput) {
-    (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = DEFAULT_SUMMARY_PROMPT;
+    (ui.dpSummaryPromptInput as HTMLTextAreaElement).value = template === 'aera-simple' ? DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE : english ? DEFAULT_SUMMARY_PROMPT_EN : DEFAULT_SUMMARY_PROMPT;
   }
+  const setCheck = (id: string, value: boolean) => { const el = document.getElementById(id) as HTMLInputElement | null; if (el) el.checked = value; };
+  const setText = (id: string, value: string) => { const el = document.getElementById(id) as HTMLTextAreaElement | null; if (el) el.value = value; };
+  setCheck('dpEnableAiCheckChaining', false);
+  setCheck('dpEnableAiCheckStoryContext', true);
+  setCheck('dpEnableAiCheckAgentMemory', true);
+  setText('dpAiCheckStoryContextInput', '');
+  setText('dpAiCheckSummaryPromptInput', getDefaultAiCheckSummaryPrompt(english ? 'English' : template === 'simple' || template === 'kagikakko' ? 'Indonesian' : d.targetLang || 'Indonesian'));
+  setText('dpAiCheckLocalizationNotesInput', '');
+  setText('dpAiCheckRevisionsInput', '');
 }
 
 export function resetDashboardSettings(): void {
@@ -938,13 +981,13 @@ export async function createNewProject(): Promise<void> {
     agent_max_turns: d.agentMaxTurns || 10,
     enableBackgroundChaining: !!d.enableBackgroundChaining,
     summary_prompt: d.summaryPrompt !== undefined ? d.summaryPrompt : '',
-    enable_ai_check_chaining: d.enableAiCheckChaining !== undefined ? !!d.enableAiCheckChaining : true,
+    enable_ai_check_chaining: d.enableAiCheckChaining !== undefined ? !!d.enableAiCheckChaining : false,
     enable_ai_check_story_context: d.enableAiCheckStoryContext !== undefined ? !!d.enableAiCheckStoryContext : true,
-    ai_check_story_context: '',
-    ai_check_summary_prompt: '',
+    ai_check_story_context: d.aiCheckStoryContext || '',
+    ai_check_summary_prompt: d.aiCheckSummaryPrompt || getDefaultAiCheckSummaryPrompt(d.targetLang || 'Indonesian'),
     enable_ai_check_agent_memory: d.enableAiCheckAgentMemory !== undefined ? !!d.enableAiCheckAgentMemory : true,
     ai_check_localization_notes: d.aiCheckLocalizationNotes || '',
-    ai_check_revisions_summary: '',
+    ai_check_revisions_summary: d.aiCheckRevisionsSummary || '',
     show_epub_images: d.showEpubImages !== undefined ? !!d.showEpubImages : true,
     imported_files: [], file_order: [], lines: [],
     prompt_header: d.promptHeader !== undefined ? d.promptHeader : getDefaultPromptHeaderForFormat(d.aiFormat),
