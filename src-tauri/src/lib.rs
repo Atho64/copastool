@@ -40,7 +40,9 @@ const ALLOWED_AI_HOSTS: &[&str] = &[
     "claude.ai",
     "chat.qwenlm.ai",
     "lmarena.ai",
+    "arena.ai",
     "freebuff.chat",
+    "freebuff.com",
 ];
 
 /// Prefix the injected automation writes into `document.title` to hand an AI
@@ -60,6 +62,9 @@ const CAPTURE_BUFFER_LIMIT: usize = 256 * 1024;
 /// permission / listener error) it polls `take_ai_capture` instead.
 #[derive(Default)]
 struct AiCaptureBuffer(Mutex<String>);
+
+#[derive(Default)]
+struct CurrentAiOrigin(Mutex<Option<String>>);
 
 impl AiCaptureBuffer {
     fn push(&self, payload: &str) {
@@ -271,19 +276,38 @@ async fn open_ai_window(
     // Serialize through serde_json so the URL can never break out of the JS string literal.
     let safe_url = serde_json::to_string(parsed_url.as_str()).map_err(|e| e.to_string())?;
 
+    let target_origin = parsed_url.origin().ascii_serialization();
+
     if let Some(ai_window) = app.get_webview_window(AI_WINDOW_LABEL) {
         let _ = ai_window.show();
         #[cfg(desktop)]
         let _ = ai_window.unminimize();
         let _ = ai_window.set_focus();
-        let needs_nav = match ai_window.url() {
-            Ok(current) => current.origin() != parsed_url.origin(),
-            Err(_) => true,
+
+        let needs_nav = if let Some(origin_state) = app.try_state::<CurrentAiOrigin>() {
+            let mut origin_lock = origin_state.0.lock().unwrap();
+            let nav = match origin_lock.as_deref() {
+                Some(curr) => curr != target_origin,
+                None => false,
+            };
+            if nav {
+                *origin_lock = Some(target_origin.clone());
+            }
+            nav
+        } else {
+            false
         };
+
         if needs_nav {
             let _ = ai_window.eval(&format!("window.location.href = {};", safe_url));
         }
         return Ok(());
+    }
+
+    if let Some(origin_state) = app.try_state::<CurrentAiOrigin>() {
+        if let Ok(mut origin_lock) = origin_state.0.lock() {
+            *origin_lock = Some(target_origin);
+        }
     }
 
     #[cfg(desktop)]
@@ -328,6 +352,11 @@ async fn open_ai_window(
 #[tauri::command]
 fn close_ai_window(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
     ensure_main_window(&window)?;
+    if let Some(origin_state) = app.try_state::<CurrentAiOrigin>() {
+        if let Ok(mut origin_lock) = origin_state.0.lock() {
+            *origin_lock = None;
+        }
+    }
     if let Some(ai_window) = app.get_webview_window(AI_WINDOW_LABEL) {
         let _ = ai_window.destroy();
     }
@@ -456,6 +485,7 @@ fn set_ai_window_title(
 pub fn run() {
     tauri::Builder::default()
         .manage(AiCaptureBuffer::default())
+        .manage(CurrentAiOrigin::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .on_window_event(|window, event| {

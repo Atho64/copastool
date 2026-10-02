@@ -693,26 +693,6 @@ export function onApplyAiCheckCorrections(pushUndo = true): { applied: number; c
 
 // ─── Skip / Confirm line ──────────────────────────────────────────────────────
 
-export function onConfirmLine(num: number): void {
-  const line = state.lineByNum.get(num);
-  if (!line) return;
-  line._ai_confirmed = true;
-  line._ai_checked = true;
-  flashHint(`Line ${num} ditandai sebagai sudah benar.`);
-  updateButtonStates();
-  queueAutoSave();
-}
-
-export function onUnconfirmLine(num: number): void {
-  const line = state.lineByNum.get(num);
-  if (!line) return;
-  line._ai_confirmed = false;
-  line._ai_checked = false;
-  flashHint(`Line ${num} dikembalikan untuk di-cek.`);
-  updateButtonStates();
-  queueAutoSave();
-}
-
 export function onClearAiCheck(): void {
   state.aiCheckCorrections = [];
   activeCategoryFilter = null;
@@ -722,15 +702,3 @@ export function onClearAiCheck(): void {
   updateButtonStates();
 }
 
-// ─── Summary stats ────────────────────────────────────────────────────────────
-
-export function getAiCheckSummary(): { total: number; checked: number; corrections: number; byCategory: Map<string, number> } {
-  const total = state.lines.filter(l => isTranslated(l) && !l._hidden).length;
-  const checked = state.lines.filter(l => l._ai_checked && !l._hidden).length;
-  const corrections = state.aiCheckCorrections.length;
-  const byCategory = new Map<string, number>();
-  for (const c of state.aiCheckCorrections) {
-    byCategory.set(c.category, (byCategory.get(c.category) || 0) + 1);
-  }
-  return { total, checked, corrections, byCategory };
-}

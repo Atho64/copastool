@@ -18,7 +18,6 @@ import { runCustomParse, runCustomSerialize } from './custom-parser-runner';
 import { openCustomParserEditor, exportParsersToZip } from './custom-parser-modal';
 import { state, ui } from './state';
 import { DEFAULT_LUCA_MC_DISPLAY_NAME } from './constants';
-import JSZip from 'jszip';
 import {
   parseLucaTxt, getLucaProfile, getActiveLucaProfile,
   buildLucaExportText, DEFAULT_LUCA_PROFILE, getLucaExportSlotOptions
@@ -1376,7 +1375,11 @@ export const Sandbox = {
       },
       encode: (text: string, enc?: string) => Sandbox._encodeText(text, enc),
 
-      get JSZip() { return (window as any).JSZip || JSZip; },
+      get JSZip() {
+        const z = (window as any).JSZip;
+        if (!z) void import('jszip').then(m => { (window as any).JSZip = m.default; });
+        return z;
+      },
       get gpu() { return (navigator as any).gpu; },
 
       runWasm: async (wasmPathOrBytes: any, fnName: string, args: any[], opts?: any) => {
@@ -2778,6 +2781,7 @@ export const Runtime = {
       if (entries.length === 1) {
         return { blob: new Blob([entries[0].bytes as unknown as BlobPart], { type: 'application/octet-stream' }), fileName: input.fileName || out.fileName || out.filename || entries[0].name };
       }
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
       for (const e of entries) zip.file(e.name, e.bytes);
       const zbytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });

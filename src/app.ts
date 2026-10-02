@@ -20,11 +20,16 @@ window.addEventListener('unhandledrejection', function(event) {
 });
 
 import { init } from './ui-init';
-import { initExtensionBridge } from './extension-bridge';
 import { APP_VERSION } from './constants';
 import { isTauri } from './native-storage';
 import { initGlobalDialogs } from './dialog';
 import { initTutorial } from './tutorial';
+import JSZip from 'jszip';
+
+// EPUB import, restore, and image rendering use the shared JSZip global.
+// Initialize it synchronously before the UI becomes interactive so these
+// paths do not race the plugin bridge's lazy JSZip loader.
+(window as any).JSZip = JSZip;
 
 initGlobalDialogs();
 
@@ -160,7 +165,6 @@ async function bootstrap() {
   } finally {
     removeLoader();
   }
-  initExtensionBridge();
 }
 
 if (document.readyState === 'loading') {

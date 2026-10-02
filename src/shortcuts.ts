@@ -94,19 +94,6 @@ export function comboHtml(combo: string): string {
   return combo.split('+').map(p => `<kbd>${escapeHtml(p)}</kbd>`).join('<span class="kbd-plus">+</span>');
 }
 
-export function formatComboDisplay(combo: string): string {
-  if (!combo) return '';
-  return combo.split('+').map(p => {
-    if (p.startsWith('Key') && p.length === 4) return p.slice(3);
-    if (p.startsWith('Digit') && p.length === 6) return p.slice(5);
-    if (p === 'ArrowUp') return '↑';
-    if (p === 'ArrowDown') return '↓';
-    if (p === 'ArrowLeft') return '←';
-    if (p === 'ArrowRight') return '→';
-    return p;
-  }).join(' + ');
-}
-
 function isEditableTarget(t: EventTarget | null): boolean {
   if (!t || !(t instanceof HTMLElement)) return false;
   const tag = t.tagName;
@@ -367,30 +354,6 @@ export const Shortcuts = {
 export function normalizeShortcutString(s: string, defVal = ''): string {
   if (!s || typeof s !== 'string') return defVal;
   return s.trim() || defVal;
-}
-
-export function isReservedShortcut(combo: string): boolean {
-  return ['Ctrl+S', 'Ctrl+O', 'Ctrl+W', 'Ctrl+N', 'Ctrl+T', 'Ctrl+Tab'].includes(combo);
-}
-
-export function bindShortcutCaptureInput(inputEl: HTMLInputElement): void {
-  inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      e.preventDefault();
-      inputEl.value = '';
-      return;
-    }
-    const combo = comboFromEvent(e);
-    if (combo) {
-      e.preventDefault();
-      inputEl.value = combo;
-    }
-  });
-}
-
-export function eventMatchesShortcut(e: KeyboardEvent, shortcutString: string): boolean {
-  if (!shortcutString) return false;
-  return comboFromEvent(e) === shortcutString;
 }
 
 

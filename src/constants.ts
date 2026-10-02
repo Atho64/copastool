@@ -224,8 +224,6 @@ export const DEFAULT_PROMPT_HEADER_AERA_SIMPLE = `Translate entire text to Nativ
 
 export const DEFAULT_SUMMARY_PROMPT_AERA_SIMPLE = `Include updated summary of the characters and overall story so far. Any characters and story need to be preserved even though they don't appear again for context. Enclose summary in <summary>...</summary> at the end inside codeblock.`;
 
-export const DEFAULT_BACKGROUND_PROMPT = DEFAULT_SUMMARY_PROMPT;
-
 export const DEFAULT_AI_CHECK_SUMMARY_PROMPT = `If the <summary> section is provided, use it to keep continuity, character voices, emotional tone, and terminology consistent.
 
 After translating, generate an updated summary in Indonesian covering:
@@ -348,18 +346,14 @@ AVAILABLE TOOLS:
 declare const __APP_VERSION__: string;
 export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'v0.1.6';
 export const DEFAULT_LUCA_MC_DISPLAY_NAME = 'Tomoya';
-export const DEFAULT_JSON_REF_LANG = ''; // e.g. "en" or "zh" - extra reference language for JSON VNTP projects
-export const HTL_MODE = 'htl'; // Human Translation Mode - hides AI features
-export const AI_MODE = 'ai'; // AI Translation Mode (default) - shows all features
 export const CLANNAD_PROTAGONIST_TOKENS = new Set(['＊Ｂ', '＊B', '＊Ａ', '＊A', '*B', '*A']);
 export const MAX_UNDO_STEPS = 10;
 export const DEFAULT_SELECTION_BATCH_SIZE = 100;
 export const DEFAULT_GLOSSARY_BATCH_SIZE = 500;
 export const DEFAULT_AI_CHECK_BATCH_SIZE = 250;
-export const DEFAULT_SELECTION_BATCH_PREV_SHORTCUT = 'Alt+ArrowUp';
-export const DEFAULT_SELECTION_BATCH_NEXT_SHORTCUT = 'Alt+ArrowDown';
 export const PROJECT_EXT = '.copas';
 export const LEGACY_PROJECT_EXT = '.cstl';
+export const DEFAULT_DICTIONARY_PROMPT = 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
 export const WINDOWS_FILE_ORDER_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: 'base',

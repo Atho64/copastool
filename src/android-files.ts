@@ -4,7 +4,7 @@ type AndroidTreeFile = { name: string; relativePath: string; documentId: string 
 type PendingFolderIo = { resolve: (result: string) => void; reject: (error: Error) => void; timeout: number };
 
 function androidBridge(): any | null {
-  return (window as any).AndroidAiOverlay || null;
+  return (window as any).AndroidBridge || (window as any).AndroidAiOverlay || null;
 }
 
 export function isAndroidNativeApp(): boolean {
@@ -63,7 +63,7 @@ function runFolderIo(method: string, args: string[], fallback: () => string): Pr
   });
 }
 
-export function pickAndroidFolder(purpose: 'import' | 'backup' | 'restore'): Promise<string | null> {
+export function pickAndroidFolder(purpose: 'import' | 'backup' | 'restore' | 'game'): Promise<string | null> {
   const bridge = androidBridge();
   if (!bridge) return Promise.resolve(null);
   if (activePicker) return Promise.reject(new Error('A folder picker is already open.'));

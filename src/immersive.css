@@ -616,7 +616,12 @@
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   #immersiveView { --im-size: 18px; }
-  .immersive-bar { min-height: 50px; padding: 0 10px; gap: 6px; }
+  .immersive-bar {
+    --im-safe-top: max(env(safe-area-inset-top, 0px), var(--android-safe-area-top, 0px));
+    min-height: calc(50px + var(--im-safe-top));
+    padding: var(--im-safe-top) 10px 0;
+    gap: 6px;
+  }
   .immersive-viewport { padding: 0 12px; }
   .immersive-style-panel,
   .immersive-bookmark-panel { right: 10px; }

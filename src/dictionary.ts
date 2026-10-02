@@ -1,6 +1,7 @@
 import { state } from './state';
 import { fetchApiResult } from './auto-translate';
 import { cstlConfirm } from './dialog';
+import { DEFAULT_DICTIONARY_PROMPT } from './constants';
 
 function simpleParseMarkdown(text: string): string {
   if (!text) return '';
@@ -496,7 +497,7 @@ async function fetchLLMDictionary(word: string, context: string) {
   const contentEl = document.getElementById('dictPopupContent') as HTMLElement;
 
 
-  const promptTemplate = state.dictionaryPrompt || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
+  const promptTemplate = state.dictionaryPrompt || DEFAULT_DICTIONARY_PROMPT;
   const finalPrompt = promptTemplate
     .replace(/{word}/g, word)
     .replace(/{context}/g, context);

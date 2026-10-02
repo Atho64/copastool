@@ -9,6 +9,7 @@ import { DEFAULT_AGENT_PROMPT } from './constants';
 import { openModal, closeModal } from './project';
 import { flashHint } from './render';
 import { delay } from './auto-translate';
+import { abortActiveRequests } from './ai-client';
 import { getDisplayOrderedLines } from './selection';
 import type { Line } from './types';
 
@@ -150,7 +151,9 @@ export async function onAgentTranslate(): Promise<void> {
 
   if (isAgentTranslating) {
     isAgentTranslating = false;
-      flashHint('Agent Translate dihentikan.');
+    // The flag only stops the next request; abort the in-flight one so Stop is immediate.
+    const aborted = abortActiveRequests();
+    flashHint(aborted > 0 ? 'Agent Translate dihentikan (request dibatalkan).' : 'Agent Translate dihentikan.');
     btn.textContent = 'Menghentikan...';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
@@ -174,7 +177,7 @@ export async function onAgentTranslate(): Promise<void> {
 
   const orderedLines = getDisplayOrderedLines();
   let targetLines = Array.from(state.selectedLines)
-    .map(num => state.lines.find(l => l.line_num === num))
+    .map(num => state.lineByNum.get(num))
     .filter(l => l && !isTranslated(l) && !l._hidden) as typeof state.lines;
 
   if (targetLines.length === 0) {

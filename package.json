@@ -1,7 +1,7 @@
 {
   "name": "copas-tool",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "android:init": "tauri android init && node scripts/patch-android-overlay.mjs && tauri icon ./icons-src/icon.png",
-    "android:build": "node scripts/patch-android-overlay.mjs && tauri android build --apk"
+    "android:init": "tauri android init && node scripts/patch-android-bridge.mjs && tauri icon ./icons-src/icon.png",
+    "android:build": "node scripts/patch-android-bridge.mjs && tauri android build --apk"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

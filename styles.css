@@ -147,7 +147,6 @@ input, textarea, button, select { font-family: inherit; font-size: inherit; }
 .wrap { flex-wrap: wrap; }
 .desktop-only { display: inline-block; }
 .text-muted { color: var(--muted); }
-.text-white { color: var(--text); }
 .min-w-200 { min-width: 200px; }
 .label-bold { font-size: var(--text-sm); font-weight: 700; color: var(--text); letter-spacing: -0.01em; line-height: var(--leading-snug); }
 
@@ -987,16 +986,6 @@ input.dashboard-search-input,
   justify-content: center;
 }
 
-
-
-.toolbar-dynamic-wrap {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  overflow: visible;
-}
-
 .toolbar-actions {
   display: flex;
   align-items: center;
@@ -1091,14 +1080,6 @@ input.dashboard-search-input,
 #dropdownImportMenu {
   overflow: visible;
 }
-#dropdownImportMenu .dropdown-nested {
-  position: relative;
-  display: block;
-  width: 100%;
-}
-#dropdownImportMenu .dropdown-nested > .dropdown-item {
-  border-bottom: none;
-}
 /* Reset base .dropdown-content fixed/opacity/transform so submenu drops below its toggle */
 #dropdownImportMenu #dropdownImportOtherMenu.dropdown-content,
 #dropdownImportMenu #dropdownImportOtherMenu.dropdown-content.show {
@@ -1183,8 +1164,35 @@ input.dashboard-search-input,
   margin-bottom: 4px;
 }
 .hint { color: #94a3b8; font-size: 12px; line-height: 1.4; max-width: none; }
-.hint-tight { margin-top: -4px; }
 .hint-sm { font-size: 11px; color: #94a3b8; }
+
+/* Field grid for settings modals.
+   The previous `flex-center` rows centred their items vertically, so a label that
+   wrapped to two lines dropped its input below the neighbouring ones — and five
+   columns inside a 460px modal left ~67px each, wrapping every label. A grid with
+   `align-items: start` plus short one-line labels keeps all inputs on one baseline. */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+  align-items: start;
+}
+.field-grid > * {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* Keep labels on exactly one line. A wrapping label would push its input out of
+   line with the rest of the row, so wrapping is prevented rather than compensated
+   for with reserved height. Measured at the real modal width the longest label
+   ("Presence Penalty") is 101px inside a 119px column, and a nowrap label can
+   spill into the 14px grid gap — roughly 30px of slack before anything collides. */
+.field-grid .form-label {
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 .settings-section {
   background: rgba(255, 255, 255, 0.025);
@@ -1273,13 +1281,6 @@ input.dashboard-search-input,
 
 @media (min-width: 1024px) {
   .split-layout { grid-template-columns: 1.6fr 1.2fr; }
-}
-
-.split-layout.hide-tools { grid-template-columns: 1fr; }
-.split-layout.hide-tools .panel-right { display: none; }
-.split-layout.hide-tools .panel-left {
-  border-bottom: none;
-  border-right: none;
 }
 
 .panel {
@@ -1486,8 +1487,7 @@ input.dashboard-search-input,
   margin: 3px 0 0 0;
 }
 .checkbox-cell input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.4; }
-.checkbox-cell input[type="checkbox"]:focus-visible,
-.sep-cb:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.checkbox-cell input[type="checkbox"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .preview-row .checkbox-cell { cursor: default; }
 .checkbox-cell .text-content { cursor: pointer; }
 
@@ -2131,21 +2131,6 @@ select {
   flex-shrink: 0;
 }
 
-.settings-nested-box {
-  border-left: 2px solid var(--primary);
-  padding-left: 14px;
-  margin-left: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: opacity var(--dur-2) var(--ease-soft);
-}
-
-.section-disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { 0% { opacity: 0; transform: scale(0.6); } 60% { opacity: 1; transform: scale(1.08); } 100% { transform: none; } }
@@ -2168,6 +2153,22 @@ select {
     animation-delay: 0ms !important;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+}
+
+/* Android/low-power GPU: backdrop blur on chrome surfaces is expensive while
+   scrolling. Disable it and give the surfaces solid backgrounds so text stays
+   legible over scrolling content. */
+@media (pointer: coarse) {
+  .toolbar,
+  .status-bar,
+  .panel-right {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--panel);
+  }
+  .panel-right {
+    background: var(--panel-2);
   }
 }
 
@@ -2423,15 +2424,6 @@ select {
     overflow-y: auto !important;
     padding: 10px 12px 48px 12px !important;
     background: transparent !important;
-  }
-
-  .split-layout.hide-tools {
-    grid-template-rows: 1fr !important;
-  }
-  .split-layout.hide-tools .panel-left {
-    flex: 1 !important;
-    height: 100% !important;
-    max-height: none !important;
   }
 
   .card-box {
@@ -2872,8 +2864,6 @@ select {
 @media (min-width: 769px) and (max-width: 1023px) {
   .split-layout { grid-template-columns: 1fr; grid-template-rows: minmax(42vh, 50vh) 1fr; }
   .panel-left { flex: none; height: auto; min-height: 42vh; max-height: 52vh; }
-  .split-layout.hide-tools { grid-template-rows: 1fr; }
-  .split-layout.hide-tools .panel-left { flex: 1; height: auto; min-height: 0; max-height: none; }
   .project-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 1024px) and (max-width: 1360px) {
@@ -2963,8 +2953,6 @@ body {
 /* Utility classes not in friend's base */
 .gap-2 { gap: 8px; }
 .mb-0 { margin-bottom: 0; }
-.mt-4 { margin-top: 24px; }
-.cursor-pointer { cursor: pointer; }
 .modal-md { width: min(460px, 92vw); }
 
 /* File List */
@@ -3568,25 +3556,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   border-bottom: 1px solid var(--line);
 }
 
-/* Checkbox custom */
-.checkbox-container { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
-.checkbox-container input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
-.checkbox-mark { width: 16px; height: 16px; border: 2px solid var(--line-2); border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background var(--dur-1) var(--ease-soft), border-color var(--dur-1) var(--ease-soft); }
-.checkbox-container input[type="checkbox"]:checked + .checkbox-mark {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-.checkbox-container input[type="checkbox"]:checked + .checkbox-mark::after {
-  content: '';
-  display: block;
-  width: 5px;
-  height: 9px;
-  border: 2px solid #fff;
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg) translateY(-1px);
-}
-
 /* HTL mode — hide the entire right workspace, AI bubbles, chat, and logging */
 body.htl-mode [data-htl-hide="true"] { display: none !important; }
 body.htl-mode .panel-right { display: none !important; }
@@ -3709,13 +3678,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
 }
 
 /* ═══ BOOKMARK FEATURE STYLES ═══ */
-
-.panel-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 
 /* Bubble Badge */
 .bubble-badge {
@@ -3956,20 +3918,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   transform: translateY(-2px);
   border-color: var(--primary);
   box-shadow: 0 6px 18px -4px var(--primary-soft);
-}
-
-.epub-preview-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 600;
-  background: var(--panel-2);
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  user-select: none;
 }
 
 .image-lightbox-backdrop {
@@ -4351,11 +4299,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   font-size: 11.5px;
 }
 
-.plugin-row .btn-uninstall-plugin:hover:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fca5a5;
-}
-
 /* Switch Component */
 .switch {
   position: relative;
@@ -4609,13 +4552,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   border: 1px solid var(--line);
   border-radius: var(--radius, 8px);
   padding: 10px;
-}
-
-.plugin-panel-title {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  margin-bottom: 6px;
-  color: var(--text);
 }
 
 /* ═══ KEYBOARD SHORTCUTS STYLES ═══ */

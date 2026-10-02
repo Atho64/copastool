@@ -37,10 +37,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "Frontend build failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "=== Step 2: Patching Android overlay ===" -ForegroundColor Cyan
-node scripts/patch-android-overlay.mjs
+Write-Host "=== Step 2: Patching Android native bridge ===" -ForegroundColor Cyan
+node scripts/patch-android-bridge.mjs
 if ($LASTEXITCODE -ne 0) {
-    throw "Patch Android overlay failed with exit code $LASTEXITCODE"
+    throw "Patch Android native bridge failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "=== Step 3: Building Android APK with Tauri (aarch64) ===" -ForegroundColor Cyan

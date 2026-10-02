@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.10-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.11-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -310,7 +310,7 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 
 **TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework berat. Dependensi utama:
 - **Tauri v2** — runtime desktop (Windows NSIS & MSI) dan mobile (Android APK)
-- **@tauri-apps/plugin-clipboard-manager** — sinkronisasi clipboard background untuk Auto Copas
+- **@tauri-apps/plugin-clipboard-manager** — akses clipboard native fokus-independen
 - **Web Worker Storage** — isolasi parsing dan commit IndexedDB/OPFS di thread terpisah agar UI tetap responsif 60fps
 - **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, pemilih folder Storage Access Framework untuk impor/backup, dan penyimpanan file langsung ke folder `Download`
 - **JSZip** — parsing file `.zip`
@@ -392,3 +392,13 @@ CopasTool dapat dijalankan sebagai aplikasi native maupun aplikasi web (PWA):
 ## Kredit
 
 Original dibuat oleh [Atho64](https://github.com/atho64), di-fork oleh [LuKazuu](https://github.com/LuKazuu), lalu di-fork balik dan dikembangkan lagi oleh [Atho64](https://github.com/atho64).
+
+---
+
+## Lisensi & Atribusi Pihak Ketiga
+
+CopasTool dirilis di bawah **[MIT License](./LICENSE)**.
+
+CopasTool dibangun di atas karya orang lain. Dependensi npm (JSZip, Kuroshiro, Kuromoji, Pako) berlisensi permisif dan aman dipakai di bawah MIT. Kamus furigana memakai Kuromoji + IPADIC (Apache 2.0 / NAIST).
+
+Tidak ada komponen copyleft atau non-komersial yang dibundel maupun dibutuhkan. Daftar lengkap ada di **[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)**.

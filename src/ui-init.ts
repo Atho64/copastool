@@ -26,7 +26,6 @@ import { onOpenSettings, onSavePromptSettings, onOpenPromptsSettings, onOpenGlos
 import { onExport } from './export';
 import { Shortcuts } from './shortcuts';
 import { OpfsExplorer } from './opfs-explorer';
-import { onImportVndbNames, onImportAnilistNames } from './vndb-anilist';
 import { cstlConfirm } from './dialog';
 import { onExtractEpubRubyNames } from './epub-ruby';
 import { openFileListModal, closeFileListModal, onAddFile, onDeleteSelectedFiles } from './file-list';
@@ -62,7 +61,6 @@ function standardPrompt(template: string, format: string): string {
 import { getLucaProfile, populateLucaExportSlotSelect, DEFAULT_LUCA_PROFILE } from './luca-engine';
 import { getMainScroller } from './state';
 import { initDictionary } from './dictionary';
-import { initExtensionBridge, isExtensionAvailable } from './extension-bridge';
 import { applyProjectLoggingVisibility, appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
 import { Immersive } from './immersive';
 import './plugins';
@@ -87,13 +85,11 @@ export function cacheElements(): void {
     'dashboardView', 'workspaceView', 'projectList', 'projectFilterInput', 'projectSortSelect', 'projectCountBadge', 'btnNewProject', 'btnRestoreProject', 'btnBackupAllProjects', 'btnFolderBackup', 'btnFolderRestore',
     'btnBackToDashboard', 'btnBackupProject', 'btnBatchPrev', 'btnBatchNext', 'projectNameDisplay', 'restoreProjectInput', 'btnDropdownImport', 'dropdownImportMenu', 'btnDropdownImportOther', 'dropdownImportOtherMenu', 'btnImportFile', 'btnDropdownTools', 'dropdownToolsMenu',
     'btnDropdownDashboardSettings', 'dropdownDashboardSettingsMenu', 'btnDashboardSettings', 'dashboardSettingsModal', 'btnDashboardSettingsSave', 'btnDashboardSettingsReset', 'paletteSelect', 'btnDashboardSettingsCancel', 'btnDashboardPrompts', 'dashboardPromptsModal', 'dpPromptInput', 'dpPromptTemplateSelect', 'dpGlossaryPromptInput', 'dpAiCheckPromptInput', 'dpAgentPromptInput', 'dpSummaryPromptInput', 'btnDashboardPromptsSave', 'btnDashboardPromptsReset', 'btnDashboardPromptsCancel',
-    'dsSourceLang', 'dsTargetLang', 'dsTranslationMode', 'dsAutoCopasTarget', 'dsAutoCopasMode', 'dsAutoCopasNewTabEvery', 'dsAiFormat', 'dsContextLines', 'dsContextType', 'dsSelectionBatch', 'dsGlossaryBatch', 'dsAiCheckBatch', 'dsParallelBatch', 'dsSubagentWorkers', 'dsShowFurigana', 'dsFuriganaType', 'dsFontSize', 'dsEnableDictionary', 'dsDictionaryEngine', 'dsDictionaryPrompt', 'dsRegexFilter', 'dsRegexFilterCase', 'dsDisableEmptyLineValidation', 'dsCheckKanaResidue', 'dsCheckSimilarity', 'dsSimilarityThreshold', 'dsSimilarityThresholdWrap', 'dsCheckLengthRatio', 'dsLengthRatioThreshold', 'dsLengthRatioWrap', 'dsCheckLinebreak', 'dsCheckLanguage', 'dsCheckPunctuation', 'dsCheckUntransName', 'dsIgnorePasteNames', 'dsEnableBackgroundChaining', 'dsEnableUncertainMarking', 'dsSafeTagsForChatgpt', 'dsAgentMaxTurns', 'dsEpubTags', 'dsShowEpubImages', 'dsEnableLogging',
+    'dsSourceLang', 'dsTargetLang', 'dsTranslationMode', 'dsAiFormat', 'dsContextLines', 'dsContextType', 'dsSelectionBatch', 'dsGlossaryBatch', 'dsAiCheckBatch', 'dsParallelBatch', 'dsSubagentWorkers', 'dsShowFurigana', 'dsFuriganaType', 'dsFontSize', 'dsEnableDictionary', 'dsDictionaryEngine', 'dsDictionaryPrompt', 'dsRegexFilter', 'dsRegexFilterCase', 'dsDisableEmptyLineValidation', 'dsCheckKanaResidue', 'dsCheckSimilarity', 'dsSimilarityThreshold', 'dsSimilarityThresholdWrap', 'dsCheckLengthRatio', 'dsLengthRatioThreshold', 'dsLengthRatioWrap', 'dsCheckLinebreak', 'dsCheckLanguage', 'dsCheckPunctuation', 'dsCheckUntransName', 'dsIgnorePasteNames', 'dsEnableBackgroundChaining', 'dsEnableUncertainMarking', 'dsSafeTagsForChatgpt', 'dsAgentMaxTurns', 'dsEpubTags', 'dsShowEpubImages', 'dsEnableLogging',
     'btnImportFolder', 'btnImportZip', 'btnImportTranslatedFile', 'btnImportTranslatedFolder', 'btnExport', 'btnProofread',
     'previewViewport', 'previewContainer', 'currentFileBar', 'progressFill', 'progressText', 'btnSelectAll',
     'btnClearSelection', 'copyCount', 'btnCopyForAi', 'copyStatus', 'pasteArea', 'btnApply',
-    'autoCopasControls', 'btnAutoCopas', 'btnFetchCopasResult', 'autoCopasStatus', 'btnAutoCopasCancel', 'checkAutoRepeatOnFailure',
-    'autoCopasGlossaryControls', 'btnAutoCopasGlossary', 'btnFetchCopasGlossaryResult', 'autoCopasGlossaryStatus', 'btnAutoCopasGlossaryCancel',
-    'autoCopasAiCheckControls', 'btnAutoCopasAiCheck', 'btnFetchCopasAiCheckResult', 'autoCopasAiCheckStatus', 'btnAutoCopasAiCheckCancel',
+    'checkAutoRepeatOnFailure',
     'btnUndo', 'btnRedo', 'nameTableBody', 'statusBar', 'importFileInput', 'importFolderInput', 'importTranslatedFileInput', 'importTranslatedFolderInput',
     'btnCopyNamesForAi', 'copyNameCount', 'pasteNameArea', 'btnApplyNameTranslations', 'btnResetNameTranslations',
     'glossaryPreviewWrap', 'glossaryPreviewText',
@@ -122,7 +118,7 @@ export function cacheElements(): void {
     'settingsCheckKanaResidue', 'settingsCheckSimilarity', 'settingsSimilarityThreshold', 'settingsSimilarityThresholdWrap',
     'settingsContextTypeSelect',
     'btnQaCheck', 'qaModal', 'qaCheckGlossary', 'qaCheckKana', 'qaCheckSimilarity', 'qaCheckLinebreak', 'qaCheckLength', 'qaCheckLanguage', 'qaCheckPunctuation', 'btnRunQa', 'btnQaReset', 'qaStats', 'qaResults', 'btnQaClose', 'btnRetranslateFlagged', 'settingsCheckLengthRatio', 'settingsLengthRatioThreshold', 'settingsLengthRatioWrap', 'settingsCheckLinebreak', 'settingsCheckLanguage', 'settingsCheckPunctuation', 'settingsCheckUntransName', 'settingsIgnorePasteNames', 'settingsEnableUncertainMarking', 'settingsSafeTagsForChatgpt', 'qaCheckUncertain', 'qaCheckUntransName', 'aiTranslateModeSelect', 'settingsAgentMaxTurns',
-    'btnAutoTranslate', 'btnAutoGlossaryAi', 'btnAutoAiCheck', 'btnFloatingApiSettings', 'apiSettingsModal', 'apiTypeSelect', 'apiUrlInput', 'apiKeyInput', 'apiModelInput', 'apiModelSelect', 'btnFetchModels', 'apiModelFetchStatus', 'apiTemperatureInput', 'apiTopPInput', 'apiMaxTokensInput', 'apiFrequencyPenaltyInput', 'apiPresencePenaltyInput', 'apiSeedInput', 'apiReasoningEffortSelect', 'apiRpmInput', 'apiDelayPreview', 'apiThinkingSelect', 'apiFilterThinkingCheck', 'apiMergeSystemCheck', 'apiStreamingCheck', 'apiBackupKeysInput', 'apiKeyStrategySelect', 'btnApiSettingsCancel', 'btnApiSettingsSave', 'tavilyKeyInput', 'apiProfileSelect', 'btnLoadProfile', 'btnDeleteProfile', 'apiProfileNameInput', 'btnSaveProfile',
+    'btnAutoTranslate', 'btnSemiAutoCopas', 'btnToggleFloatingBubble', 'semiAutoCopasStatus', 'btnAutoGlossaryAi', 'btnAutoAiCheck', 'btnFloatingApiSettings', 'apiSettingsModal', 'apiTypeSelect', 'apiUrlInput', 'apiKeyInput', 'apiModelInput', 'apiModelSelect', 'btnFetchModels', 'apiModelFetchStatus', 'apiTemperatureInput', 'apiTopPInput', 'apiMaxTokensInput', 'apiFrequencyPenaltyInput', 'apiPresencePenaltyInput', 'apiSeedInput', 'apiTimeoutInput', 'apiReasoningEffortSelect', 'apiRpmInput', 'apiDelayPreview', 'apiThinkingSelect', 'apiFilterThinkingCheck', 'apiMergeSystemCheck', 'apiStreamingCheck', 'apiBackupKeysInput', 'apiKeyStrategySelect', 'btnApiSettingsCancel', 'btnApiSettingsSave', 'tavilyKeyInput', 'apiProfileSelect', 'btnLoadProfile', 'btnDeleteProfile', 'apiProfileNameInput', 'btnSaveProfile',
  'aiCheckReviewActions', 'btnReviewApply', 'btnReviewSkip',
     'btnFloatingAiAgent', 'btnFloatingLogging', 'loggingPanel', 'loggingHistory', 'btnLoggingClear', 'btnLoggingClose', 'aiAgentChatPanel', 'btnAgentClose', 'btnAgentClear', 'btnAgentMemory', 'agentChatHistory', 'agentInput', 'btnAgentSend',
     'agentMemoryModal', 'agentMemoryList', 'agentMemoryKey', 'agentMemoryCategory', 'agentMemoryScope', 'agentMemoryValue', 'btnAgentMemoryCancel', 'btnAgentMemorySave',
@@ -468,7 +464,7 @@ export function bindEvents(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     try {
-      (window as any).AndroidAiOverlay?.resumeMainWebView?.();
+      ((window as any).AndroidBridge || (window as any).AndroidAiOverlay)?.resumeMainWebView?.();
     } catch (_) {}
   });
 
@@ -625,9 +621,9 @@ export function bindEvents(): void {
   ui.btnImportGlossaryFile?.addEventListener('click', () => (ui.glossaryFileInput as HTMLInputElement).click());
   ui.btnExportGlossaryFile?.addEventListener('click', onExportGlossaryFile);
   ui.btnDeleteTranslation?.addEventListener('click', onDeleteTranslation);
-  ui.btnImportVndbNames?.addEventListener('click', onImportVndbNames);
+  ui.btnImportVndbNames?.addEventListener('click', () => { void import('./vndb-anilist').then(m => m.onImportVndbNames()); });
   ui.btnExtractEpubRubyNames?.addEventListener('click', onExtractEpubRubyNames);
-  ui.btnImportAnilistNames?.addEventListener('click', onImportAnilistNames);
+  ui.btnImportAnilistNames?.addEventListener('click', () => { void import('./vndb-anilist').then(m => m.onImportAnilistNames()); });
 
   if (ui.btnImportRefLang1) ui.btnImportRefLang1.addEventListener('click', onImportRefLang1);
   if (ui.btnImportRefLang2) ui.btnImportRefLang2.addEventListener('click', onImportRefLang2);
@@ -971,6 +967,17 @@ if (ui.settingsCheckSimilarity) {
 
 
   ui.btnAutoTranslate?.addEventListener('click', onAutoTranslate);
+  ui.btnSemiAutoCopas?.addEventListener('click', () => {
+    void import('./semi-auto-copas').then(m => m.toggleSemiAutoCopas());
+  });
+  ui.btnToggleFloatingBubble?.addEventListener('click', () => {
+    void import('./semi-auto-copas').then(m => m.toggleFloatingBubble());
+  });
+  if ((window as any).AndroidBridge || (window as any).AndroidAiOverlay) {
+    if (ui.btnToggleFloatingBubble) {
+      ui.btnToggleFloatingBubble.style.display = 'inline-flex';
+    }
+  }
   const modeSelect = document.getElementById('aiTranslateModeSelect') as HTMLSelectElement;
   if (modeSelect) {
     modeSelect.addEventListener('change', () => {

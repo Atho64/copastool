@@ -520,12 +520,6 @@ let cachedCharacterNameCount: number | null = null;
 export function invalidateNameCache(): void {
   cachedCharacterNameCount = null;
 }
-export function getCachedCharacterNameCount(): number {
-  if (cachedCharacterNameCount === null) {
-    cachedCharacterNameCount = collectCharacterNameRows().length;
-  }
-  return cachedCharacterNameCount;
-}
 
 export function collectCharacterNameRows() {
   const rows = new Map<string, { name: string; lines: Line[]; translatedNames: Set<string> }>();
@@ -828,25 +822,9 @@ function _runUpdateButtonStates(): void {
   setDisabled('btnSelectAll', !hasData);
   setDisabled('btnClearSelection', !hasSelection);
   setDisabled('btnCopyForAi', untranslatedSelectionCount === 0);
-  const extOk = (() => {
-    try {
-      // lazy import avoid circular — function set on window by bridge? use dynamic check via button dataset
-      return !!(ui.btnAutoCopas as HTMLButtonElement | undefined)?.dataset?.extReady
-        || document.documentElement.dataset.cstlExt === '1';
-    } catch { return false; }
-  })();
-  // Prefer live bridge flag when module already loaded
-  let bridgeOk = false;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    bridgeOk = (window as any).__cstlExtAvailable === true;
-  } catch { /* */ }
-  const canCopas = untranslatedSelectionCount > 0 && (bridgeOk || document.documentElement.dataset.cstlExt === '1');
-  // Full Auto can select the next batch itself, so it must remain available
-  // even when the user has not manually selected rows.
-  setDisabled('btnAutoCopas', untranslatedCount === 0);
-  setDisabled('btnFetchCopasResult', !hasData);
   setDisabled('btnAutoTranslate', untranslatedCount === 0);
+  setDisabled('btnSemiAutoCopas', untranslatedCount === 0);
+  setDisabled('btnToggleFloatingBubble', untranslatedCount === 0);
   setDisabled('btnCopyNamesForAi', !hasCharacterNames);
   setDisabled('btnResetNameTranslations', translatedNameCount === 0);
   setDisabled('btnCopyForGlossaryAi', glossarySelectionCount === 0);
@@ -984,7 +962,7 @@ export function onSaveLineEditor(): void {
   let n: string | null = null;
   const hideMcName = isClannadProtagonistToken(l.name) && getActiveLucaProfile().nameAtFormat;
   if (l.name && !hideMcName) n = (ui.lineNameInput as HTMLInputElement).value.trim().replace(/\r?\n/g, '\\n');
-  pushUndoSnapshot();
+  pushUndoSnapshot(true, [l.line_num]);
   const before = { trans_message: l.trans_message, trans_name: l.trans_name, is_translated: l.is_translated };
   l.trans_message = m || ((ui.lineTranslatedCheck as HTMLInputElement).checked && (state.disableEmptyLineValidation || ilustrasi) ? '' : null);
   l.is_translated = !!((ui.lineTranslatedCheck as HTMLInputElement).checked && (m || state.disableEmptyLineValidation || ilustrasi));

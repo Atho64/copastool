@@ -127,13 +127,6 @@ export function updateCustomImportAccept(): void {
   input.accept = accept; // kosong = semua tipe file boleh dipilih
 }
 
-export function openCustomParserModal(): void {
-  openedFromPluginManager = false;
-  showListView();
-  populateLucaSettingsUI();
-  (ui.customParserModal as HTMLElement) && openModal(ui.customParserModal as HTMLElement);
-}
-
 export function openCustomParserEditor(id: string | null): void {
   openedFromPluginManager = true;
   const pmModal = document.getElementById('pluginManagerModal') || ui.pluginManagerModal;

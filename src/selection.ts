@@ -71,13 +71,6 @@ export function getDisplayOrderedLines(): Line[] {
   return orderedCacheOut;
 }
 
-/** Force the next getDisplayOrderedLines() call to re-sort. */
-export function invalidateDisplayOrderCache(): void {
-  orderedCacheSrc = null;
-  orderRankCacheSrc = null;
-  orderRankCache = null;
-}
-
 let orderedCacheSrc: Line[] | null = null;
 let orderedCacheKey = '';
 let orderedCacheLen = -1;

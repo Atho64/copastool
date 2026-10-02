@@ -505,25 +505,6 @@ function updateDeleteButtonState(): void {
 // ─── Undo/Redo support for file actions ────────────────────────────────────────
 
 /**
- * Check if the top of the undo stack is a file action.
- * Returns the file action snapshot if so, null otherwise.
- */
-export function peekFileUndoAction(): FileActionSnapshot | null {
-  if (state.undoStack.length === 0) return null;
-  const top = state.undoStack[state.undoStack.length - 1];
-  return top.fileAction || null;
-}
-
-/**
- * Check if the top of the redo stack is a file action.
- */
-export function peekFileRedoAction(): FileActionSnapshot | null {
-  if (state.redoStack.length === 0) return null;
-  const top = state.redoStack[state.redoStack.length - 1];
-  return top.fileAction || null;
-}
-
-/**
  * Apply a file action snapshot (used by undo/redo).
  * This restores importedFiles, fileOrder, and lines to their previous state.
  */

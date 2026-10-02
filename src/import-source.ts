@@ -291,14 +291,21 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
           pendingEpubSourceId = 'epub_' + Date.now() + '.epub';
           pendingEpubFile = f;
 
-          const zip = await (window as any).JSZip.loadAsync(f);
-          const containerXml = await zip.file('META-INF/container.xml').async('text');
+          const JSZipCtor = (window as any).JSZip;
+          if (!JSZipCtor?.loadAsync) throw new Error('Modul pembaca ZIP EPUB belum siap. Muat ulang aplikasi lalu coba lagi.');
+          flashHint(`Membuka EPUB: ${f.name}…`, true);
+          const zip = await JSZipCtor.loadAsync(f);
+          const containerEntry = zip.file('META-INF/container.xml');
+          if (!containerEntry) throw new Error(`File ${f.name} bukan EPUB yang valid: META-INF/container.xml tidak ditemukan.`);
+          const containerXml = await containerEntry.async('text');
           const rootfile = new DOMParser().parseFromString(containerXml, 'application/xml').querySelector('rootfile');
-          if (!rootfile) continue;
+          if (!rootfile) throw new Error(`File ${f.name} tidak memiliki OPF rootfile yang valid.`);
           const opfPath = decodeURIComponent(rootfile.getAttribute('full-path') || '');
           const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')) + '/' : '';
 
-          const opfXml = await zip.file(opfPath).async('text');
+          const opfEntry = zip.file(opfPath);
+          if (!opfEntry) throw new Error(`Paket EPUB rusak: OPF tidak ditemukan (${opfPath}).`);
+          const opfXml = await opfEntry.async('text');
           const opfDoc = new DOMParser().parseFromString(opfXml, 'application/xml');
 
           const manifest: Record<string, string> = {};

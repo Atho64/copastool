@@ -166,7 +166,7 @@ export interface AppState {
   enableUncertainMarking: boolean;
   /** Replace angle-bracket section tags (<Glossary>, <Context>, <lines>, …) with
    *  safe `=== LABEL ===` markers before sending to LLM. Prevents ChatGPT from
-   *  stripping the tags as if they were HTML. Applies to all Auto Copas targets. */
+   *  stripping the tags as if they were HTML. */
   safeTagsForChatgpt: boolean;
   aiBackupKeys: string;
   aiKeyStrategy: 'fallback' | 'random';
@@ -212,6 +212,13 @@ export interface AppState {
   aiSeed: number | null;
   aiReasoningEffort: 'default' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   aiRpm: number;
+  /**
+   * Idle timeout for an AI request, in milliseconds. The countdown restarts every
+   * time a chunk arrives, so it measures silence rather than total duration —
+   * a reasoning model may think for a while before its first token.
+   * `0` disables the timeout.
+   */
+  aiRequestTimeoutMs: number;
   aiThinkingMode: 'default' | 'off' | 'on';
   aiFilterThinkingOutput: boolean;
   /** Merge role:system into user message (workaround for gateways that drop system on OpenAI-compatible routes). */

@@ -30,11 +30,19 @@ export type IconName =
   | 'chevron-down'
   | 'power'
   | 'upload'
-  | 'file-plus';
+  | 'file-plus'
+  | 'play'
+  | 'square'
+  | 'layers'
+  | 'copy';
 
 const SVG_ATTRS = 'xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
 const PATHS: Record<IconName, string> = {
+  'play': '<polygon points="6 3 20 12 6 21 6 3" />',
+  'square': '<rect width="18" height="18" x="3" y="3" rx="2" />',
+  'layers': '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />',
+  'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />',
   'settings': '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" />',
   'undo': '<path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />',
   'redo': '<path d="m15 14 5-5-5-5" /><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />',
@@ -75,16 +83,3 @@ export function icon(name: IconName, size?: number, extraClass = ''): string {
   return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
-/** Create SVG element for an icon. */
-export function createIconElement(name: IconName, size = 16, extraClass = ''): SVGElement {
-  const div = document.createElement('div');
-  div.innerHTML = icon(name, size, extraClass);
-  return div.firstElementChild as SVGElement;
-}
-
-/** Set an icon on an element, replacing its text content. */
-export function setIcon(el: HTMLElement, name: IconName, size?: number): void {
-  el.innerHTML = icon(name, size);
-  el.classList.add('icon-wrap');
-  el.setAttribute('aria-hidden', 'true');
-}

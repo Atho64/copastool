@@ -9,6 +9,7 @@ import {
   getDefaultAiCheckSummaryPrompt,
   DEFAULT_LUCA_MC_DISPLAY_NAME,
   DEFAULT_AI_TRANSLATION_FORMAT,
+  DEFAULT_DICTIONARY_PROMPT,
   DEFAULT_SELECTION_BATCH_SIZE, DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE,
 } from './constants';
 import { DEFAULT_LUCA_PROFILE, clearLucaFileLineBytesCache, parseLucaTxt } from './luca-engine';
@@ -202,9 +203,6 @@ export function getDefaultSettings(): Record<string, any> {
     sourceLang: 'Japanese',
     targetLang: 'Indonesian',
     translationMode: 'ai',
-    autoCopasTarget: 'gemini',
-    autoCopasMode: 'semi',
-    autoCopasNewTabEvery: 0,
     aiFormat: DEFAULT_AI_TRANSLATION_FORMAT,
     contextLines: 10,
     contextType: 'raw',
@@ -223,7 +221,7 @@ export function getDefaultSettings(): Record<string, any> {
     fontSize: 14,
     enableDictionary: false,
     dictionaryEngine: 'llm',
-    dictionaryPrompt: 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.',
+    dictionaryPrompt: DEFAULT_DICTIONARY_PROMPT,
     checkKanaResidue: false,
     checkSimilarity: false,
     similarityThreshold: 70,
@@ -252,9 +250,6 @@ export function openDashboardSettings(): void {
   if (ui.dsSourceLang) (ui.dsSourceLang as HTMLSelectElement).value = d.sourceLang || 'Japanese';
   if (ui.dsTargetLang) (ui.dsTargetLang as HTMLSelectElement).value = d.targetLang || 'Indonesian';
   if (ui.dsTranslationMode) (ui.dsTranslationMode as HTMLSelectElement).value = d.translationMode || 'ai';
-  if (ui.dsAutoCopasTarget) (ui.dsAutoCopasTarget as HTMLSelectElement).value = d.autoCopasTarget || 'gemini';
-  if (ui.dsAutoCopasMode) (ui.dsAutoCopasMode as HTMLSelectElement).value = d.autoCopasMode || 'semi';
-  if (ui.dsAutoCopasNewTabEvery) (ui.dsAutoCopasNewTabEvery as HTMLInputElement).value = String(d.autoCopasNewTabEvery ?? 0);
   if (ui.dsAiFormat) (ui.dsAiFormat as HTMLSelectElement).value = d.aiFormat || DEFAULT_AI_TRANSLATION_FORMAT;
   if (ui.dsContextLines) (ui.dsContextLines as HTMLInputElement).value = String(d.contextLines !== undefined ? d.contextLines : 10);
   if (ui.dsContextType) (ui.dsContextType as HTMLSelectElement).value = d.contextType || 'raw';
@@ -268,7 +263,7 @@ export function openDashboardSettings(): void {
   if (ui.dsFontSize) (ui.dsFontSize as HTMLInputElement).value = String(d.fontSize || 14);
   if (ui.dsEnableDictionary) (ui.dsEnableDictionary as HTMLInputElement).checked = !!d.enableDictionary;
   if (ui.dsDictionaryEngine) (ui.dsDictionaryEngine as HTMLSelectElement).value = d.dictionaryEngine || 'llm';
-  if (ui.dsDictionaryPrompt) (ui.dsDictionaryPrompt as HTMLTextAreaElement).value = d.dictionaryPrompt || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
+  if (ui.dsDictionaryPrompt) (ui.dsDictionaryPrompt as HTMLTextAreaElement).value = d.dictionaryPrompt || DEFAULT_DICTIONARY_PROMPT;
   if (ui.dsRegexFilter) (ui.dsRegexFilter as HTMLInputElement).value = d.regexFilter || '';
   if (ui.dsRegexFilterCase) (ui.dsRegexFilterCase as HTMLInputElement).checked = !!d.regexFilterCase;
   if (ui.dsDisableEmptyLineValidation) (ui.dsDisableEmptyLineValidation as HTMLInputElement).checked = !!d.disableEmptyLineValidation;
@@ -311,9 +306,6 @@ export function saveDashboardSettings(): void {
   if (ui.dsSourceLang) d.sourceLang = (ui.dsSourceLang as HTMLSelectElement).value;
   if (ui.dsTargetLang) d.targetLang = (ui.dsTargetLang as HTMLSelectElement).value;
   if (ui.dsTranslationMode) d.translationMode = (ui.dsTranslationMode as HTMLSelectElement)?.value === 'htl' ? 'htl' : 'ai';
-  if (ui.dsAutoCopasTarget) d.autoCopasTarget = (ui.dsAutoCopasTarget as HTMLSelectElement).value || 'gemini';
-  if (ui.dsAutoCopasMode) d.autoCopasMode = (ui.dsAutoCopasMode as HTMLSelectElement).value === 'full' ? 'full' : 'semi';
-  if (ui.dsAutoCopasNewTabEvery) d.autoCopasNewTabEvery = Math.max(0, Math.min(100, Math.floor(Number((ui.dsAutoCopasNewTabEvery as HTMLInputElement).value) || 0)));
   if (ui.dsAiFormat) d.aiFormat = (ui.dsAiFormat as HTMLSelectElement).value;
   if (ui.dsContextLines) d.contextLines = parseInt((ui.dsContextLines as HTMLInputElement).value) || 10;
   if (ui.dsContextType) d.contextType = (ui.dsContextType as HTMLSelectElement).value || 'raw';
@@ -355,7 +347,6 @@ export function saveDashboardSettings(): void {
   if (dsIncCheck) d.incrementEnabled = dsIncCheck.checked;
 
   localStorage.setItem(DS_STORAGE_KEY, JSON.stringify(d));
-  void import('./extension-bridge').then(m => m.refreshAutoCopasDefaults()).catch(() => {});
   applyPalette(d.palette);
   state.projectLoggingEnabled = !!d.enableLogging;
   applyProjectLoggingVisibility();
@@ -940,21 +931,23 @@ export function renderDashboardProjects(): void {
 }
 
 // ─── Project CRUD ─────────────────────────────────────────────────────────────
-export async function createNewProject(): Promise<void> {
-  const name = await cstlPrompt('Masukkan nama proyek baru:', '', {
-    title: 'Buat Proyek Baru',
-    placeholder: 'Nama proyek baru...',
-  });
-  if (!name || !name.trim()) return;
-  const id = 'proj_' + Date.now() + PROJECT_EXT;
+/**
+ * Default fields every new project file starts with. Import flows (game engine,
+ * file import, ...) spread their specifics on top via `extra`.
+ */
+export function buildProjectScaffold(
+  projectName: string,
+  projectType: string,
+  extra: Record<string, any> = {}
+): Record<string, any> {
   const d = getDefaultSettings();
-  const initialData: Record<string, any> = {
-    version: APP_VERSION, projectName: name.trim(), projectType: 'json',
+  return {
+    version: APP_VERSION, projectName, projectType,
     translationMode: d.translationMode || 'ai',
     jsonRefLang: '', epubTags: d.epubTags || 'p', epubSourceId: null, lucaExportLang: 'en',
     luca_profile: DEFAULT_LUCA_PROFILE, luca_mc_display_name: DEFAULT_LUCA_MC_DISPLAY_NAME,
     custom_parser_id: null,
-    lucaRawFiles: {}, lucaRawBuffers: {}, updatedAt: Date.now(),
+    lucaRawFiles: {}, lucaRawBuffers: {},
     source_lang: d.sourceLang || 'Japanese',
     target_lang: d.targetLang || 'Indonesian',
     regex_filter: d.regexFilter || '',
@@ -965,7 +958,7 @@ export async function createNewProject(): Promise<void> {
     font_size: d.fontSize || 14,
     enable_dictionary: !!d.enableDictionary,
     dictionary_engine: d.dictionaryEngine || 'llm',
-    dictionary_prompt: d.dictionaryPrompt !== undefined ? d.dictionaryPrompt : 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.',
+    dictionary_prompt: d.dictionaryPrompt !== undefined ? d.dictionaryPrompt : DEFAULT_DICTIONARY_PROMPT,
     check_kana_residue: !!d.checkKanaResidue,
     check_similarity: !!d.checkSimilarity,
     similarity_threshold: (typeof d.similarityThreshold === 'number' ? d.similarityThreshold : 70) / 100,
@@ -1005,7 +998,19 @@ export async function createNewProject(): Promise<void> {
     subagent_workers: d.subagentWorkers || 3,
     increment_enabled: !!d.incrementEnabled,
     enable_logging: !!d.enableLogging,
+    ...extra,
+    updatedAt: Date.now(),
   };
+}
+
+export async function createNewProject(): Promise<void> {
+  const name = await cstlPrompt('Masukkan nama proyek baru:', '', {
+    title: 'Buat Proyek Baru',
+    placeholder: 'Nama proyek baru...',
+  });
+  if (!name || !name.trim()) return;
+  const id = 'proj_' + Date.now() + PROJECT_EXT;
+  const initialData = buildProjectScaffold(name.trim(), 'json');
   try {
     const root = await getOpfsRoot();
     const fileHandle = await root.getFileHandle(id, { create: true });
@@ -1914,7 +1919,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.showEpubImages = data.show_epub_images !== undefined ? !!data.show_epub_images : (getDefaultSettings().showEpubImages !== false);
   state.enableDictionary = !!data.enable_dictionary;
   state.dictionaryEngine = data.dictionary_engine === 'jisho' ? 'jisho' : 'llm';
-  state.dictionaryPrompt = data.dictionary_prompt || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
+  state.dictionaryPrompt = data.dictionary_prompt || DEFAULT_DICTIONARY_PROMPT;
   state.fontSize = typeof data.font_size === 'number' ? data.font_size : 14;
   document.documentElement.style.setProperty('--content-font-size', state.fontSize + 'px');
   state.similarityThreshold = (typeof data.similarity_threshold === 'number' && data.similarity_threshold > 0 && data.similarity_threshold < 1)

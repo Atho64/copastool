@@ -6,21 +6,21 @@ import { flashHint } from './render';
  * and Desktop/Browser (anchor tag download).
  */
 export async function saveOrDownloadBlob(blob: Blob, filename: string): Promise<boolean> {
-  const androidOverlay = (window as any).AndroidAiOverlay;
+  const androidBridge = (window as any).AndroidBridge || (window as any).AndroidAiOverlay;
 
   // 1. Android Tauri with native bridge: write directly to Downloads folder
-  if (androidOverlay && typeof androidOverlay.saveFileToDownloads === 'function') {
+  if (androidBridge && typeof androidBridge.saveFileToDownloads === 'function') {
     try {
       const base64 = await blobToBase64(blob);
-      const res = androidOverlay.saveFileToDownloads(filename, base64);
+      const res = androidBridge.saveFileToDownloads(filename, base64);
       if (res === 'ok') {
         flashHint(`Berhasil disimpan ke folder Download: ${filename}`);
         return true;
       }
       console.warn('[download-helper] saveFileToDownloads returned:', res);
       // Fallback to native Android Share Sheet if MediaStore saving had an issue
-      if (typeof androidOverlay.shareFile === 'function') {
-        const shareRes = androidOverlay.shareFile(filename, base64, blob.type || 'application/octet-stream');
+      if (typeof androidBridge.shareFile === 'function') {
+        const shareRes = androidBridge.shareFile(filename, base64, blob.type || 'application/octet-stream');
         if (shareRes === 'ok') return true;
       }
     } catch (err) {

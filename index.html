@@ -16,7 +16,9 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg" />
   <link rel="apple-touch-icon" href="./icon.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="./styles.css?v=27" />
   <link rel="stylesheet" href="./src/immersive.css" />
 
@@ -34,7 +36,7 @@
     <svg id="tutorialArrow" class="tutorial-arrow" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><marker id="tutorialArrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" /></marker></defs><path id="tutorialArrowPath" /></svg>
     <section id="tutorialCard" class="tutorial-card">
       <button id="tutorialClose" class="tutorial-close" type="button" aria-label="Lewati tutorial"><svg class="lucide-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
-      <img class="tutorial-mascot" src="./tutorial-chibi.png" alt="Chibi pemandu tutorial" />
+      <img class="tutorial-mascot" src="./tutorial-chibi.png" alt="Chibi pemandu tutorial" loading="lazy" decoding="async" />
       <div class="tutorial-copy">
         <div class="tutorial-kicker">PANDUAN INTERAKTIF <span id="tutorialProgress"></span></div>
         <h2 id="tutorialTitle"></h2>
@@ -279,15 +281,11 @@
           <div class="card-box is-primary mb-2" data-htl-hide="true">
             <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
             <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
-            <div id="autoCopasControls">
-              <div class="flex gap-2 wrap mb-1 mt-1">
-                <button id="btnAutoCopas" class="btn btn-outline grow" disabled title="Jalankan Auto Copas (Semi / Full Auto)">Auto Copas</button>
-                <button id="btnFetchCopasResult" class="btn btn-outline grow" disabled title="Ambil balasan terakhir dari AI Companion / Clipboard">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka Jendela AI Companion">Jendela AI</button>
-                <button id="btnAutoCopasCancel" class="btn btn-danger" style="display:none" title="Batalkan Auto Copas yang berjalan">Batal</button>
-              </div>
-              <div id="autoCopasStatus" class="hint m-0 mb-1">Auto Copas: Siap · Gemini (Semi)</div>
+            <div class="flex gap-2 wrap mb-1 mt-1">
+              <button id="btnSemiAutoCopas" type="button" class="btn btn-outline grow flex-center gap-1" disabled title="Auto pantau clipboard: salin balasan AI, otomatis terapkan dan salin batch berikutnya"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" /></svg><span>Mulai Semi-Auto</span></button>
+              <button id="btnToggleFloatingBubble" type="button" class="btn btn-outline btn-sm flex-center gap-1" disabled style="display: none;" title="Tampilkan bubble mengambang di atas aplikasi AI untuk copy-paste 1 ketukan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></svg><span>Bubble</span></button>
             </div>
+            <div id="semiAutoCopasStatus" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
             <label class="checkbox-line mt-1" title="Jika gagal, ulangi batch yang sama terus sampai dihentikan (jeda pakai RPM)"><input id="checkAutoRepeatOnFailure" type="checkbox" /> Ulangi jika gagal</label>
           </div>
           <div id="glossaryPreviewWrap" class="glossary-preview" hidden data-htl-hide="true">
@@ -358,15 +356,6 @@
             <label class="section-label mt-0">Ekstrak Glossary</label>
             <button id="btnCopyForGlossaryAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyGlossaryCount">0</span>)</button>
             <button id="btnAutoGlossaryAi" class="btn btn-success w-full mb-1" disabled>Auto Ekstrak</button>
-            <div id="autoCopasGlossaryControls">
-              <div class="flex gap-2 wrap mb-1">
-                <button id="btnAutoCopasGlossary" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk ekstrak glossary">Auto Copas</button>
-                <button id="btnFetchCopasGlossaryResult" class="btn btn-outline grow" title="Ambil hasil glossary dari tab LLM">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela AI Companion">Jendela AI</button>
-                <button id="btnAutoCopasGlossaryCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
-              </div>
-              <div id="autoCopasGlossaryStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
-            </div>
           </div>
           <label class="section-label" for="pasteGlossaryArea">Paste Glossary AI</label>
           <textarea id="pasteGlossaryArea" class="mono input-area" placeholder="[character] 速川麦 = Hayakawa Mugi {male name}&#10;[place] 渋谷 = Shibuya {place name}" disabled></textarea>
@@ -414,15 +403,6 @@
             <label class="section-label mt-0">AI Double Check</label>
             <button id="btnCopyForAiCheck" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyAiCheckCount">0</span>)</button>
             <button id="btnAutoAiCheck" class="btn btn-success w-full mb-1" disabled>Auto Check</button>
-            <div id="autoCopasAiCheckControls">
-              <div class="flex gap-2 wrap mb-1">
-                <button id="btnAutoCopasAiCheck" class="btn btn-outline grow" title="Kirim ke LLM via extension untuk AI Check">Auto Copas</button>
-                <button id="btnFetchCopasAiCheckResult" class="btn btn-outline grow" title="Ambil hasil AI Check dari tab LLM">Ambil Hasil</button>
-                <button type="button" class="btn btn-outline btn-open-ai-window" title="Buka / Tampilkan Jendela AI Companion">Jendela AI</button>
-                <button id="btnAutoCopasAiCheckCancel" class="btn btn-danger" style="display:none" title="Batalkan">Batal</button>
-              </div>
-              <div id="autoCopasAiCheckStatus" class="hint m-0 mb-1">Auto Copas: Siap (Tauri Native)</div>
-            </div>
             <label class="checkbox-line mt-1"><input id="settingsAiCheckReviewMode" type="checkbox" /> Review mode (pause tiap batch)</label>
           </div>
 
@@ -513,35 +493,6 @@
               </label>
             </div>
             <input id="dsRegexFilter" type="text" class="text-input w-full" placeholder="Contoh: ^[A-Za-z0-9_]+$ atau /pola/flags" />
-          </div>
-        </div>
-
-        <!-- SECTION: Auto Copas defaults -->
-        <div class="settings-section">
-          <div class="settings-section-title">Auto Copas</div>
-          <div class="flex-center gap-4 wrap">
-            <div class="flex-col grow">
-              <label class="form-label" for="dsAutoCopasTarget">Model AI (Platform)</label>
-              <select id="dsAutoCopasTarget" class="text-input w-full">
-                <option value="gemini">Google Gemini</option>
-                <option value="chatgpt">ChatGPT (OpenAI)</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="claude">Claude (Anthropic)</option>
-                <option value="meta">Meta AI</option>
-                <option value="qwen">Qwen AI</option>
-              </select>
-            </div>
-            <div class="flex-col grow">
-              <label class="form-label" for="dsAutoCopasMode">Mode Copas</label>
-              <select id="dsAutoCopasMode" class="text-input w-full">
-                <option value="semi">Semi Auto (Kirim/Salin)</option>
-                <option value="full">Full Auto (Loop Otomatis)</option>
-              </select>
-            </div>
-            <div class="flex-col grow">
-              <label class="form-label" for="dsAutoCopasNewTabEvery">Chat Baru Tiap N Request</label>
-              <input id="dsAutoCopasNewTabEvery" class="text-input w-full" type="number" min="0" max="100" step="1" value="0" />
-            </div>
           </div>
         </div>
 
@@ -1106,39 +1057,6 @@
             </label>
           </div>
 
-          <!-- SECTION: Auto Copas -->
-          <div class="settings-section">
-            <div class="settings-section-title">
-              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
-              Auto Copas
-            </div>
-            <div class="flex-center gap-4 wrap">
-              <div class="flex-col grow">
-                <label class="form-label" for="autoCopasTargetSelect">Model AI (Platform)</label>
-                <select id="autoCopasTargetSelect" class="text-input w-full" title="Pilih Model AI untuk Auto Copas">
-                  <option value="gemini">Google Gemini</option>
-                  <option value="chatgpt">ChatGPT (OpenAI)</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="claude">Claude (Anthropic)</option>
-                  <option value="meta">Meta AI</option>
-                  <option value="qwen">Qwen AI</option>
-                </select>
-              </div>
-              <div class="flex-col grow">
-                <label class="form-label" for="autoCopasModeSelect">Mode Copas</label>
-                <select id="autoCopasModeSelect" class="text-input w-full" title="Pilih Mode Auto Copas">
-                  <option value="semi">Semi Auto (Kirim/Salin)</option>
-                  <option value="full">Full Auto (Loop Otomatis)</option>
-                </select>
-              </div>
-              <div class="flex-col grow">
-                <label class="form-label" for="autoCopasNewTabEveryInput">Chat Baru Tiap N Request</label>
-                <input id="autoCopasNewTabEveryInput" class="text-input w-full" type="number" min="0" max="100" step="1" value="0" placeholder="0 (lanjut chat sama)" title="0 = lanjut chat yang sama, 1 = tiap request, N = tiap N request" />
-              </div>
-            </div>
-            <p class="hint mt-2">Berlaku untuk Translate, Glossary, dan AI Check. Chat baru dibuka tiap N request; 0 = lanjut chat yang sama.</p>
-          </div>
-
           <!-- SECTION: Format & Eksternal -->
           <div class="settings-section">
             <div class="settings-section-title">
@@ -1630,6 +1548,12 @@
           <div class="mt-2">
             <label class="form-label" for="apiKeyInput">API Key Utama</label>
             <input id="apiKeyInput" class="text-input w-full" type="password" placeholder="sk-..." />
+            <span class="hint-sm">
+              Key disimpan <strong>tanpa enkripsi</strong> di penyimpanan lokal aplikasi ini
+              (sama seperti file konfigurasi biasa). Siapa pun yang punya akses ke perangkat
+              atau profil browser ini bisa membacanya — gunakan key dengan kuota terbatas,
+              dan jangan pakai di komputer bersama.
+            </span>
           </div>
 
           <div class="mt-2">
@@ -1669,40 +1593,46 @@
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             Parameter & Rate Limit
           </div>
-          <div class="flex-center gap-4 wrap">
-            <div class="flex-col grow">
+          <div class="field-grid">
+            <div>
               <label class="form-label" for="apiTemperatureInput">Temperature</label>
               <input id="apiTemperatureInput" type="number" class="text-input w-full" min="0" max="2" step="0.1" value="1.0" />
             </div>
-            <div class="flex-col grow">
+            <div>
               <label class="form-label" for="apiTopPInput">Top-P</label>
               <input id="apiTopPInput" type="number" class="text-input w-full" min="0" max="1" step="0.05" value="1.0" />
             </div>
-            <div class="flex-col grow">
-              <label class="form-label" for="apiMaxTokensInput">Max Output Tokens</label>
+            <div>
+              <label class="form-label" for="apiMaxTokensInput">Max Tokens</label>
               <input id="apiMaxTokensInput" type="number" class="text-input w-full" min="1" max="1048576" step="1" value="8192" />
             </div>
-          </div>
-
-          <div class="flex-center gap-4 wrap mt-2">
-            <div class="flex-col grow">
-              <label class="form-label" for="apiRpmInput">Limit RPM (Requests / Min)</label>
+            <div>
+              <label class="form-label" for="apiRpmInput">Limit RPM</label>
               <input id="apiRpmInput" type="number" class="text-input w-full" min="1" max="1000" value="10" />
               <span class="hint-sm">Delay: <span id="apiDelayPreview">6000</span>ms / req</span>
             </div>
-            <div class="flex-col grow">
-              <label class="form-label" for="apiSeedInput">Seed (Opsional)</label>
+            <div>
+              <label class="form-label" for="apiTimeoutInput">Timeout Diam</label>
+              <input id="apiTimeoutInput" type="number" class="text-input w-full" min="0" max="3600" step="10" value="120" />
+              <span class="hint-sm">detik · 0 = tanpa batas</span>
+            </div>
+            <div>
+              <label class="form-label" for="apiSeedInput">Seed</label>
               <input id="apiSeedInput" type="number" class="text-input w-full" step="1" placeholder="Acak" />
             </div>
-            <div class="flex-col grow">
+            <div>
               <label class="form-label" for="apiFrequencyPenaltyInput">Freq Penalty</label>
               <input id="apiFrequencyPenaltyInput" type="number" class="text-input w-full" min="-2" max="2" step="0.1" value="0" />
             </div>
-            <div class="flex-col grow">
+            <div>
               <label class="form-label" for="apiPresencePenaltyInput">Presence Penalty</label>
               <input id="apiPresencePenaltyInput" type="number" class="text-input w-full" min="-2" max="2" step="0.1" value="0" />
             </div>
           </div>
+          <p class="hint-sm m-0 mt-3">
+            Timeout Diam dihitung ulang setiap kali ada potongan balasan masuk — jadi ia mengukur
+            <em>sepi</em>, bukan total durasi. Naikkan kalau memakai model lokal yang lambat.
+          </p>
         </div>
 
         <!-- SECTION: Reasoning & Streaming -->

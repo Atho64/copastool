@@ -159,7 +159,7 @@ jobs:
       - name: Initialize Android project
         run: |
           npx tauri android init --ci --skip-targets-install || true
-          node scripts/patch-android-overlay.mjs
+          node scripts/patch-android-bridge.mjs
 
       # gen/ is gitignored and `tauri android init` scaffolds the DEFAULT Tauri
       # template launcher icons into it. `tauri icon` writes the real launcher

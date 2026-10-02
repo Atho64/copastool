@@ -58,7 +58,7 @@ export function buildExistingGlossaryHint(sourceText: string): string {
  * ChatGPT's composer does not strip them as HTML. Closing tags are dropped.
  * Only the known structural sections are touched (whitelist) so XML-format
  * `<line num="...">` tags inside the payload are left intact.
- * No-op when the setting is off. Applies to all Auto Copas targets.
+ * No-op when the setting is off.
  */
 const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'lines', 'AlreadyInGlossary', 'background', 'summary'];
 export function sanitizeTagsForChatgpt(text: string): string {
@@ -72,7 +72,17 @@ export function sanitizeTagsForChatgpt(text: string): string {
   return out;
 }
 
+// Cache hasil parse glossary — teks glossary sering diparse berulang kali
+// (renderGlossaryPreview + prompt builder per batch). Penelepon boleh memutasi
+// Map yang dikembalikan (mergeGlossaryEntries, onSaveGlossary, dll.), jadi
+// selalu kembalikan salinan dangkal dari cache.
+let glossaryCacheSrc: string | null = null;
+let glossaryCacheMap: Map<string, GlossaryEntry> | null = null;
+
 export function parseGlossaryToMap(text: string): Map<string, GlossaryEntry> {
+  if (glossaryCacheSrc !== null && text === glossaryCacheSrc && glossaryCacheMap) {
+    return new Map(glossaryCacheMap);
+  }
   const m = new Map<string, GlossaryEntry>();
   if (!text) return m;
   const lines = text.split(/\r?\n/);
@@ -99,7 +109,9 @@ export function parseGlossaryToMap(text: string): Map<string, GlossaryEntry> {
       if (source) m.set(source, { target, type, desc });
     }
   }
-  return m;
+  glossaryCacheSrc = text;
+  glossaryCacheMap = m;
+  return new Map(m);
 }
 
 export function normalizeGlossaryType(type: string): string {
@@ -207,6 +219,11 @@ export function isLikelyRubyNameCandidate(base: string, reading: string): boolea
 }
 
 export function renderGlossaryPreview(): void {
+  if (!state.glossaryText.trim()) {
+    ui.glossaryPreviewWrap.hidden = true;
+    ui.glossaryPreviewText.textContent = '';
+    return;
+  }
   const selectedText = getSelectedTranslationPlainText();
   const matches = selectedText ? getGlossaryMatches(selectedText) : [];
   if (!matches.length) {

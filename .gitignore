@@ -11,6 +11,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Scratch output dir used when `dist/` cannot be emptied (e.g. a locked or
+# sandboxed build). Never meant to be committed.
+.verify-dist
 *.local
 
 # Editor directories and files
@@ -49,3 +52,9 @@ src-tauri/gen/
 *.apk
 *.aab
 signed-apk/
+
+# Local binaries — never committed.
+# Keep executables out of the repo on principle: they bloat history, and
+# third-party tools often carry copyleft or non-commercial licenses that
+# should not be redistributed with this MIT project.
+bin/

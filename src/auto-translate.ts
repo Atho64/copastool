@@ -11,7 +11,7 @@ import { TranslationApplyError } from './translate';
 import { onSaveGlossary } from './glossary';
 import { onApplyAiCheckCorrections } from './ai-check';
 import { appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
-import { applyAnthropicOptions, applyGeminiOptions, applyOpenAIOptions } from './api-request-options';
+import { chatCompletionText, abortActiveRequests } from './ai-client';
 import { getDisplayOrderedLines } from './selection';
 
 const API_STORAGE_KEY = 'cstl_api_settings';
@@ -45,6 +45,7 @@ export function loadApiSettings(): void {
       if (p.aiSeed !== undefined) state.aiSeed = p.aiSeed === null ? null : Number(p.aiSeed);
       if (p.aiReasoningEffort) state.aiReasoningEffort = p.aiReasoningEffort;
       if (p.aiRpm !== undefined) state.aiRpm = Number(p.aiRpm);
+      if (p.aiRequestTimeoutMs !== undefined) state.aiRequestTimeoutMs = Number(p.aiRequestTimeoutMs);
       if (p.aiThinkingMode) state.aiThinkingMode = p.aiThinkingMode;
       if (p.aiFilterThinkingOutput !== undefined) state.aiFilterThinkingOutput = !!p.aiFilterThinkingOutput;
       if (p.aiMergeSystemPrompt !== undefined) state.aiMergeSystemPrompt = !!p.aiMergeSystemPrompt;
@@ -80,6 +81,7 @@ export function saveApiSettings(): void {
     aiSeed: state.aiSeed,
     aiReasoningEffort: state.aiReasoningEffort,
     aiRpm: state.aiRpm,
+    aiRequestTimeoutMs: state.aiRequestTimeoutMs,
     aiThinkingMode: state.aiThinkingMode,
     aiFilterThinkingOutput: state.aiFilterThinkingOutput,
     aiMergeSystemPrompt: state.aiMergeSystemPrompt,
@@ -108,6 +110,7 @@ export function onOpenApiSettings(): void {
   if (ui.apiSeedInput) (ui.apiSeedInput as HTMLInputElement).value = state.aiSeed === null ? '' : String(state.aiSeed);
   if (ui.apiReasoningEffortSelect) (ui.apiReasoningEffortSelect as HTMLSelectElement).value = state.aiReasoningEffort || 'default';
   if (ui.apiRpmInput) (ui.apiRpmInput as HTMLInputElement).value = String(state.aiRpm ?? 10);
+  if (ui.apiTimeoutInput) (ui.apiTimeoutInput as HTMLInputElement).value = String(Math.round((state.aiRequestTimeoutMs ?? 120000) / 1000));
   if (ui.apiThinkingSelect) (ui.apiThinkingSelect as HTMLSelectElement).value = state.aiThinkingMode || 'default';
   if (ui.apiFilterThinkingCheck) (ui.apiFilterThinkingCheck as HTMLInputElement).checked = state.aiFilterThinkingOutput !== false;
   if (ui.apiMergeSystemCheck) (ui.apiMergeSystemCheck as HTMLInputElement).checked = !!state.aiMergeSystemPrompt;
@@ -138,6 +141,7 @@ export type ApiProfileData = {
   aiSeed?: number | null;
   aiReasoningEffort?: 'default' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   aiRpm?: number;
+  aiRequestTimeoutMs?: number;
   aiThinkingMode?: 'default' | 'off' | 'on';
   aiFilterThinkingOutput?: boolean;
   aiMergeSystemPrompt?: boolean;
@@ -208,6 +212,7 @@ export function onLoadProfile(): void {
   if (p.aiSeed !== undefined && ui.apiSeedInput) (ui.apiSeedInput as HTMLInputElement).value = p.aiSeed === null ? '' : String(p.aiSeed);
   if (p.aiReasoningEffort && ui.apiReasoningEffortSelect) (ui.apiReasoningEffortSelect as HTMLSelectElement).value = p.aiReasoningEffort;
   if (p.aiRpm !== undefined && ui.apiRpmInput) (ui.apiRpmInput as HTMLInputElement).value = String(p.aiRpm);
+  if (p.aiRequestTimeoutMs !== undefined && ui.apiTimeoutInput) (ui.apiTimeoutInput as HTMLInputElement).value = String(Math.round(p.aiRequestTimeoutMs / 1000));
   if (p.aiThinkingMode && ui.apiThinkingSelect) (ui.apiThinkingSelect as HTMLSelectElement).value = p.aiThinkingMode;
   if (p.aiFilterThinkingOutput !== undefined && ui.apiFilterThinkingCheck) (ui.apiFilterThinkingCheck as HTMLInputElement).checked = !!p.aiFilterThinkingOutput;
   if (p.aiMergeSystemPrompt !== undefined && ui.apiMergeSystemCheck) (ui.apiMergeSystemCheck as HTMLInputElement).checked = !!p.aiMergeSystemPrompt;
@@ -244,6 +249,7 @@ export function onSaveProfile(): void {
     aiSeed: optionalIntegerFromInput(ui.apiSeedInput),
     aiReasoningEffort: (ui.apiReasoningEffortSelect as HTMLSelectElement | undefined)?.value as any || 'default',
     aiRpm: parseInt((ui.apiRpmInput as HTMLInputElement | undefined)?.value || '10') || 10,
+    aiRequestTimeoutMs: Math.max(0, numberFromInput(ui.apiTimeoutInput, 120)) * 1000,
     aiThinkingMode: (ui.apiThinkingSelect as HTMLSelectElement | undefined)?.value as any || 'default',
     aiFilterThinkingOutput: (ui.apiFilterThinkingCheck as HTMLInputElement | undefined)?.checked ?? true,
     aiMergeSystemPrompt: (ui.apiMergeSystemCheck as HTMLInputElement | undefined)?.checked ?? false,
@@ -421,6 +427,7 @@ export function onSaveApiSettings(): void {
   state.aiSeed = optionalIntegerFromInput(ui.apiSeedInput);
   if (ui.apiReasoningEffortSelect) state.aiReasoningEffort = (ui.apiReasoningEffortSelect as HTMLSelectElement).value as any;
   if (ui.apiRpmInput) state.aiRpm = parseInt((ui.apiRpmInput as HTMLInputElement).value) || 10;
+  if (ui.apiTimeoutInput) state.aiRequestTimeoutMs = Math.max(0, numberFromInput(ui.apiTimeoutInput, 120)) * 1000;
   if (ui.apiThinkingSelect) state.aiThinkingMode = (ui.apiThinkingSelect as HTMLSelectElement).value as any;
   if (ui.apiFilterThinkingCheck) state.aiFilterThinkingOutput = (ui.apiFilterThinkingCheck as HTMLInputElement).checked;
   if (ui.apiMergeSystemCheck) state.aiMergeSystemPrompt = (ui.apiMergeSystemCheck as HTMLInputElement).checked;
@@ -493,7 +500,11 @@ export async function onAutoTranslate(): Promise<void> {
 
   if (isAutoTranslating) {
     isAutoTranslating = false;
-      flashHint('Auto Translate dihentikan.');
+    // Flag only stops the *next* request. Abort whatever is in flight right now,
+    // otherwise a slow or hung request keeps running (and burning quota) after
+    // the user pressed Stop.
+    const aborted = abortActiveRequests();
+    flashHint(aborted > 0 ? 'Auto Translate dihentikan (request dibatalkan).' : 'Auto Translate dihentikan.');
     btn.textContent = 'Menghentikan...';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
@@ -513,7 +524,7 @@ export async function onAutoTranslate(): Promise<void> {
 
   const orderedLines = getDisplayOrderedLines();
   let targetLines = Array.from(state.selectedLines)
-    .map(num => state.lines.find(l => l.line_num === num))
+    .map(num => state.lineByNum.get(num))
     .filter(l => l && !isTranslated(l) && !l._hidden) as typeof state.lines;
 
   if (targetLines.length === 0) {
@@ -760,291 +771,32 @@ export async function onAutoTranslate(): Promise<void> {
   }
 }
 
-export interface ApiConfig {
-  key: string;
-  url: string;
-  model: string;
-}
+export type { ApiConfig } from './ai-client';
 
-export function parseBackupKeys(): ApiConfig[] {
-  const configs: ApiConfig[] = [];
-  // Primary key is always first
-  if (state.aiApiKey) {
-    configs.push({ key: state.aiApiKey, url: state.aiApiUrl, model: state.aiModel });
-  }
-  // Parse backup keys
-  const lines = (state.aiBackupKeys || '').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-  for (const line of lines) {
-    const parts = line.split('|');
-    if (parts.length === 1) {
-      // Just a key — use primary url and model
-      configs.push({ key: parts[0], url: state.aiApiUrl, model: state.aiModel });
-    } else if (parts.length >= 3) {
-      // key|url|model
-      configs.push({ key: parts[0], url: parts[1], model: parts[2] });
-    } else if (parts.length === 2) {
-      // key|url — use primary model
-      configs.push({ key: parts[0], url: parts[1], model: state.aiModel });
-    }
-  }
-  return configs;
-}
+// Key parsing, the retry policy and thinking-tag stripping moved to ai-client.ts so
+// this pipeline and the agent share ONE implementation instead of drifting copies.
+// Re-exported here for callers that still import them from this module.
+export { parseBackupKeys, shuffleArray, shouldTryNextKey, stripThinkingTags } from './ai-client';
 
-export function shouldTryNextKey(err: any): boolean {
-  const msg = String(err?.message || '');
-  return msg.includes('HTTP 429') || msg.includes('HTTP 5') || msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('fetch');
-}
-
-export function shuffleArray<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-async function fetchOpenAIWithConfig(prompt: string, config: ApiConfig): Promise<string> {
-  let url = config.url || 'https://api.openai.com/v1/chat/completions';
-  if (!url.includes('/chat/completions')) {
-    if (!url.endsWith('/')) url += '/';
-    url += 'chat/completions';
-  }
-
-  const userContent = state.aiMergeSystemPrompt
-    ? `[System instructions]\n${prompt}`
-    : prompt;
-  const body: any = {
-    model: config.model,
-    messages: [{ role: 'user', content: userContent }],
-    stream: state.aiStreaming,
-  };
-  applyOpenAIOptions(body, config.model, config.url || '');
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.key}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errorText}`);
-  }
-
-  if (state.aiStreaming && res.body) {
-    const result = await readAutoTranslateStream(res, (data) => {
-      const choice = data.choices?.[0];
-      return choice?.delta?.content || choice?.message?.content || '';
-    });
-    appendProjectLog(`OpenAI stream selesai (${config.model})`, result ? `Karakter: ${result.length}` : 'Tidak ada content pada stream');
-    if (!result.trim()) throw new Error('Streaming selesai tetapi tidak menghasilkan delta.content. Coba matikan streaming.');
-    return result;
-  }
-
-  appendProjectLog(`OpenAI request selesai (${config.model})`);
-
-  const data = await res.json();
-  const rawText = data.choices?.[0]?.message?.content || '';
-  return state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
-}
-
-async function fetchAnthropicWithConfig(prompt: string, config: ApiConfig): Promise<string> {
-  let url = (config.url || '').trim() || 'https://api.anthropic.com/v1/messages';
-  // Accept base .../v1, .../v1/, or full .../messages
-  if (!/\/messages\/?$/.test(url)) {
-    url = url.replace(/\/chat\/completions\/?$/, '');
-    url = url.replace(/\/$/, '') + '/messages';
-  }
-
-  const body: any = {
-    model: config.model || 'claude-haiku-4-5-20251001',
-    max_tokens: 8192,
-    messages: [{ role: 'user', content: prompt }],
-    stream: false,
-  };
-  body.stream = state.aiStreaming;
-  applyAnthropicOptions(body);
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': config.key,
-      'Authorization': `Bearer ${config.key}`,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errorText}`);
-  }
-
-  appendProjectLog(`Anthropic request selesai (${config.model})`);
-  if (state.aiStreaming && res.body) {
-    return readAutoTranslateStream(res, (data) => data.delta?.text || data.content_block?.text || '');
-  }
-
-  const data = await res.json();
-  let rawText = '';
-  if (Array.isArray(data.content)) {
-    rawText = data.content
-      .filter((p: any) => p && (p.type === 'text' || typeof p.text === 'string'))
-      .map((p: any) => p.text || '')
-      .join('');
-  } else if (data.choices?.[0]?.message?.content) {
-    // Some gateways wrap Anthropic in OpenAI shape
-    rawText = data.choices[0].message.content;
-  }
-  return state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
-}
-
-async function fetchGeminiWithConfig(prompt: string, config: ApiConfig): Promise<string> {
-  const model = config.model || 'gemini-1.5-flash';
-  let url = (config.url || '').trim() || `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  url = url.replace(':generateContent', state.aiStreaming ? ':streamGenerateContent' : ':generateContent');
-  url = appendQueryParams(url, { key: config.key }, false);
-  if (state.aiStreaming) {
-    url = appendQueryParams(url, { alt: 'sse' }, true);
-  }
-
-  const genConfig: any = {};
-  applyGeminiOptions(genConfig, model);
-
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: genConfig,
-  };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errorText}`);
-  }
-
-  appendProjectLog(`Gemini request selesai (${model})`);
-  if (state.aiStreaming && res.body) {
-    return readAutoTranslateStream(res, (data) => data.candidates?.[0]?.content?.parts?.filter((p: any) => !p.thought).map((p: any) => p.text || '').join('') || '');
-  }
-
-  const data = await res.json();
-  const parts: any[] = data.candidates?.[0]?.content?.parts || [];
-  const rawText = parts
-    .filter((p: any) => !p.thought)
-    .map((p: any) => p.text || '')
-    .join('')
-    .trim();
-  return state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
-}
-
-async function readAutoTranslateStream(res: Response, extractDelta: (data: any) => string): Promise<string> {
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let result = '';
+export async function fetchApiResult(prompt: string): Promise<string> {
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop() || '';
-      for (const event of events) {
-        for (const line of event.split(/\r?\n/)) {
-          const payload = line.replace(/^data:\s*/, '').trim();
-          if (!payload || payload === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(payload);
-            const delta = extractDelta(parsed);
-            if (delta) {
-              result += delta;
-              updateStreamingLog(result);
-            }
-          } catch (err) {
-            appendProjectLog('Chunk streaming tidak valid', payload.slice(0, 160));
-          }
-        }
-      }
-    }
-    for (const line of buffer.split(/\r?\n/)) {
-      const payload = line.replace(/^data:\s*/, '').trim();
-      if (!payload || payload === '[DONE]') continue;
-      try {
-        const parsed = JSON.parse(payload);
-        const delta = extractDelta(parsed);
-        if (delta) result += delta;
-      } catch (err) {
-        appendProjectLog('Chunk streaming akhir tidak valid', payload.slice(0, 160));
-      }
-    }
-    return state.aiFilterThinkingOutput ? stripThinkingTags(result) : result;
+    return await chatCompletionText(prompt, {
+      log: (title, detail) => appendProjectLog(title, detail),
+      onDelta: (_delta, fullText) => updateStreamingLog(fullText),
+    });
   } finally {
     finishStreamingLog();
   }
 }
 
-export async function fetchApiResult(prompt: string): Promise<string> {
-  const configs = parseBackupKeys();
-  if (configs.length === 0) {
-    throw new Error('Tidak ada API key yang dikonfigurasi.');
-  }
-
-  let ordered = configs;
-  if (state.aiKeyStrategy === 'random') {
-    ordered = shuffleArray(configs);
-  }
-
-  let lastError: Error | null = null;
-  for (let i = 0; i < ordered.length; i++) {
-    const config = ordered[i];
-    try {
-      appendProjectLog(`Mengirim request AI via ${state.aiApiType}`, `Model: ${config.model}${state.aiStreaming ? ' | streaming' : ''}`);
-      if (state.aiApiType === 'gemini') {
-        return await fetchGeminiWithConfig(prompt, config);
-      }
-      if (state.aiApiType === 'anthropic') {
-        return await fetchAnthropicWithConfig(prompt, config);
-      }
-      return await fetchOpenAIWithConfig(prompt, config);
-    } catch (err: any) {
-      lastError = err;
-      appendProjectLog('Request AI gagal', err.message);
-      // Only try next key on rate-limit, server, or network errors
-      if (i < ordered.length - 1 && shouldTryNextKey(err)) {
-        console.warn(`API key ${i + 1} failed (${err.message}), trying next key...`);
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastError || new Error('Semua API key gagal.');
-}
-
-// ─── Strip Thinking Tags ──────────────────────────────────────────────────────
-export function stripThinkingTags(text: string): string {
-  return text
-    .replace(/<\|think\|>[\s\S]*?<\/\|think\|>/gi, '')
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .trim();
-}
 
 let isAutoGlossary = false;
 export async function onAutoGlossary(): Promise<void> {
   const btn = ui.btnAutoGlossaryAi as HTMLButtonElement;
   if (isAutoGlossary) {
     isAutoGlossary = false;
-      flashHint('Auto Glossary dihentikan.');
+    const aborted = abortActiveRequests();
+    flashHint(aborted > 0 ? 'Auto Glossary dihentikan (request dibatalkan).' : 'Auto Glossary dihentikan.');
     btn.textContent = 'Menghentikan...';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');

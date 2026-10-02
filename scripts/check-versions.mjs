@@ -45,6 +45,17 @@ if (lockVersion !== expected) {
   problems.push(`src-tauri/Cargo.lock: copas-tool version "${lockVersion}" != "${expected}"`);
 }
 
+// package-lock.json — npm rewrites both markers from package.json on install,
+// so a stale value here means someone edited package.json by hand.
+const pkgLock = JSON.parse(read('package-lock.json'));
+if (pkgLock.version !== expected) {
+  problems.push(`package-lock.json: version "${pkgLock.version}" != "${expected}"`);
+}
+const pkgLockRoot = pkgLock.packages?.['']?.version;
+if (pkgLockRoot !== expected) {
+  problems.push(`package-lock.json: packages[""] version "${pkgLockRoot}" != "${expected}"`);
+}
+
 // README.md version badge
 const readmeBadge = /Version-v(\d+\.\d+\.\d+)/.exec(read('README.md'))?.[1];
 if (readmeBadge !== expected) {

@@ -84,6 +84,7 @@ export const state: AppState = {
   aiSeed: null,
   aiReasoningEffort: 'default',
   aiRpm: 10,
+  aiRequestTimeoutMs: 120000,
   aiThinkingMode: 'default',
   aiFilterThinkingOutput: true,
   aiMergeSystemPrompt: false,
