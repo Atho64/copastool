@@ -702,23 +702,45 @@ async function chatCompletionGemini(
     if (msg.role === 'system') systemInstruction = { parts: [{ text: msg.content }] };
     else contents.push({ role: msg.role === 'assistant' ? 'model' : 'user', parts: [{ text: msg.content }] });
   }
-  const genConfig: any = {};
-  applyGeminiOptions(genConfig, model);
+  const buildBody = (includeThinking: boolean) => {
+    const genConfig: any = {};
+    applyGeminiOptions(genConfig, model, includeThinking);
+    const body: any = { contents, generationConfig: genConfig };
+    if (systemInstruction) body.systemInstruction = systemInstruction;
+    return body;
+  };
 
-  const body: any = { contents, generationConfig: genConfig };
-  if (systemInstruction) body.systemInstruction = systemInstruction;
+  const firstBody = buildBody(true);
+  // Only worth a retry when a thinking config was actually attached — with everything
+  // left on `default` the field is absent and a 400 must be a different problem.
+  const hasThinkingConfig = !!firstBody.generationConfig?.thinkingConfig;
+
+  const post = (ctx: RequestCtx, body: any) => fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': config.key,
+      'Accept': 'text/event-stream',
+    },
+    body: JSON.stringify(body),
+    signal: ctx.signal,
+  });
 
   return withAiRequest(options, async (ctx) => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': config.key,
-        'Accept': 'text/event-stream',
-      },
-      body: JSON.stringify(body),
-      signal: ctx.signal,
-    });
+    let res = await post(ctx, firstBody);
+
+    // Models that do not support thinking reject `thinkingConfig` with a bare
+    // 400 INVALID_ARGUMENT that never names the offending field, so the user only sees
+    // "Request contains an invalid argument". Drop the field and try once more.
+    if (!res.ok && res.status === 400 && hasThinkingConfig) {
+      const detail = await res.text();
+      options.log?.(
+        'Gemini menolak thinkingConfig — mengulang tanpa thinking',
+        `Model: ${model} | ${detail.slice(0, 160)}`
+      );
+      ctx.arm();   // the retry is a fresh request, so it gets a fresh idle budget
+      res = await post(ctx, buildBody(false));
+    }
     if (!res.ok) throw new ApiHttpError(res.status, await res.text());
     ctx.arm();
 

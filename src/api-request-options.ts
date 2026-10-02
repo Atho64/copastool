@@ -60,13 +60,28 @@ export function applyAnthropicOptions(body: Record<string, any>): void {
   }
 }
 
-export function applyGeminiOptions(generationConfig: Record<string, any>, model = state.aiModel): void {
+/**
+ * Applies generation settings for Gemini.
+ *
+ * `includeThinking` exists so the caller can retry once without `thinkingConfig`.
+ * Models that do not support thinking reject the field with a bare
+ * 400 INVALID_ARGUMENT that never names it, so the user only ever sees
+ * "Request contains an invalid argument" and has no way to tell what was wrong.
+ * Omitting the field on retry is more robust than keeping a list of which models
+ * support thinking, which would go stale with every model release.
+ */
+export function applyGeminiOptions(
+  generationConfig: Record<string, any>,
+  model = state.aiModel,
+  includeThinking = true
+): void {
   generationConfig.temperature = state.aiTemperature;
   generationConfig.topP = state.aiTopP;
   generationConfig.maxOutputTokens = Math.max(1, state.aiMaxTokens);
   if (state.aiFrequencyPenalty !== 0) generationConfig.frequencyPenalty = state.aiFrequencyPenalty;
   if (state.aiPresencePenalty !== 0) generationConfig.presencePenalty = state.aiPresencePenalty;
   if (state.aiSeed !== null) generationConfig.seed = state.aiSeed;
+  if (!includeThinking) return;
   const isGemma4 = /^gemma-4(?:-|$)/i.test(model || '');
   if (isGemma4) {
     // Gemma 4 uses thinkingLevel, not Gemini 2.x's thinkingBudget.
