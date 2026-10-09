@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.11-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.12-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -56,6 +56,20 @@ Hubungkan aplikasi ke AI tanpa perlu copy-paste manual. Terjemahan, ekstrak glos
 - **Parameter generasi global** — Atur max output tokens, seed, frequency penalty, presence penalty, dan reasoning effort (minimal sampai extra-high) dari satu tempat. Konfigurasi ini dipakai konsisten oleh Auto Translate dan AI Agent untuk OpenAI-compatible, Anthropic, serta Gemini.
 - **Gemma 4 via Gemini API** — Model `gemma-4-31b-it` dan `gemma-4-26b-a4b-it` dikenali otomatis; mode thinking off dikirim sebagai `thinkingLevel: "minimal"` sesuai API Gemma 4.
 - Limit RPM dengan delay otomatis antar request
+
+### Auto Copas (Browser Otomatis) — **BETA**
+Mode "Copas" untuk Auto Translate, Auto Ekstrak (Glossary), dan Auto Check (AI Check). Alih-alih memanggil API, aplikasi menjalankan situs AI di browser otomatis dan memindahkan teks **murni lewat clipboard** — persis seperti copy-paste manual, tapi otomatis: paste prompt (Ctrl+V) → Enter → tunggu selesai → klik tombol Copy/Salin milik situsnya → baca hasil dari clipboard. Tidak ada manipulasi teks via DOM.
+
+- **Target (v1):** Gemini, ChatGPT, DeepSeek, Arena
+- **Windows:** [Camoufox](https://github.com/daijro/camoufox) (browser anti-detect berbasis Firefox). Aplikasi mengunduhnya **langsung dari rilis GitHub** saat pertama dipakai (~500MB) lalu menjalankannya sendiri — **tanpa Node.js dan tanpa npm**. Setelah unduhan pertama, membuka browser jadi instan. Sesi login tersimpan di profil aplikasi (di samping folder browser), jadi login cukup sekali per situs lewat jendela **Buka Browser**.
+- **Android:** WebView in-app (activity `AutoCopasActivity`). Paste lewat InputConnection (clipboard asli), bukan injeksi DOM.
+- UI: pilih **Copas** di dropdown Translate (Auto/Agent/Copas) atau dropdown **API/Copas** di tab Glossary & AI Check, lalu pilih target. Tombol Auto yang sama berfungsi sebagai Start/Stop.
+- Deteksi selesai dua lapis (port dari extension referensi): tombol Stop hilang + teks respons stabil; capture respons lewat tombol Copy situs dengan sentinel clipboard supaya hasil basi tidak terbaca.
+- **Chat baru setiap X batch** — di Project/Dashboard Settings → **Auto Copas**: mulai percakapan baru di situs AI tiap X batch (0 = tidak pernah, 1 = tiap batch, X = tiap batch ke-X). Chat baru ditekan lewat tombol **New chat/Chat baru** milik situsnya (bukan reload halaman; reload URL hanya fallback jika tombolnya tidak ditemukan). Berlaku untuk semua target, termasuk Arena; pemilihan model tetap manual.
+- **Thinking (DeepSeek & Gemini)** — Project/Dashboard Settings → **Auto Copas**: paksa mode reasoning **Selalu ON / Selalu OFF / Default situs**. DeepSeek: tombol *Pikir Mendalam/DeepThink* (klik hanya saat statusnya beda). Gemini: baris *Thinking/Penalaran* di pemilih model. Diterapkan tiap batch sebelum kirim; best-effort (gagal set tidak menggagalkan batch).
+- Retry otomatis 1x dengan chat baru (atau terus-menerus jika "Ulangi jika gagal" aktif); Review mode AI Check tetap berfungsi.
+- Hanya tersedia di aplikasi native (desktop/Android) — tidak di PWA browser biasa. Semi-Auto copas yang lama tetap ada dan tidak berubah.
+- **Status: Beta** — fitur masih eksperimental; situs AI sering berubah struktur sehingga otomasi bisa gagal kapan saja. Laporkan bug jika ada.
 
 ### AI Agent
 Chat langsung dengan AI yang punya akses ke data proyek. Bisa tanya, analisis, dan modifikasi terjemahan lewat percakapan.
@@ -150,9 +164,19 @@ Data biner besar dan aset file disimpan di file penyimpanan terpisah supaya auto
 
 #### Backup ke Folder
 
-> Di desktop fitur ini tersedia pada **Chrome / Edge / Brave / Opera**. Di aplikasi Android native, folder dipilih melalui pemilih folder sistem. Firefox/Safari dan browser mobile lain tetap memakai **Backup Semua ZIP**.
+> Di desktop fitur ini tersedia pada **Chrome / Edge / Brave / Opera** **dan aplikasi Windows CopasTool**. Di aplikasi Android native, folder dipilih melalui pemilih folder sistem. Firefox/Safari dan browser mobile lain tetap memakai **Backup Semua ZIP**.
 
-CSTL menulis file backup **langsung ke satu folder yang kamu pilih** — tanpa download atau upload ke layanan cloud. Desktop menggunakan izin folder bawaan browser (*File System Access API*). Android menggunakan izin folder Storage Access Framework; izin baca/tulis disimpan oleh Android supaya folder yang sama bisa dipakai lagi setelah aplikasi dibuka ulang.
+CSTL menulis file backup **langsung ke satu folder yang kamu pilih** — tanpa download atau upload ke layanan cloud. Browser desktop menggunakan izin folder bawaan browser (*File System Access API*), sedangkan aplikasi Windows menggunakan dialog pemilih folder native (tauri-plugin-dialog). Android menggunakan izin folder Storage Access Framework; izin baca/tulis disimpan oleh Android supaya folder yang sama bisa dipakai lagi setelah aplikasi dibuka ulang.
+
+#### Folder Simpan Backup & Export (Aplikasi Native)
+
+Di aplikasi Windows dan Android, **semua backup dan export** (Backup, Backup Semua ZIP, Export, ekspor glosarium, dll.) otomatis ditulis ke satu **folder simpan**:
+
+- Saat pertama kali menyimpan, dialog pemilih folder native muncul sekali — folder itu lalu **diingat permanen** untuk penyimpanan berikutnya, sama seperti perilaku *Backup ke Folder* di browser.
+- Di Windows folder dipilih lewat dialog sistem (tauri-plugin-dialog); di Android lewat pemilih folder Storage Access Framework yang izinnya dipegang Android.
+- Kalau folder tidak bisa ditulis lagi (dipindah/dihapus), pemilih folder muncul lagi otomatis di penyimpanan berikutnya. Di Android, jika pemilihan folder dibatalkan, file tetap tersimpan ke folder **Download** seperti perilaku lama.
+
+**Mode "Selalu tanya lokasi simpan" (Save As):** aktifkan opsi **Selalu tanya lokasi simpan (dialog Save As) setiap backup & export** di *Pengaturan Dashboard* supaya setiap penyimpanan memunculkan dialog **Save As** — lokasi dan nama file bisa diganti setiap kali, persis seperti browser dengan *"Ask where to save each file"*. Di Windows dialognya native (tauri-plugin-dialog), di Android memakai *create document* Storage Access Framework yang juga punya kolom nama file. Selama opsi ini aktif, folder simpan yang tersimpan diabaikan; membatalkan dialog berarti penyimpanan dibatalkan.
 
 **Cara pakai:**
 
@@ -235,6 +259,15 @@ Kalau tidak mau copy-paste manual, hubungkan ke API:
 
 Untuk model thinking yang mengeluarkan blok `<think>...</think>`, aktifkan **Filter `<think>...</think>`** di pengaturan API supaya output terjemahan bersih dari teks reasoning.
 
+#### Auto Translate / Auto Ekstrak / Auto Check via "Copas" (tanpa API)
+
+Tidak punya API key? Mode **Copas** menjalankan situs AI (Gemini, ChatGPT, DeepSeek, Arena) di browser otomatis dan menggerakkan copy-paste-nya sendiri:
+
+1. Pilih **Copas** di dropdown mode (Translate: Auto/Agent/Copas; Glossary & AI Check: API/Copas)
+2. Pilih target situs di sebelahnya, klik **Buka Browser** — login sekali di jendela yang muncul (Windows: Camoufox; Android: webview in-app). Sesi tersimpan.
+3. Klik tombol Auto seperti biasa — prompt di-paste otomatis, respons diambil lewat tombol Copy situs, hasil langsung diterapkan per batch
+4. Windows: aplikasi mengunduh **Camoufox langsung dari GitHub** saat pertama dipakai (~500MB) lalu menjalankannya sendiri — **tidak butuh Node.js/npm**
+
 ### 5. Glosarium
 
 Sebelum mulai terjemahan besar, disarankan isi glosarium dulu:
@@ -298,10 +331,12 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 
 - **Hanya jendela utama yang punya akses IPC.** `src-tauri/capabilities/default.json` membatasi izin ke `"windows": ["main"]`. Jendela `ai-companion` yang memuat situs AI pihak ketiga sengaja tidak diberi capability sama sekali.
 - **Setiap perintah native memverifikasi pemanggilnya.** Semua command di `src-tauri/src/lib.rs` menerima parameter `tauri::WebviewWindow` dan menolak panggilan dari jendela selain `main`, jadi halaman AI tidak bisa menyentuh filesystem walau konfigurasi capability diubah.
-- **Allowlist host untuk jendela AI.** `open_ai_window` hanya menerima URL `https` ke host di `ALLOWED_AI_HOSTS` (gemini.google.com, chatgpt.com, chat.deepseek.com, meta.ai, claude.ai, chat.qwenlm.ai, lmarena.ai, freebuff.chat, …). Kalau kamu menambah target baru di `AI_TARGET_URLS` (`src/ai-webview-controller.ts`), tambahkan juga host-nya di `ALLOWED_AI_HOSTS`.
+- **Allowlist host untuk jendela AI.** `open_ai_window` hanya menerima URL `https` ke host di `ALLOWED_AI_HOSTS` (gemini.google.com, chatgpt.com, chat.deepseek.com, meta.ai, claude.ai, chat.qwenlm.ai, lmarena.ai, ...). Kalau kamu menambah target baru di `AI_TARGET_URLS` (`src/ai-webview-controller.ts`), tambahkan juga host-nya di `ALLOWED_AI_HOSTS`.
 - **`eval_ai_script` hanya menyuntik ke host yang diizinkan.** Script automasi ditolak bila jendela AI ternyata sudah bernavigasi ke host lain. URL dipindahkan ke `window.location.href` lewat `serde_json`, jadi tidak bisa keluar dari string literal JS.
 - **`withGlobalTauri: false`.** Objek `window.__TAURI__` tidak lagi disuntikkan ke setiap webview. Frontend memakai import `@tauri-apps/api` yang di-bundle, sedangkan deteksi runtime memakai `window.__TAURI_INTERNALS__`.
 - **Path penyimpanan disanitasi.** `native_save_file` / `native_read_file` / `native_delete_file` / `native_list_files` menolak path absolut dan `..` (path traversal), lalu memastikan target tetap berada di dalam folder data aplikasi.
+- **Penulisan ke folder pilihan user tetap dijaga.** `native_write_file_to` / `native_read_file_from` / `native_list_dir` hanya menerima folder absolut yang berasal dari dialog pemilih folder native (`tauri-plugin-dialog`, izin `dialog:allow-open` hanya untuk jendela `main`); nama filenya disanitasi terhadap `..`, `:`, dan path absolut, dan path hasil harus tetap di dalam folder tersebut.
+- **Camoufox Auto Copas dikendalikan secara lokal dan loopback-only.** Browser Camoufox diunduh dari rilis resmi GitHub, dijalankan sebagai child process milik aplikasi (dimatikan saat aplikasi keluar), dan dikendalikan lewat WebDriver BiDi di `ws://127.0.0.1:<port>` — hanya loopback, tidak bisa diarahkan ke host lain. Browser dibuka hanya dari jendela `main`. Di Android, semua perintah `copas*` hanya menjalankan WebView in-app yang memuat situs target.
 - **`csp: null` dipertahankan dengan sengaja.** CSP ketat di jendela utama juga akan membatasi jendela AI yang memuat konten pihak ketiga, sementara aplikasi butuh inline style/script, Web Worker, dan koneksi ke API AI pilihanmu. Batas keamanan yang sebenarnya ada pada capability + guard Rust di atas.
 
 ---
@@ -311,8 +346,10 @@ CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga 
 **TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework berat. Dependensi utama:
 - **Tauri v2** — runtime desktop (Windows NSIS & MSI) dan mobile (Android APK)
 - **@tauri-apps/plugin-clipboard-manager** — akses clipboard native fokus-independen
+- **@tauri-apps/plugin-dialog** — pemilih folder native untuk folder simpan backup & export di Windows
 - **Web Worker Storage** — isolasi parsing dan commit IndexedDB/OPFS di thread terpisah agar UI tetap responsif 60fps
-- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, pemilih folder Storage Access Framework untuk impor/backup, dan penyimpanan file langsung ke folder `Download`
+- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, pemilih folder Storage Access Framework untuk impor/backup, penyimpanan file langsung ke folder `Download`, dan WebView Auto Copas
+- **Camoufox (unduh langsung dari GitHub) + reqwest + tokio-tungstenite** — browser otomatis Camoufox untuk Auto Copas di Windows; browser diunduh dari rilis GitHub dan dikendalikan lewat **WebDriver BiDi** (WebSocket lokal 127.0.0.1, tanpa Node.js/npm)
 - **JSZip** — parsing file `.zip`
 - **Kuroshiro + Kuromoji** — konversi furigana (hiragana/romaji) untuk teks Jepang
 - **Pako** — kompresi/dekompresi data

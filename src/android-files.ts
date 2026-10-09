@@ -63,7 +63,7 @@ function runFolderIo(method: string, args: string[], fallback: () => string): Pr
   });
 }
 
-export function pickAndroidFolder(purpose: 'import' | 'backup' | 'restore' | 'game'): Promise<string | null> {
+export function pickAndroidFolder(purpose: 'import' | 'backup' | 'restore' | 'game' | 'export'): Promise<string | null> {
   const bridge = androidBridge();
   if (!bridge) return Promise.resolve(null);
   if (activePicker) return Promise.reject(new Error('A folder picker is already open.'));
@@ -156,6 +156,18 @@ export async function writeAndroidTreeFile(uri: string, name: string, base64: st
   });
   if (raw !== 'ok') {
     throw new Error(String(raw || 'Android backup could not be written.').replace(/^__CSTL_ERROR__\s*/, ''));
+  }
+}
+
+/** ACTION_CREATE_DOCUMENT: picker "buat file" dengan kolom nama — user bisa
+ * memilih lokasi dan mengganti nama. Bridge baru saja ada di APK terbaru;
+ * di bridge lama ini melempar error agar pemanggil fallback ke jalur lama. */
+export async function createAndroidFile(defaultName: string, mime: string, base64: string): Promise<void> {
+  const raw = await runFolderIo('createFileAsync', [defaultName, mime, base64], () => {
+    throw new Error('Android create-document picker is unavailable in this app version.');
+  });
+  if (raw !== 'ok') {
+    throw new Error(String(raw || 'Android file could not be created.').replace(/^__CSTL_ERROR__\s*/, ''));
   }
 }
 

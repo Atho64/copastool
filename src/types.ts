@@ -170,7 +170,13 @@ export interface AppState {
   safeTagsForChatgpt: boolean;
   aiBackupKeys: string;
   aiKeyStrategy: 'fallback' | 'random';
-  aiTranslateMode: 'auto' | 'agent';
+  aiTranslateMode: 'auto' | 'agent' | 'copas';
+  /** Engine for the Glossary Auto loop: HTTP API or Auto Copas (browser). */
+  glossaryEngine: 'api' | 'copas';
+  /** Engine for the AI Check Auto loop: HTTP API or Auto Copas (browser). */
+  aiCheckEngine: 'api' | 'copas';
+  /** AI chat site Auto Copas drives (Gemini/ChatGPT/DeepSeek/Arena). */
+  copasTarget: 'gemini' | 'chatgpt' | 'deepseek' | 'arena';
   tavilyApiKey: string;
   agentMaxTurns: number;
   currentProjectId: string | null;

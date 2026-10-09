@@ -32,6 +32,15 @@ if (existsSync(legacyPath)) {
 copyFileSync(join(root, 'src-tauri', 'android', 'AndroidBridge.kt'), join(pkgDir, 'AndroidBridge.kt'));
 console.log('[patch-android-bridge] AndroidBridge.kt tersalin ke gen/android.');
 
+// 1b) Copy the Auto Copas in-app webview activity ("for android just webview").
+const copasActivitySource = join(root, 'src-tauri', 'android', 'AutoCopasActivity.kt');
+if (existsSync(copasActivitySource)) {
+  copyFileSync(copasActivitySource, join(pkgDir, 'AutoCopasActivity.kt'));
+  console.log('[patch-android-bridge] AutoCopasActivity.kt tersalin ke gen/android.');
+} else {
+  console.log('[patch-android-bridge] AutoCopasActivity.kt tidak ada — skip (fitur Auto Copas tidak tersedia).');
+}
+
 // 2) Hook it into MainActivity: attach the JS bridge to the main webview.
 const mainActivityPath = join(pkgDir, 'MainActivity.kt');
 if (!existsSync(mainActivityPath)) {
@@ -212,6 +221,20 @@ if (existsSync(manifestPath)) {
   }
   if (manifestChanged) {
     writeFileSync(manifestPath, manifest);
+  }
+  // Register the Auto Copas webview activity (created programmatically in
+  // AutoCopasActivity.kt — no layout XML needed).
+  if (!manifest.includes('.AutoCopasActivity')) {
+    const activityEntry = '    <activity\n      android:name=".AutoCopasActivity"\n      android:exported="false"\n      android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />\n';
+    if (manifest.includes('</application>')) {
+      manifest = manifest.replace('</application>', `${activityEntry}</application>`);
+      writeFileSync(manifestPath, manifest);
+      console.log('[patch-android-bridge] AutoCopasActivity didaftarkan di AndroidManifest.');
+    } else {
+      console.log('[patch-android-bridge] Tag </application> tidak ditemukan — AutoCopasActivity TIDAK didaftarkan.');
+    }
+  } else {
+    console.log('[patch-android-bridge] AutoCopasActivity sudah terdaftar (idempoten).');
   }
 }
 

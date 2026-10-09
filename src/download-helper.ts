@@ -1,17 +1,46 @@
 // @module download-helper.ts — Cross-platform file saving for Desktop & Android WebView
 import { flashHint } from './render';
+import { isAndroidNativeApp } from './android-files';
+import { isDesktopTauriApp, isSaveAskEveryTime, saveBase64ToNativeFolder, saveBase64WithSaveAs } from './native-save-folder';
 
 /**
- * Universal file saver: handles Android WebView (saving to Download folder or native Share Sheet)
- * and Desktop/Browser (anchor tag download).
+ * Universal file saver: handles native save-folder picking (Tauri desktop &
+ * Android, persisted like the browser's Backup ke Folder), Android WebView
+ * (Download folder / native Share Sheet) and Desktop/Browser (anchor download).
  */
 export async function saveOrDownloadBlob(blob: Blob, filename: string): Promise<boolean> {
   const androidBridge = (window as any).AndroidBridge || (window as any).AndroidAiOverlay;
+  const onAndroid = isAndroidNativeApp();
+  const onDesktopTauri = isDesktopTauriApp();
 
-  // 1. Android Tauri with native bridge: write directly to Downloads folder
+  // 1. Native apps: Save As dialog per file (jika opsi "Selalu tanya lokasi
+  //    simpan" aktif) atau folder simpan yang sudah dipersist (picked once,
+  //    same UX as Backup ke Folder on browser).
+  let base64: string | null = null;
+  if (onAndroid || onDesktopTauri) {
+    base64 = await blobToBase64(blob);
+    const askEveryTime = isSaveAskEveryTime();
+    const outcome = askEveryTime
+      ? await saveBase64WithSaveAs(filename, base64, blob.type || '')
+      : await saveBase64ToNativeFolder(filename, base64);
+    if (outcome === 'saved') {
+      flashHint(`Tersimpan: ${filename}`);
+      return true;
+    }
+    if (outcome === 'cancelled' && (onDesktopTauri || askEveryTime)) {
+      // User menutup dialog Save As / folder picker — jangan diam-diam
+      // menyimpan ke lokasi lain yang tidak mereka pilih.
+      flashHint('Penyimpanan dibatalkan.');
+      return false;
+    }
+    // Android folder mode 'cancelled' → pakai perilaku lama di bawah (folder
+    // Download / share sheet). 'failed' di platform mana pun juga fallback.
+  }
+
+  // 2. Android Tauri with native bridge: write directly to Downloads folder
   if (androidBridge && typeof androidBridge.saveFileToDownloads === 'function') {
     try {
-      const base64 = await blobToBase64(blob);
+      base64 = base64 ?? await blobToBase64(blob);
       const res = androidBridge.saveFileToDownloads(filename, base64);
       if (res === 'ok') {
         flashHint(`Berhasil disimpan ke folder Download: ${filename}`);
@@ -28,7 +57,7 @@ export async function saveOrDownloadBlob(blob: Blob, filename: string): Promise<
     }
   }
 
-  // 2. Web Share API (for mobile browsers / PWAs)
+  // 3. Web Share API (for mobile browsers / PWAs)
   if (navigator.canShare && typeof File !== 'undefined') {
     try {
       const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
@@ -46,7 +75,7 @@ export async function saveOrDownloadBlob(blob: Blob, filename: string): Promise<
     }
   }
 
-  // 3. Desktop / Standard Browser anchor download fallback
+  // 4. Desktop / Standard Browser anchor download fallback
   try {
     const href = URL.createObjectURL(blob);
     const a = document.createElement('a');

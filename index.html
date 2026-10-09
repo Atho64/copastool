@@ -280,7 +280,12 @@
         <div id="viewTranslate">
           <div class="card-box is-primary mb-2" data-htl-hide="true">
             <button id="btnCopyForAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyCount">0</span>)</button>
-            <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
+            <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
+            <div id="copasRowTranslate" class="flex gap-2 wrap mt-1 mb-1" style="display: none;">
+              <select id="copasTargetSelectTranslate" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
+              <button id="btnCopasOpenBrowserTranslate" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+            </div>
+            <div id="copasStatusTranslate" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
             <div class="flex gap-2 wrap mb-1 mt-1">
               <button id="btnSemiAutoCopas" type="button" class="btn btn-outline grow flex-center gap-1" disabled title="Auto pantau clipboard: salin balasan AI, otomatis terapkan dan salin batch berikutnya"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" /></svg><span>Mulai Semi-Auto</span></button>
               <button id="btnToggleFloatingBubble" type="button" class="btn btn-outline btn-sm flex-center gap-1" disabled style="display: none;" title="Tampilkan bubble mengambang di atas aplikasi AI untuk copy-paste 1 ketukan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></svg><span>Bubble</span></button>
@@ -355,7 +360,12 @@
           <div class="card-box mb-2">
             <label class="section-label mt-0">Ekstrak Glossary</label>
             <button id="btnCopyForGlossaryAi" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyGlossaryCount">0</span>)</button>
-            <button id="btnAutoGlossaryAi" class="btn btn-success w-full mb-1" disabled>Auto Ekstrak</button>
+            <div class="flex gap-2 mb-1"><select id="glossaryEngineSelect" class="text-input" style="width: auto;" title="Mesin Auto Ekstrak: API (HTTP) atau Copas (browser otomatis)"><option value="api">API</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoGlossaryAi" class="btn btn-success grow" disabled>Auto Ekstrak</button></div>
+            <div id="copasRowGlossary" class="flex gap-2 wrap mb-1" style="display: none;">
+              <select id="copasTargetSelectGlossary" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
+              <button id="btnCopasOpenBrowserGlossary" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+            </div>
+            <div id="copasStatusGlossary" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
           </div>
           <label class="section-label" for="pasteGlossaryArea">Paste Glossary AI</label>
           <textarea id="pasteGlossaryArea" class="mono input-area" placeholder="[character] 速川麦 = Hayakawa Mugi {male name}&#10;[place] 渋谷 = Shibuya {place name}" disabled></textarea>
@@ -402,7 +412,12 @@
           <div class="card-box mb-2">
             <label class="section-label mt-0">AI Double Check</label>
             <button id="btnCopyForAiCheck" class="btn btn-primary w-full mb-1" disabled>Copy (<span id="copyAiCheckCount">0</span>)</button>
-            <button id="btnAutoAiCheck" class="btn btn-success w-full mb-1" disabled>Auto Check</button>
+            <div class="flex gap-2 mb-1"><select id="aiCheckEngineSelect" class="text-input" style="width: auto;" title="Mesin Auto Check: API (HTTP) atau Copas (browser otomatis)"><option value="api">API</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoAiCheck" class="btn btn-success grow" disabled>Auto Check</button></div>
+            <div id="copasRowAiCheck" class="flex gap-2 wrap mb-1" style="display: none;">
+              <select id="copasTargetSelectAiCheck" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
+              <button id="btnCopasOpenBrowserAiCheck" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+            </div>
+            <div id="copasStatusAiCheck" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
             <label class="checkbox-line mt-1"><input id="settingsAiCheckReviewMode" type="checkbox" /> Review mode (pause tiap batch)</label>
           </div>
 
@@ -680,6 +695,42 @@
             <input id="dsIncrementCheck" type="checkbox" />
             <span>Aktifkan Auto-Increment (mengikuti ukuran Batch Translate)</span>
           </label>
+        </div>
+
+        <!-- SECTION: Penyimpanan (Backup & Export) -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+            Penyimpanan (Backup &amp; Export)
+          </div>
+          <label class="checkbox-line">
+            <input id="dsSaveAskEveryTime" type="checkbox" />
+            <span>Selalu tanya lokasi simpan (dialog Save As) setiap backup &amp; export</span>
+          </label>
+          <p class="hint-sm m-0 mt-1">Aktif: dialog Save As muncul tiap simpan — folder &amp; nama file bisa diganti. Nonaktif: otomatis ke folder simpan terpilih (Download di Android jika belum ada).</p>
+        </div>
+
+        <!-- SECTION: Auto Copas -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2"/><path d="m15.194 13.707 1.126-1.125a2 2 0 0 1 2.829 0l1.379 1.379a2 2 0 0 1 0 2.828L18.65 18.66a2 2 0 0 1-2.828 0l-1.379-1.379a2 2 0 0 1 0-2.828Z"/><path d="m21.082 11.5 1.379 1.379a2 2 0 0 1 0 2.828l-1.877 1.877"/></svg>
+            Auto Copas (Browser Otomatis)
+            <span class="beta-badge">Beta</span>
+          </div>
+          <div class="flex-center gap-2 wrap">
+            <label class="checkbox-line m-0 grow" for="dsCopasNewChatEvery">Chat baru setiap</label>
+            <input id="dsCopasNewChatEvery" type="number" min="0" max="999" step="1" class="text-input" style="width: 84px;" />
+            <span class="hint m-0">batch</span>
+          </div>
+          <div class="flex-center gap-2 wrap mt-2">
+            <label class="checkbox-line m-0 grow" for="dsCopasThinking">Thinking (DeepSeek &amp; Gemini)</label>
+            <select id="dsCopasThinking" class="text-input" style="width: auto;">
+              <option value="default">Default situs</option>
+              <option value="on">Selalu ON</option>
+              <option value="off">Selalu OFF</option>
+            </select>
+          </div>
+          <p class="hint-sm m-0 mt-1">Chat baru: mulai percakapan baru tiap X batch (0 = tidak pernah, 1 = tiap batch). Thinking: DeepSeek pakai tombol Pikir Mendalam/DeepThink, Gemini pakai varian Thinking/Penalaran di pemilih model. Diterapkan tiap batch sebelum kirim; target lain mengabaikannya.</p>
         </div>
 
         <!-- SECTION: Preferensi & Eksternal -->
@@ -1478,6 +1529,7 @@
     <div class="agent-header">
       <span style="font-weight: bold; color: var(--text-base);">CSTL AI Agent</span>
       <button id="btnAgentMemory" class="icon-btn" title="Memori Agent"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /><path d="M18 18a4 4 0 0 0 2-7.464" /><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /><path d="M6 18a4 4 0 0 1-2-7.464" /><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg></button>
+      <button id="btnAgentStop" class="icon-btn icon-btn-danger" title="Hentikan agent" style="display: none;"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" /></svg></button>
       <button id="btnAgentClear" class="icon-btn" title="Hapus riwayat chat"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
       <button id="btnAgentClose" class="icon-btn" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
     </div>
@@ -1665,8 +1717,8 @@
 
           <div class="flex-center gap-4 wrap mt-2">
             <label class="checkbox-line grow">
-              <input id="apiStreamingCheck" type="checkbox" />
-              <span>Streaming output (Auto Translate)</span>
+              <input id="apiStreamingCheck" type="checkbox" checked />
+              <span>Streaming output (terjemahan &amp; agent)</span>
             </label>
             <label class="checkbox-line grow">
               <input id="apiFilterThinkingCheck" type="checkbox" checked />

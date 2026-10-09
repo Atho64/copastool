@@ -6,7 +6,9 @@
 // Sinkronisasi ke Google Drive/Dropbox/rclone jadi urusan program terpisah
 // yang mengawasi folder tersebut.
 //
-// Desktop Chromium only — di mobile/Firefox/Safari tombolnya disembunyikan
+// Aplikasi desktop Tauri (Windows) memakai folder yang sama lewat
+// native-save-folder.ts (tauri-plugin-dialog), Android lewat SAF tree URI.
+// Browser lain (mobile/Firefox/Safari) tombolnya disembunyikan
 // (lihat isFolderBackupSupported + wiring di ui-init).
 
 import { state } from './state';
@@ -20,6 +22,10 @@ import {
   base64ToBytes, isAndroidNativeApp, listAndroidFolder, pickAndroidFolder,
   readAndroidTreeFile, utf8ToBase64, writeAndroidTreeFile,
 } from './android-files';
+import {
+  ensureNativeSaveDir, forgetNativeSaveDir, isDesktopTauriApp,
+  listNativeSaveDir, readNativeSaveDirFile, writeNativeSaveDirFile,
+} from './native-save-folder';
 
 const IDB_NAME = 'cstl-folder-backup';
 const IDB_STORE = 'handles';
@@ -27,7 +33,7 @@ const HANDLE_KEY = 'backupDir';
 const ANDROID_BACKUP_TREE_KEY = 'copastool_android_backup_tree_uri';
 
 export function isFolderBackupSupported(): boolean {
-  return typeof (window as any).showDirectoryPicker === 'function';
+  return typeof (window as any).showDirectoryPicker === 'function' || isDesktopTauriApp();
 }
 
 // ─── Penyimpanan handle folder (handle bisa di-clone ke IndexedDB) ───────────
@@ -96,6 +102,10 @@ export async function backupAllToFolder(): Promise<void> {
     await backupAllToAndroidFolder();
     return;
   }
+  if (isDesktopTauriApp()) {
+    await backupAllToTauriFolder();
+    return;
+  }
   if (!isFolderBackupSupported()) {
     alert('Folder Backup hanya tersedia di Chrome/Edge desktop. Di perangkat lain, pakai Backup Semua ZIP.');
     return;
@@ -126,6 +136,10 @@ export async function openFolderRestorePicker(): Promise<void> {
     await restoreAndroidFolderBackups();
     return;
   }
+  if (isDesktopTauriApp()) {
+    await restoreTauriFolderBackups();
+    return;
+  }
   if (!isFolderBackupSupported()) {
     alert('Folder Backup hanya tersedia di Chrome/Edge desktop. Di perangkat lain, pakai tombol Pulihkan Proyek.');
     return;
@@ -141,6 +155,49 @@ export async function openFolderRestorePicker(): Promise<void> {
   if (!backups.length) { alert('Tidak ada file backup (.copas / .cstl) di folder backup.'); return; }
   backups.sort((a, b) => b.file.lastModified - a.file.lastModified);
   showFolderRestoreModal(backups);
+}
+
+async function backupAllToTauriFolder(): Promise<void> {
+  const dir = await ensureNativeSaveDir();
+  if (!dir) return;
+  const projects = (state.dashboardProjects || []).filter((p: any) => !p.corrupt);
+  if (!projects.length) { alert('Belum ada proyek untuk dibackup.'); return; }
+  let done = 0, failed = 0;
+  for (const p of projects) {
+    try {
+      const data = await fetchProjectData(p.id);
+      const backupData = await prepareProjectBackupData(data, p.id);
+      if (!backupData) { failed++; continue; }
+      const safeName = String(p.name || p.id).replace(/[^a-z0-9._-]/gi, '_').toLowerCase();
+      await writeNativeSaveDirFile(dir, `${safeName}_backup${PROJECT_EXT}`, utf8ToBase64(JSON.stringify(backupData)));
+      done++;
+    } catch (_) { failed++; }
+  }
+  flashHint(`Folder Backup: ${done} proyek tersimpan${failed ? `, ${failed} gagal` : ''}.`);
+}
+
+async function restoreTauriFolderBackups(): Promise<void> {
+  const dir = await ensureNativeSaveDir();
+  if (!dir) return;
+  try {
+    const entries = (await listNativeSaveDir(dir))
+      .filter(item => /\.(?:copas|cstl)(?:\.zip)?$/i.test(item.name));
+    if (!entries.length) {
+      alert('Tidak ada file backup (.copas / .cstl) di folder backup.');
+      return;
+    }
+    const backups: { name: string; file: File }[] = [];
+    for (const item of entries) {
+      const bytes = await readNativeSaveDirFile(dir, item.name);
+      backups.push({ name: item.name, file: new File([bytes], item.name, { lastModified: item.modified || Date.now() }) });
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    backups.sort((a, b) => b.file.lastModified - a.file.lastModified);
+    showFolderRestoreModal(backups);
+  } catch (err: any) {
+    forgetNativeSaveDir();
+    alert(`Tidak dapat membaca folder backup. Pilih folder lagi lalu coba ulangi.\n\n${err?.message || err}`);
+  }
 }
 
 async function getAndroidBackupTree(purpose: 'backup' | 'restore'): Promise<string | null> {

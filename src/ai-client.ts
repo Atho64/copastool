@@ -7,7 +7,10 @@
 //
 // Provider support: OpenAI-compatible, Anthropic, Google Gemini.
 // Reliability: per-request idle timeout, cancellable in-flight requests,
-//              status-code-driven key rotation.
+//              status-code-driven key rotation, transient-error backoff with
+//              Retry-After support, and a shared RPM rate limiter that keeps
+//              automated pipelines (including parallel sub-batches) inside the
+//              configured request-per-minute budget.
 
 import { state } from './state';
 import { applyOpenAIOptions, applyAnthropicOptions, applyGeminiOptions } from './api-request-options';
@@ -40,6 +43,13 @@ export interface ChatCompletionOptions {
   log?: (title: string, detail?: string) => void;
   /** Set when the caller already knows a user cancellation is in progress. */
   isCancelled?: () => boolean;
+  /**
+   * Wait for a slot in the shared RPM limiter before sending. Set by the
+   * automated pipelines (auto translate, agent translate, glossary, AI check,
+   * subagents) so parallel batches respect the configured request rate.
+   * Interactive callers (agent chat, dictionary popup) leave it off.
+   */
+  rateLimited?: boolean;
 }
 
 // ------------------------------------------------------------------
@@ -53,8 +63,10 @@ const ERROR_BODY_LIMIT = 300;
 export class ApiHttpError extends Error {
   readonly status: number;
   readonly body: string;
+  /** Parsed Retry-After header in ms (capped at 60s), when the server sent one. */
+  readonly retryAfterMs: number | null;
 
-  constructor(status: number, body: string) {
+  constructor(status: number, body: string, retryAfterMs: number | null = null) {
     const trimmed = String(body ?? '');
     const shown = trimmed.length > ERROR_BODY_LIMIT
       ? trimmed.slice(0, ERROR_BODY_LIMIT) + '…'
@@ -63,7 +75,18 @@ export class ApiHttpError extends Error {
     this.name = 'ApiHttpError';
     this.status = status;
     this.body = trimmed;
+    this.retryAfterMs = retryAfterMs;
   }
+}
+
+/** Parses a `Retry-After` header (delay-seconds or HTTP-date) into ms. */
+function parseRetryAfterMs(header: string | null): number | null {
+  if (!header) return null;
+  const secs = Number(header.trim());
+  if (Number.isFinite(secs) && secs >= 0) return Math.min(60000, secs * 1000);
+  const date = Date.parse(header);
+  if (!Number.isNaN(date)) return Math.min(60000, Math.max(0, date - Date.now()));
+  return null;
 }
 
 /** Request stopped deliberately — either by the user or by the idle timeout. */
@@ -194,6 +217,9 @@ export function shouldTryNextKey(err: unknown): boolean {
   // The user pressed Stop — do not keep spending keys.
   if (e instanceof AiAbortError) return e.reason === 'timeout';
 
+  // An empty completion usually means a broken gateway; a backup key may work.
+  if (e?.emptyResponse) return true;
+
   if (e instanceof ApiHttpError) {
     const s = e.status;
     return s === 401 || s === 403 || s === 408 || s === 409 || s === 425
@@ -221,6 +247,13 @@ interface ActiveRequest {
 
 const activeRequests = new Set<ActiveRequest>();
 
+/**
+ * Bumped on every abortActiveRequests() call. RPM/backoff waits capture the
+ * epoch when they start so a Stop press can cancel them too, not just the
+ * in-flight HTTP requests.
+ */
+let abortEpoch = 0;
+
 /** True while at least one AI request is in flight. */
 export function hasActiveRequest(): boolean {
   return activeRequests.size > 0;
@@ -231,12 +264,103 @@ export function hasActiveRequest(): boolean {
  * Returns how many requests were signalled.
  */
 export function abortActiveRequests(): number {
+  abortEpoch++;
   let n = 0;
   for (const req of activeRequests) {
     try { req.reason = 'user'; req.controller.abort(); n++; } catch { /* already settled */ }
   }
   activeRequests.clear();
   return n;
+}
+
+// ------------------------------------------------------------------
+// Shared RPM limiter & transient-error backoff
+// ------------------------------------------------------------------
+
+/** Cancellable delay used by the RPM gate and retry backoff. */
+function abortableDelay(ms: number, epoch: number, options?: ChatCompletionOptions): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (ms <= 0) { resolve(); return; }
+    const start = Date.now();
+    const check = () => {
+      if (epoch !== abortEpoch || options?.isCancelled?.()) {
+        reject(new AiAbortError('user'));
+        return;
+      }
+      if (Date.now() - start >= ms) { resolve(); return; }
+      setTimeout(check, 200);
+    };
+    check();
+  });
+}
+
+function rpmIntervalMs(): number | null {
+  const rpm = Number(state.aiRpm);
+  if (!Number.isFinite(rpm) || rpm <= 0) return null;
+  return Math.max(50, Math.ceil(60000 / rpm));
+}
+
+let rpmLastStartAt = 0;
+let rpmChain: Promise<void> = Promise.resolve();
+
+/**
+ * Serializes request *starts* so automated pipelines never exceed the
+ * configured RPM — including parallel sub-batches, which previously fired
+ * all at once. The interval is read live, so changing the RPM setting
+ * mid-run takes effect on the next request.
+ */
+async function acquireRequestSlot(options: ChatCompletionOptions): Promise<void> {
+  const interval = rpmIntervalMs();
+  if (interval === null) return;
+  const epoch = abortEpoch;
+  const run = async () => {
+    const waitMs = rpmLastStartAt + interval - Date.now();
+    if (waitMs > 0) {
+      if (waitMs > 1000) {
+        options.log?.('Menunggu jeda RPM', `${(waitMs / 1000).toFixed(1)}s sebelum request berikutnya (limit ${state.aiRpm} RPM).`);
+      }
+      await abortableDelay(waitMs, epoch, options);
+    }
+    rpmLastStartAt = Date.now();
+  };
+  const slot = rpmChain.then(run, run);
+  rpmChain = slot.then(() => {}, () => {});
+  await slot;
+}
+
+const TRANSIENT_ATTEMPTS_PER_KEY = 3;
+const BACKOFF_BASE_MS = 1500;
+const BACKOFF_MAX_MS = 30000;
+
+/**
+ * True for failures worth retrying on the SAME key with a backoff wait:
+ * 429/5xx/408/425, network errors, idle timeouts, and empty completions.
+ * Auth failures (401/403) are not transient — they rotate to the next key.
+ */
+function isTransientError(err: unknown): boolean {
+  if (err instanceof AiAbortError) return err.reason === 'timeout';
+  if (err instanceof ApiHttpError) {
+    return err.status === 408 || err.status === 425 || err.status === 429 || err.status >= 500;
+  }
+  if ((err as any)?.emptyResponse) return true;
+  if ((err as any)?.name === 'TypeError') return true; // fetch() network failure
+  return false;
+}
+
+function backoffDelayMs(attempt: number, retryAfterMs?: number | null): number {
+  if (retryAfterMs && retryAfterMs > 0) return Math.min(60000, retryAfterMs);
+  const jitter = 1 + Math.random() * 0.5;
+  return Math.min(BACKOFF_MAX_MS, Math.round(BACKOFF_BASE_MS * Math.pow(2, attempt - 1) * jitter));
+}
+
+/** Current cancellation epoch — bumped on every abortActiveRequests() call. */
+export function currentAbortEpoch(): number {
+  return abortEpoch;
+}
+
+/** Streaming is on unless the user explicitly disabled it in API settings. */
+function useStreaming(): boolean {
+  return state.aiStreaming !== false;
 }
 
 const DEFAULT_IDLE_TIMEOUT_MS = 120000;
@@ -430,7 +554,7 @@ async function chatCompletionOpenAI(
   const body: any = {
     model: config.model || 'gpt-4o-mini',
     messages: apiMessages,
-    stream: true,
+    stream: useStreaming(),
   };
   applyOpenAIOptions(body, config.model, config.url || '');
 
@@ -445,16 +569,17 @@ async function chatCompletionOpenAI(
       body: JSON.stringify(body),
       signal: ctx.signal,
     });
-    if (!res.ok) throw new ApiHttpError(res.status, await res.text());
+    if (!res.ok) throw new ApiHttpError(res.status, await res.text(), parseRetryAfterMs(res.headers.get('retry-after')));
     ctx.arm();
 
     const ct = (res.headers.get('content-type') || '').toLowerCase();
-    // A provider that ignores stream:true may still answer with plain JSON.
+    // A provider asked for non-streaming JSON (stream disabled or ignored).
     if (ct.includes('application/json') && !ct.includes('event-stream')) {
       const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '';
       const finish = data.choices?.[0]?.finish_reason ?? null;
       const text = state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
+      if (!text.trim()) throw makeEmptyResponseError();
       if (onDeltaSafe(options) && text) options.onDelta!(text, text);
       warnOnFinish(finish, options, config);
       return text;
@@ -482,12 +607,25 @@ async function chatCompletionOpenAI(
     });
 
     warnOnFinish(finishReason, options, config);
-    return state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    if (!finalText.trim()) throw makeEmptyResponseError();
+    return finalText;
   });
 }
 
 function onDeltaSafe(options: ChatCompletionOptions): boolean {
   return typeof options.onDelta === 'function';
+}
+
+/**
+ * A response that parsed successfully but carries no text. Retrying on the
+ * same key (and rotating keys) is worthwhile — some gateways intermittently
+ * return an empty completion.
+ */
+function makeEmptyResponseError(): Error {
+  const err = new Error('Respons AI kosong (tidak ada teks).');
+  (err as any).emptyResponse = true;
+  return err;
 }
 
 let warnedMissingFinishReason = false;
@@ -570,7 +708,7 @@ async function chatCompletionAnthropic(
     model: config.model || 'claude-haiku-4-5-20251001',
     max_tokens: 8192,
     messages: anthMessages,
-    stream: true,
+    stream: useStreaming(),
   };
   if (prepared.system) body.system = prepared.system;
   applyAnthropicOptions(body);
@@ -591,7 +729,7 @@ async function chatCompletionAnthropic(
       body: JSON.stringify(body),
       signal: ctx.signal,
     });
-    if (!res.ok) throw new ApiHttpError(res.status, await res.text());
+    if (!res.ok) throw new ApiHttpError(res.status, await res.text(), parseRetryAfterMs(res.headers.get('retry-after')));
     ctx.arm();
 
     const ct = (res.headers.get('content-type') || '').toLowerCase();
@@ -599,6 +737,7 @@ async function chatCompletionAnthropic(
       const data = await res.json();
       const rawText = extractAnthropicText(data);
       const text = state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
+      if (!text.trim()) throw makeEmptyResponseError();
       if (onDeltaSafe(options) && text) options.onDelta!(text, text);
       warnOnFinish(data?.stop_reason ?? null, options, config);
       return text;
@@ -643,7 +782,9 @@ async function chatCompletionAnthropic(
     });
 
     warnOnFinish(finishReason, options, config);
-    return state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    if (!finalText.trim()) throw makeEmptyResponseError();
+    return finalText;
   });
 }
 
@@ -665,11 +806,11 @@ function appendQueryParams(rawUrl: string, values: Record<string, string>, overw
   return base + (query ? `?${query}` : '') + hash;
 }
 
-function geminiStreamUrl(baseUrl: string, model: string): string {
+function geminiStreamUrl(baseUrl: string, model: string, stream: boolean): string {
   let url = (baseUrl || '').trim();
   if (!url) {
-    url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent`;
-  } else if (url.includes(':generateContent')) {
+    url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${stream ? 'streamGenerateContent' : 'generateContent'}`;
+  } else if (stream && url.includes(':generateContent')) {
     url = url.replace(':generateContent', ':streamGenerateContent');
   }
   // The API key travels in the `x-goog-api-key` header rather than the query string,
@@ -679,7 +820,7 @@ function geminiStreamUrl(baseUrl: string, model: string): string {
   let query = '';
   if (qIdx >= 0) { query = url.slice(qIdx + 1); url = url.slice(0, qIdx); }
   const params = new URLSearchParams(query);
-  if (!params.has('alt')) params.set('alt', 'sse');
+  if (stream && !params.has('alt')) params.set('alt', 'sse');
   return `${url}?${params.toString()}`;
 }
 
@@ -694,7 +835,8 @@ async function chatCompletionGemini(
   options: ChatCompletionOptions
 ): Promise<string> {
   const model = config.model || 'gemini-1.5-flash';
-  const url = geminiStreamUrl(config.url || '', model);
+  const stream = useStreaming();
+  const url = geminiStreamUrl(config.url || '', model, stream);
 
   let systemInstruction: any = null;
   const contents: any[] = [];
@@ -741,7 +883,7 @@ async function chatCompletionGemini(
       ctx.arm();   // the retry is a fresh request, so it gets a fresh idle budget
       res = await post(ctx, buildBody(false));
     }
-    if (!res.ok) throw new ApiHttpError(res.status, await res.text());
+    if (!res.ok) throw new ApiHttpError(res.status, await res.text(), parseRetryAfterMs(res.headers.get('retry-after')));
     ctx.arm();
 
     const ct = (res.headers.get('content-type') || '').toLowerCase();
@@ -762,7 +904,9 @@ async function chatCompletionGemini(
         }
       }
       warnOnFinish(finishReason, options, config);
-      return state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+      const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+      if (!finalText.trim()) throw makeEmptyResponseError();
+      return finalText;
     }
 
     let full = '';
@@ -787,7 +931,9 @@ async function chatCompletionGemini(
     });
 
     warnOnFinish(finishReason, options, config);
-    return state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
+    if (!finalText.trim()) throw makeEmptyResponseError();
+    return finalText;
   });
 }
 
@@ -796,11 +942,13 @@ async function chatCompletionGemini(
 // ------------------------------------------------------------------
 
 /**
- * Sends a chat request, rotating through configured keys on retryable failures.
+ * Sends a chat request with a shared RPM limiter, transient-error backoff and
+ * key rotation across the configured keys.
  *
  * Cancellation: call `abortActiveRequests()` (the Stop button does) to abort
- * every in-flight call. Timeout: a request that receives nothing for
- * `aiRequestTimeoutMs` is aborted and treated as retryable.
+ * every in-flight call and cancel pending RPM/backoff waits. Timeout: a request
+ * that receives nothing for `aiRequestTimeoutMs` is aborted and treated as
+ * retryable.
  */
 export async function chatCompletion(
   messages: ChatMessage[],
@@ -813,30 +961,56 @@ export async function chatCompletion(
   if (state.aiKeyStrategy === 'random') ordered = shuffleArray(configs);
 
   let lastError: Error | null = null;
+  const startEpoch = currentAbortEpoch();
 
   for (let i = 0; i < ordered.length; i++) {
     const config = ordered[i];
-    if (options.isCancelled?.()) throw new AiAbortError('user');
-    try {
-      options.log?.(
-        `Mengirim request AI via ${state.aiApiType}`,
-        `Model: ${config.model}${state.aiStreaming ? ' | streaming' : ''} | key ${i + 1}/${ordered.length}`
-      );
-      if (state.aiApiType === 'gemini') return await chatCompletionGemini(messages, config, options);
-      if (state.aiApiType === 'anthropic') return await chatCompletionAnthropic(messages, config, options);
-      return await chatCompletionOpenAI(messages, config, options);
-    } catch (err: any) {
-      lastError = err;
-      options.log?.('Request AI gagal', err?.message || String(err));
+    if (options.isCancelled?.() || currentAbortEpoch() > startEpoch) throw new AiAbortError('user');
 
-      // A user cancellation must stop the whole run, not burn the other keys.
-      if (err instanceof AiAbortError && err.reason === 'user') throw err;
+    // Transient failures (429/5xx/network/empty) are retried on the SAME key
+    // with exponential backoff + Retry-After before any key is spent. A single
+    // blip used to rotate straight to the next key — with one key configured
+    // it killed the whole run.
+    let attempt = 0;
+    while (true) {
+      if (options.isCancelled?.() || currentAbortEpoch() > startEpoch) throw new AiAbortError('user');
+      try {
+        if (options.rateLimited) await acquireRequestSlot(options);
+        options.log?.(
+          `Mengirim request AI via ${state.aiApiType}`,
+          `Model: ${config.model}${useStreaming() ? ' | streaming' : ''} | key ${i + 1}/${ordered.length}${attempt > 0 ? ` | percobaan ${attempt + 1}` : ''}`
+        );
+        if (state.aiApiType === 'gemini') return await chatCompletionGemini(messages, config, options);
+        if (state.aiApiType === 'anthropic') return await chatCompletionAnthropic(messages, config, options);
+        return await chatCompletionOpenAI(messages, config, options);
+      } catch (err: any) {
+        lastError = err;
+        options.log?.('Request AI gagal', err?.message || String(err));
 
-      if (i < ordered.length - 1 && shouldTryNextKey(err)) {
-        options.log?.('Mencoba API key berikutnya', `Key ${i + 1} gagal: ${err?.message || err}`);
-        continue;
+        // A user cancellation must stop the whole run, not burn the other keys.
+        if (err instanceof AiAbortError && err.reason === 'user') throw err;
+
+        if (attempt < TRANSIENT_ATTEMPTS_PER_KEY - 1 && isTransientError(err)) {
+          attempt++;
+          const waitMs = backoffDelayMs(attempt, err instanceof ApiHttpError ? err.retryAfterMs : null);
+          options.log?.(
+            `Menunggu ${Math.round(waitMs / 1000)}s sebelum mencoba lagi`,
+            `Gangguan sementara (percobaan ${attempt + 1}/${TRANSIENT_ATTEMPTS_PER_KEY}): ${err?.message || err}`
+          );
+          try {
+            await abortableDelay(waitMs, abortEpoch, options);
+          } catch {
+            throw new AiAbortError('user'); // aborted while backing off
+          }
+          continue;
+        }
+
+        if (i < ordered.length - 1 && shouldTryNextKey(err)) {
+          options.log?.('Mencoba API key berikutnya', `Key ${i + 1} gagal: ${err?.message || err}`);
+          break; // next key
+        }
+        throw err;
       }
-      throw err;
     }
   }
   throw lastError || new Error('Semua API key gagal.');

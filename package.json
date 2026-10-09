@@ -1,7 +1,7 @@
 {
   "name": "copas-tool",
   "private": true,
-  "version": "0.1.11",
+  "version": "0.1.12",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.3",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-opener": "^2.0.0",
     "jszip": "^3.10.1",
     "kuroshiro": "^1.2.0",

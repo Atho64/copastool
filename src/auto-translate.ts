@@ -12,6 +12,7 @@ import { onSaveGlossary } from './glossary';
 import { onApplyAiCheckCorrections } from './ai-check';
 import { appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
 import { chatCompletionText, abortActiveRequests } from './ai-client';
+import { normalizeCopasTarget } from './auto-copas/targets';
 import { getDisplayOrderedLines } from './selection';
 
 const API_STORAGE_KEY = 'cstl_api_settings';
@@ -52,7 +53,12 @@ export function loadApiSettings(): void {
       if (p.aiStreaming !== undefined) state.aiStreaming = !!p.aiStreaming;
       if (p.aiBackupKeys !== undefined) state.aiBackupKeys = p.aiBackupKeys;
       if (p.aiKeyStrategy) state.aiKeyStrategy = p.aiKeyStrategy;
-      if (p.aiTranslateMode) state.aiTranslateMode = p.aiTranslateMode;
+      if (p.aiTranslateMode === 'auto' || p.aiTranslateMode === 'agent' || p.aiTranslateMode === 'copas') {
+        state.aiTranslateMode = p.aiTranslateMode;
+      }
+      if (p.glossaryEngine === 'api' || p.glossaryEngine === 'copas') state.glossaryEngine = p.glossaryEngine;
+      if (p.aiCheckEngine === 'api' || p.aiCheckEngine === 'copas') state.aiCheckEngine = p.aiCheckEngine;
+      if (p.copasTarget) state.copasTarget = normalizeCopasTarget(p.copasTarget);
       if (p.tavilyApiKey !== undefined) state.tavilyApiKey = p.tavilyApiKey;
       if (p.autoRepeatOnFailure !== undefined) state.autoRepeatOnFailure = !!p.autoRepeatOnFailure;
     }
@@ -61,6 +67,17 @@ export function loadApiSettings(): void {
   }
   const modeSelect = document.getElementById('aiTranslateModeSelect') as HTMLSelectElement;
   if (modeSelect) modeSelect.value = state.aiTranslateMode || 'auto';
+  const glossaryEngineSelect = document.getElementById('glossaryEngineSelect') as HTMLSelectElement | null;
+  if (glossaryEngineSelect) glossaryEngineSelect.value = state.glossaryEngine || 'api';
+  const aiCheckEngineSelect = document.getElementById('aiCheckEngineSelect') as HTMLSelectElement | null;
+  if (aiCheckEngineSelect) aiCheckEngineSelect.value = state.aiCheckEngine || 'api';
+  for (const id of ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck']) {
+    const el = document.getElementById(id) as HTMLSelectElement | null;
+    if (el) el.value = state.copasTarget || 'gemini';
+  }
+  // Re-run after saved settings are restored so the Copas rows match the
+  // restored engine selection (a reload otherwise leaves the rows hidden).
+  import('./auto-copas/ui').then((m) => m.syncCopasUi());
   const repeatCheck = document.getElementById('checkAutoRepeatOnFailure') as HTMLInputElement | null;
   if (repeatCheck) repeatCheck.checked = !!state.autoRepeatOnFailure;
   const repeatCached = ui.checkAutoRepeatOnFailure as HTMLInputElement | undefined;
@@ -88,6 +105,9 @@ export function saveApiSettings(): void {
     aiStreaming: state.aiStreaming,
     aiBackupKeys: state.aiBackupKeys,
     aiKeyStrategy: state.aiKeyStrategy, aiTranslateMode: state.aiTranslateMode,
+    glossaryEngine: state.glossaryEngine,
+    aiCheckEngine: state.aiCheckEngine,
+    copasTarget: state.copasTarget,
     tavilyApiKey: state.tavilyApiKey,
     autoRepeatOnFailure: state.autoRepeatOnFailure,
   };
@@ -496,6 +516,10 @@ export async function onAutoTranslate(): Promise<void> {
     const { onAgentTranslate } = await import('./agent-translate');
     return onAgentTranslate();
   }
+  if (state.aiTranslateMode === 'copas') {
+    const { toggleCopasTranslate } = await import('./auto-copas/bridge');
+    return toggleCopasTranslate();
+  }
   const btn = ui.btnAutoTranslate as HTMLButtonElement;
 
   if (isAutoTranslating) {
@@ -642,11 +666,9 @@ export async function onAutoTranslate(): Promise<void> {
           }
         }
 
-        if (isAutoTranslating && state.aiRpm > 0) {
-          const waitMs = Math.round(60000 / state.aiRpm);
-          btn.textContent = `Menunggu delay (${Math.round(waitMs/1000)}s)... (Klik untuk Stop)`;
-          await delay(waitMs, () => !isAutoTranslating);
-        }
+        // RPM pacing is enforced by the shared limiter in ai-client (request
+        // starts are spaced by 60000/RPM); no extra sleep here — it would stack
+        // with the limiter's interval and double every wait.
       } else {
         // Parallel mode: split batch into sub-batches and send concurrently
         const subBatchSize = Math.ceil(sel.length / parallelSize);
@@ -751,11 +773,7 @@ export async function onAutoTranslate(): Promise<void> {
           if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
         }
 
-        if (isAutoTranslating && state.aiRpm > 0) {
-          const waitMs = Math.round(60000 / state.aiRpm);
-          btn.textContent = `Menunggu delay (${Math.round(waitMs/1000)}s)... (Klik untuk Stop)`;
-          await delay(waitMs, () => !isAutoTranslating);
-        }
+        // RPM pacing handled by the shared limiter in ai-client (see above).
       }
     }
   } catch (err: any) {
@@ -778,9 +796,13 @@ export type { ApiConfig } from './ai-client';
 // Re-exported here for callers that still import them from this module.
 export { parseBackupKeys, shuffleArray, shouldTryNextKey, stripThinkingTags } from './ai-client';
 
-export async function fetchApiResult(prompt: string): Promise<string> {
+export async function fetchApiResult(prompt: string, opts: { rateLimited?: boolean } = {}): Promise<string> {
   try {
     return await chatCompletionText(prompt, {
+      // Automated pipelines go through the shared RPM limiter so parallel
+      // sub-batches also respect the configured request rate. Interactive
+      // callers (dictionary popup) pass rateLimited: false.
+      rateLimited: opts.rateLimited !== false,
       log: (title, detail) => appendProjectLog(title, detail),
       onDelta: (_delta, fullText) => updateStreamingLog(fullText),
     });
@@ -792,6 +814,10 @@ export async function fetchApiResult(prompt: string): Promise<string> {
 
 let isAutoGlossary = false;
 export async function onAutoGlossary(): Promise<void> {
+  if (state.glossaryEngine === 'copas') {
+    const { toggleCopasGlossary } = await import('./auto-copas/bridge');
+    return toggleCopasGlossary();
+  }
   const btn = ui.btnAutoGlossaryAi as HTMLButtonElement;
   if (isAutoGlossary) {
     isAutoGlossary = false;
@@ -865,11 +891,7 @@ export async function onAutoGlossary(): Promise<void> {
 
       for (const l of batchLines) l._glossary_extracted = true;
 
-      if (isAutoGlossary && state.aiRpm > 0) {
-        const waitMs = Math.round(60000 / state.aiRpm);
-        btn.textContent = `Menunggu delay (${Math.round(waitMs/1000)}s)... (Klik untuk Stop)`;
-        await delay(waitMs, () => !isAutoGlossary);
-      }
+      // RPM pacing handled by the shared limiter in ai-client.
     }
   } catch (err: any) {
     if (isAutoGlossary) {
@@ -887,6 +909,10 @@ export async function onAutoGlossary(): Promise<void> {
 let isAutoAiCheck = false;
 let autoAiCheckStats = { totalChecked: 0, totalCorrections: 0, totalApplied: 0, byCategory: new Map<string, number>() };
 export async function onAutoAiCheck(): Promise<void> {
+  if (state.aiCheckEngine === 'copas') {
+    const { toggleCopasAiCheck } = await import('./auto-copas/bridge');
+    return toggleCopasAiCheck();
+  }
   const btn = ui.btnAutoAiCheck as HTMLButtonElement;
   if (isAutoAiCheck) {
     isAutoAiCheck = false;
@@ -1005,11 +1031,7 @@ export async function onAutoAiCheck(): Promise<void> {
       for (const l of batchLines) l._ai_checked = true;
       autoAiCheckStats.totalChecked += batchLines.length;
 
-      if (isAutoAiCheck && state.aiRpm > 0) {
-        const waitMs = Math.round(60000 / state.aiRpm);
-        btn.textContent = `Menunggu delay (${Math.round(waitMs/1000)}s)... (Klik untuk Stop)`;
-        await delay(waitMs, () => !isAutoAiCheck);
-      }
+      // RPM pacing handled by the shared limiter in ai-client.
     }
     if (isAutoAiCheck) {
       flashHint('Auto AI Check selesai.');
@@ -1049,6 +1071,9 @@ function waitForReviewAction(): Promise<string> {
     }, 300000);
   });
 }
+// Shared with the Auto Copas AI-check loop (auto-copas/bridge.ts), which pauses
+// on the same Apply/Skip buttons.
+export { waitForReviewAction };
 
 export function resolveReviewAction(action: 'apply' | 'skip' | 'stop'): void {
   if (reviewResolve) {
@@ -1065,12 +1090,19 @@ async function fetchWithRetry(runAttempt: () => Promise<string>, onRetry: (retry
     try {
       return await runAttempt();
     } catch (err: any) {
-      if (err?.retryable) {
+      // `emptyResponse` comes from ai-client when a request completed but
+      // carried no text — some gateways do this intermittently, so retry.
+      const retryable = err?.retryable || err?.emptyResponse;
+      if (retryable) {
         attempt++;
         if (attempt >= maxRetries) {
-          throw new Error(`Gagal setelah ${maxRetries} percobaan karena format respons AI terus tidak cocok. ${String(err?.message || err || '')}`.trim());
+          const reason = err?.emptyResponse
+            ? 'respons AI terus kosong'
+            : 'format respons AI terus tidak cocok';
+          throw new Error(`Gagal setelah ${maxRetries} percobaan karena ${reason}. ${String(err?.message || err || '')}`.trim());
         }
-        onRetry({ attempt, maxRetries, waitMs: 2000, reason: 'format respons AI tidak cocok' });
+        const reason = err?.emptyResponse ? 'respons AI kosong' : 'format respons AI tidak cocok';
+        onRetry({ attempt, maxRetries, waitMs: 2000, reason });
         await delay(2000, shouldCancel);
         continue;
       }

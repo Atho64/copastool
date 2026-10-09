@@ -502,7 +502,7 @@ async function fetchLLMDictionary(word: string, context: string) {
     .replace(/{word}/g, word)
     .replace(/{context}/g, context);
 
-  let explanation = await fetchApiResult(finalPrompt);
+  let explanation = await fetchApiResult(finalPrompt, { rateLimited: false });
 
   const html = simpleParseMarkdown(explanation);
   contentEl.innerHTML = html;

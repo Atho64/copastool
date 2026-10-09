@@ -44,6 +44,8 @@ import { initCustomParserModal, updateCustomImportAccept } from './custom-parser
 import { setPyodideColdStartHint } from './custom-parser-runner';
 import { handleTranslatedImport, onImportTranslatedFileChange, onImportTranslatedFolderChange } from './import-translated';
 import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
+import { normalizeCopasTarget } from './auto-copas/targets';
+import { populateCopasTargetSelects, syncCopasUi } from './auto-copas/ui';
 import {
   createNewProject, closeProject, onRestoreProject, renderDashboardProjects,
   openDashboardSettings, saveDashboardSettings, resetDashboardSettings,
@@ -120,7 +122,7 @@ export function cacheElements(): void {
     'btnQaCheck', 'qaModal', 'qaCheckGlossary', 'qaCheckKana', 'qaCheckSimilarity', 'qaCheckLinebreak', 'qaCheckLength', 'qaCheckLanguage', 'qaCheckPunctuation', 'btnRunQa', 'btnQaReset', 'qaStats', 'qaResults', 'btnQaClose', 'btnRetranslateFlagged', 'settingsCheckLengthRatio', 'settingsLengthRatioThreshold', 'settingsLengthRatioWrap', 'settingsCheckLinebreak', 'settingsCheckLanguage', 'settingsCheckPunctuation', 'settingsCheckUntransName', 'settingsIgnorePasteNames', 'settingsEnableUncertainMarking', 'settingsSafeTagsForChatgpt', 'qaCheckUncertain', 'qaCheckUntransName', 'aiTranslateModeSelect', 'settingsAgentMaxTurns',
     'btnAutoTranslate', 'btnSemiAutoCopas', 'btnToggleFloatingBubble', 'semiAutoCopasStatus', 'btnAutoGlossaryAi', 'btnAutoAiCheck', 'btnFloatingApiSettings', 'apiSettingsModal', 'apiTypeSelect', 'apiUrlInput', 'apiKeyInput', 'apiModelInput', 'apiModelSelect', 'btnFetchModels', 'apiModelFetchStatus', 'apiTemperatureInput', 'apiTopPInput', 'apiMaxTokensInput', 'apiFrequencyPenaltyInput', 'apiPresencePenaltyInput', 'apiSeedInput', 'apiTimeoutInput', 'apiReasoningEffortSelect', 'apiRpmInput', 'apiDelayPreview', 'apiThinkingSelect', 'apiFilterThinkingCheck', 'apiMergeSystemCheck', 'apiStreamingCheck', 'apiBackupKeysInput', 'apiKeyStrategySelect', 'btnApiSettingsCancel', 'btnApiSettingsSave', 'tavilyKeyInput', 'apiProfileSelect', 'btnLoadProfile', 'btnDeleteProfile', 'apiProfileNameInput', 'btnSaveProfile',
  'aiCheckReviewActions', 'btnReviewApply', 'btnReviewSkip',
-    'btnFloatingAiAgent', 'btnFloatingLogging', 'loggingPanel', 'loggingHistory', 'btnLoggingClear', 'btnLoggingClose', 'aiAgentChatPanel', 'btnAgentClose', 'btnAgentClear', 'btnAgentMemory', 'agentChatHistory', 'agentInput', 'btnAgentSend',
+    'btnFloatingAiAgent', 'btnFloatingLogging', 'loggingPanel', 'loggingHistory', 'btnLoggingClear', 'btnLoggingClose', 'aiAgentChatPanel', 'btnAgentClose', 'btnAgentClear', 'btnAgentMemory', 'btnAgentStop', 'agentChatHistory', 'agentInput', 'btnAgentSend',
     'agentMemoryModal', 'agentMemoryList', 'agentMemoryKey', 'agentMemoryCategory', 'agentMemoryScope', 'agentMemoryValue', 'btnAgentMemoryCancel', 'btnAgentMemorySave',
     'btnTextReplacer', 'textReplacerModal', 'replacerPreInput', 'replacerPostInput', 'btnTextReplacerCancel', 'btnTextReplacerSave',
     'btnImportCustom', 'btnImportCustomFolder', 'btnCustomParsers', 'importCustomInput', 'importCustomFolderInput', 'customParserModal',
@@ -981,10 +983,43 @@ if (ui.settingsCheckSimilarity) {
   const modeSelect = document.getElementById('aiTranslateModeSelect') as HTMLSelectElement;
   if (modeSelect) {
     modeSelect.addEventListener('change', () => {
-      state.aiTranslateMode = (modeSelect.value as 'auto' | 'agent');
+      state.aiTranslateMode = (modeSelect.value as 'auto' | 'agent' | 'copas');
       import('./auto-translate').then(m => m.saveApiSettings());
+      syncCopasUi();
     });
   }
+
+  // ── Auto Copas (browser otomatis) — engine selects, target picker, login ──
+  // Row visibility + select values live in auto-copas/ui.ts (syncCopasUi) so
+  // loadApiSettings can re-run them after restoring saved settings on reload.
+  const copasTargetSelectIds = ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck'];
+  populateCopasTargetSelects();
+  for (const id of copasTargetSelectIds) {
+    const sel = document.getElementById(id) as HTMLSelectElement | null;
+    sel?.addEventListener('change', () => {
+      state.copasTarget = normalizeCopasTarget(sel.value);
+      import('./auto-translate').then(m => m.saveApiSettings());
+      syncCopasUi();
+    });
+  }
+  for (const btnId of ['btnCopasOpenBrowserTranslate', 'btnCopasOpenBrowserGlossary', 'btnCopasOpenBrowserAiCheck']) {
+    document.getElementById(btnId)?.addEventListener('click', () => {
+      void import('./auto-copas/bridge').then(m => m.openCopasBrowser());
+    });
+  }
+  const glossaryEngineSelect = document.getElementById('glossaryEngineSelect') as HTMLSelectElement | null;
+  glossaryEngineSelect?.addEventListener('change', () => {
+    state.glossaryEngine = glossaryEngineSelect.value === 'copas' ? 'copas' : 'api';
+    import('./auto-translate').then(m => m.saveApiSettings());
+    syncCopasUi();
+  });
+  const aiCheckEngineSelect = document.getElementById('aiCheckEngineSelect') as HTMLSelectElement | null;
+  aiCheckEngineSelect?.addEventListener('change', () => {
+    state.aiCheckEngine = aiCheckEngineSelect.value === 'copas' ? 'copas' : 'api';
+    import('./auto-translate').then(m => m.saveApiSettings());
+    syncCopasUi();
+  });
+  syncCopasUi();
   const repeatCheck = (ui.checkAutoRepeatOnFailure || document.getElementById('checkAutoRepeatOnFailure')) as HTMLInputElement | null;
   if (repeatCheck) {
     repeatCheck.checked = !!state.autoRepeatOnFailure;
@@ -1438,61 +1473,66 @@ if (ui.settingsCheckSimilarity) {
     const input = ui.agentInput as HTMLTextAreaElement;
     const text = input.value.trim();
     if (!text) return;
-    
+
     input.value = '';
-    
+
     const historyEl = ui.agentChatHistory as HTMLElement;
     const userDiv = document.createElement('div');
     userDiv.className = 'agent-msg user';
     userDiv.textContent = text;
     historyEl.appendChild(userDiv);
     historyEl.scrollTop = historyEl.scrollHeight;
-    
+
     const respDiv = document.createElement('div');
     respDiv.className = 'agent-msg system';
     respDiv.textContent = 'Agent is thinking...';
     historyEl.appendChild(respDiv);
     historyEl.scrollTop = historyEl.scrollHeight;
-    
-    const sendAgentMessage = (await import('./ai-agent')).sendAgentMessage;
 
-    // Disable input while agent runs
+    const sendAgentMessage = (await import('./ai-agent')).sendAgentMessage;
+    const { setAgentMessageHtml, createStreamThrottle } = await import('./ai-agent');
+
+    // Disable input while agent runs; show the Stop button so a long multi-tool
+    // run (or a hung request) can be cancelled instead of locking the panel.
     const sendBtn = ui.btnAgentSend as HTMLButtonElement | null;
+    const stopBtn = ui.btnAgentStop as HTMLButtonElement | null;
     if (sendBtn) sendBtn.disabled = true;
+    if (stopBtn) stopBtn.style.display = '';
     input.disabled = true;
+
+    const paint = createStreamThrottle();
 
     try {
       await sendAgentMessage(text, (msg, role, meta) => {
         respDiv.className = `agent-msg ${role}`;
-        if (meta?.streaming) respDiv.classList.add('streaming');
-        else respDiv.classList.remove('streaming');
-
-        let html = msg
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/\n/g, '<br>')
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/`(.*?)`/g, '<code>$1</code>');
-
-        respDiv.innerHTML = html;
-        historyEl.scrollTop = historyEl.scrollHeight;
+        paint(() => {
+          setAgentMessageHtml(respDiv, msg, !!meta?.streaming);
+          historyEl.scrollTop = historyEl.scrollHeight;
+        });
       });
       respDiv.classList.remove('streaming');
     } catch (e: any) {
+      const aborted = e?.name === 'AiAbortError' || /dibatalkan/i.test(String(e?.message || ''));
       respDiv.className = 'agent-msg system';
       respDiv.classList.remove('streaming');
-      respDiv.style.color = 'var(--danger)';
-      respDiv.textContent = `Error: ${e.message}`;
+      respDiv.style.color = aborted ? '' : 'var(--danger)';
+      respDiv.textContent = aborted
+        ? '⏹ Dibatalkan.'
+        : `Error: ${e.message}`;
     } finally {
       if (sendBtn) sendBtn.disabled = false;
+      if (stopBtn) stopBtn.style.display = 'none';
       input.disabled = false;
       input.focus();
     }
   };
 
   ui.btnAgentSend?.addEventListener('click', doAgentSend);
+  // Stop aborts every in-flight AI request (and cancels RPM/backoff waits);
+  // the catch above turns that into a "Dibatalkan" notice and restores input.
+  ui.btnAgentStop?.addEventListener('click', () => {
+    import('./ai-client').then(m => m.abortActiveRequests());
+  });
   ui.agentInput?.addEventListener('keydown', (e: Event) => {
     const ke = e as KeyboardEvent;
     if (ke.key === 'Enter' && !ke.shiftKey) {

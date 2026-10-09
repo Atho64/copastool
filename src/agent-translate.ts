@@ -8,7 +8,6 @@ import { applyPromptVariables } from './ai-format';
 import { DEFAULT_AGENT_PROMPT } from './constants';
 import { openModal, closeModal } from './project';
 import { flashHint } from './render';
-import { delay } from './auto-translate';
 import { abortActiveRequests } from './ai-client';
 import { getDisplayOrderedLines } from './selection';
 import type { Line } from './types';
@@ -259,7 +258,7 @@ export async function onAgentTranslate(): Promise<void> {
 
         let responseText = '';
         try {
-          responseText = await chatCompletion(messages);
+          responseText = await chatCompletion(messages, { rateLimited: true });
         } catch (e: any) {
           throw new Error(`Agent API error: ${e.message}`);
         }
@@ -377,12 +376,8 @@ export async function onAgentTranslate(): Promise<void> {
         throw new Error(`Agent gagal menyelesaikan batch ${chunkIndex} setelah ${maxTurns} giliran.`);
       }
 
-      // RPM delay
-      if (isAgentTranslating && state.aiRpm > 0) {
-        const waitMs = Math.round(60000 / state.aiRpm);
-        btn.textContent = `Menunggu delay (${Math.round(waitMs / 1000)}s)... (Klik Stop)`;
-        await delay(waitMs, () => !isAgentTranslating);
-      }
+      // RPM pacing between agent turns/chunks is enforced by the shared
+      // limiter in ai-client (request starts are spaced by 60000/RPM).
     }
   } catch (err: any) {
     if (isAgentTranslating) {

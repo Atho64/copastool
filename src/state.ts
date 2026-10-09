@@ -46,6 +46,9 @@ export const state: AppState = {
   aiBackupKeys: '',
   aiKeyStrategy: 'fallback',
   aiTranslateMode: 'auto',
+  glossaryEngine: 'api',
+  aiCheckEngine: 'api',
+  copasTarget: 'gemini',
   tavilyApiKey: '',
   agentMaxTurns: 10,
   currentProjectId: null,
@@ -88,7 +91,10 @@ export const state: AppState = {
   aiThinkingMode: 'default',
   aiFilterThinkingOutput: true,
   aiMergeSystemPrompt: false,
-  aiStreaming: false,
+  // Streaming used to be hardcoded on in the providers while this checkbox
+  // did nothing; default true so existing behavior (live logs, idle-timeout
+  // re-arm on chunks) survives unless explicitly disabled.
+  aiStreaming: true,
   glossaryPrompt: DEFAULT_GLOSSARY_PROMPT,
   aiCheckPrompt: DEFAULT_AI_CHECK_PROMPT,
   agentPrompt: DEFAULT_AGENT_PROMPT,

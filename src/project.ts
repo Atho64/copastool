@@ -28,6 +28,7 @@ import { getCustomParser, isValidCustomParser, upsertCustomParser } from './cust
 import { prefillIncrement } from './increment';
 import { stringifyAsync, parseAsync } from './storage-worker';
 import { saveOrDownloadBlob } from './download-helper';
+import { isSaveAskEveryTime, setSaveAskEveryTime } from './native-save-folder';
 import { cstlPrompt, cstlConfirm } from './dialog';
 
 export function isProjectFile(name: string): boolean {
@@ -290,6 +291,15 @@ export function openDashboardSettings(): void {
   const dsIncCheck = document.getElementById('dsIncrementCheck') as HTMLInputElement | null;
   if (dsIncCheck) dsIncCheck.checked = !!d.incrementEnabled;
 
+  const dsSaveAsk = document.getElementById('dsSaveAskEveryTime') as HTMLInputElement | null;
+  if (dsSaveAsk) dsSaveAsk.checked = isSaveAskEveryTime();
+
+  const dsNewChat = document.getElementById('dsCopasNewChatEvery') as HTMLInputElement | null;
+  if (dsNewChat) dsNewChat.value = String(Math.max(0, parseInt(String(d.copasNewChatEvery ?? 0), 10) || 0));
+
+  const dsThinking = document.getElementById('dsCopasThinking') as HTMLSelectElement | null;
+  if (dsThinking) dsThinking.value = d.copasThinking === 'on' || d.copasThinking === 'off' ? d.copasThinking : 'default';
+
   // Sync conditional wrap displays
   if (ui.dsSimilarityThresholdWrap) {
     (ui.dsSimilarityThresholdWrap as HTMLElement).style.display = (ui.dsCheckSimilarity as HTMLInputElement)?.checked ? 'flex' : 'none';
@@ -345,6 +355,20 @@ export function saveDashboardSettings(): void {
 
   const dsIncCheck = document.getElementById('dsIncrementCheck') as HTMLInputElement | null;
   if (dsIncCheck) d.incrementEnabled = dsIncCheck.checked;
+
+  const dsSaveAsk = document.getElementById('dsSaveAskEveryTime') as HTMLInputElement | null;
+  if (dsSaveAsk) setSaveAskEveryTime(dsSaveAsk.checked);
+
+  const dsNewChat = document.getElementById('dsCopasNewChatEvery') as HTMLInputElement | null;
+  if (dsNewChat) {
+    const n = parseInt(dsNewChat.value, 10);
+    d.copasNewChatEvery = Number.isFinite(n) ? Math.min(999, Math.max(0, n)) : 0;
+  }
+
+  const dsThinking = document.getElementById('dsCopasThinking') as HTMLSelectElement | null;
+  if (dsThinking) {
+    d.copasThinking = dsThinking.value === 'on' || dsThinking.value === 'off' ? dsThinking.value : 'default';
+  }
 
   localStorage.setItem(DS_STORAGE_KEY, JSON.stringify(d));
   applyPalette(d.palette);
@@ -429,6 +453,7 @@ export function resetDashboardPrompts(): void {
 
 export function resetDashboardSettings(): void {
   localStorage.removeItem(DS_STORAGE_KEY);
+  setSaveAskEveryTime(false);
   openDashboardSettings();
   applyPalette('indigo');
   state.projectLoggingEnabled = false;

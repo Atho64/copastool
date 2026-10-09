@@ -22,6 +22,9 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use url::Url;
 
+mod camoufox;
+use camoufox::CamofoxState;
+
 /// Label of the trusted application window (created in `tauri.conf.json`).
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -41,8 +44,6 @@ const ALLOWED_AI_HOSTS: &[&str] = &[
     "chat.qwenlm.ai",
     "lmarena.ai",
     "arena.ai",
-    "freebuff.chat",
-    "freebuff.com",
 ];
 
 /// Prefix the injected automation writes into `document.title` to hand an AI
@@ -98,7 +99,7 @@ fn is_allowed_ai_url(url: &Url) -> bool {
 }
 
 /// Rejects any call that did not originate from the trusted main window.
-fn ensure_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+pub(crate) fn ensure_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == MAIN_WINDOW_LABEL {
         Ok(())
     } else {
@@ -254,6 +255,90 @@ async fn native_list_files(
                 files.push(file_name);
             }
         }
+    }
+    Ok(files)
+}
+
+/// Resolves a frontend-supplied filename inside a user-picked absolute folder.
+/// The folder always originates from a native directory dialog that only the
+/// main window can open (tauri-plugin-dialog + `dialog:allow-open`), so the
+/// filename itself is what gets sanitized here.
+fn resolve_picked_path(folder: &str, name: &str) -> Result<PathBuf, String> {
+    let dir = PathBuf::from(folder);
+    if !dir.is_absolute() {
+        return Err("Folder tujuan tidak valid.".to_string());
+    }
+    let target = dir.join(sanitize_relative_path(name)?);
+    // Defense in depth: the resolved path must stay inside the picked folder.
+    if !target.starts_with(&dir) {
+        return Err("Path di luar folder tujuan tidak diizinkan.".to_string());
+    }
+    Ok(target)
+}
+
+#[derive(serde::Serialize)]
+struct PickedDirEntry {
+    name: String,
+    modified: u64,
+}
+
+#[tauri::command]
+async fn native_write_file_to(
+    window: tauri::WebviewWindow,
+    folder: String,
+    name: String,
+    content: String,
+) -> Result<(), String> {
+    ensure_main_window(&window)?;
+    let bytes = BASE64
+        .decode(content.as_bytes())
+        .map_err(|e| format!("Payload biner tidak valid (base64): {}", e))?;
+    let target_path = resolve_picked_path(&folder, &name)?;
+    fs::write(&target_path, &bytes).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn native_read_file_from(
+    window: tauri::WebviewWindow,
+    folder: String,
+    name: String,
+) -> Result<tauri::ipc::Response, String> {
+    ensure_main_window(&window)?;
+    let target_path = resolve_picked_path(&folder, &name)?;
+    if !target_path.exists() {
+        return Err("File not found".to_string());
+    }
+    let bytes = fs::read(&target_path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+async fn native_list_dir(
+    window: tauri::WebviewWindow,
+    folder: String,
+) -> Result<Vec<PickedDirEntry>, String> {
+    ensure_main_window(&window)?;
+    let dir = PathBuf::from(folder);
+    if !dir.is_absolute() {
+        return Err("Folder tujuan tidak valid.".to_string());
+    }
+    let mut files = Vec::new();
+    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+        if !entry.file_type().map_err(|e| e.to_string())?.is_file() {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        files.push(PickedDirEntry {
+            name: entry.file_name().to_string_lossy().to_string(),
+            modified,
+        });
     }
     Ok(files)
 }
@@ -486,8 +571,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AiCaptureBuffer::default())
         .manage(CurrentAiOrigin::default())
+        .manage(std::sync::Arc::new(CamofoxState::default()))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .on_window_event(|window, event| {
             if window.label() == AI_WINDOW_LABEL {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -503,6 +590,9 @@ pub fn run() {
             native_read_file_text,
             native_delete_file,
             native_list_files,
+            native_write_file_to,
+            native_read_file_from,
+            native_list_dir,
             open_ai_window,
             close_ai_window,
             is_ai_window_open,
@@ -511,7 +601,10 @@ pub fn run() {
             get_build_stamp,
             clear_webview_browsing_data,
             get_ai_window_title,
-            set_ai_window_title
+            set_ai_window_title,
+            camoufox::copas_camofox_ensure,
+            camoufox::copas_camofox_request,
+            camoufox::copas_camofox_stop
         ])
         .setup(|app| {
             if let Some(main_win) = app.get_webview_window(MAIN_WINDOW_LABEL) {
@@ -535,6 +628,15 @@ pub fn run() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app_handle, event| {
+            // Kill the Camoufox child we spawned so Auto Copas never leaves a
+            // stray browser process behind after the app closes.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app_handle.try_state::<std::sync::Arc<CamofoxState>>() {
+                    state.stop();
+                }
+            }
+        });
 }

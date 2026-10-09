@@ -1212,6 +1212,22 @@ input.dashboard-search-input,
   letter-spacing: 0.05em;
   margin-bottom: 10px;
 }
+
+/* Beta feature tag (e.g. Auto Copas settings section). */
+.beta-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  flex-shrink: 0;
+}
 .checkbox-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -3212,6 +3228,9 @@ body {
 .icon-btn:hover { background: var(--btn-bg-hover, var(--panel)); border-color: var(--muted-2); }
 .icon-btn:active { transform: scale(0.96); }
 .icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Destructive action icon button (agent Stop) */
+.icon-btn-danger { color: var(--danger, #ef4444); border-color: var(--danger, #ef4444); }
+.icon-btn-danger:hover { background: var(--danger, #ef4444); color: #fff; border-color: var(--danger, #ef4444); }
 
 /* Lucide SVG icons */
 .lucide-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }

@@ -24,6 +24,7 @@ import android.provider.Settings
 import android.util.Base64
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -53,11 +54,17 @@ object AndroidBridge {
     private const val LEGACY_INTERFACE_NAME = "AndroidAiOverlay"
     private const val TAG = "CSTL-Android"
     private const val FOLDER_PICK_REQUEST = 0x4354
+    private const val FILE_CREATE_REQUEST = 0x4355
     private val folderIoExecutor: ExecutorService = Executors.newCachedThreadPool()
 
     private var activity: Activity? = null
     private var mainWebView: WebView? = null
     private var pendingFolderPurpose: String? = null
+
+    // Pending ACTION_CREATE_DOCUMENT (Save As) — base64 ditahan sampai user
+    // menutup dialog, lalu ditulis di folderIoExecutor.
+    @Volatile private var pendingFileCreateCallId = -1
+    @Volatile private var pendingFileCreateBase64: String? = null
     @Volatile private var backgroundWork = false
 
     // Circular Floating Bubble state
@@ -196,6 +203,9 @@ object AndroidBridge {
     @JvmStatic
     fun onDestroy() {
         hideFloatingBubble()
+        copasActivity?.finish()
+        copasActivity = null
+        copasWebView = null
     }
 
     // ==========================================
@@ -598,6 +608,16 @@ object AndroidBridge {
         @JavascriptInterface fun listTreeFilesAsync(treeUri: String, callId: Int): String = try { AndroidBridge.listTreeFilesAsync(treeUri, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
         @JavascriptInterface fun readTreeFileAsync(treeUri: String, documentId: String, callId: Int): String = try { AndroidBridge.readTreeFileAsync(treeUri, documentId, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
         @JavascriptInterface fun writeTreeFileAsync(treeUri: String, name: String, base64Data: String, callId: Int): String = try { AndroidBridge.writeTreeFileAsync(treeUri, name, base64Data, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun createFileAsync(defaultName: String, mimeType: String, base64Data: String, callId: Int): String = try { AndroidBridge.createFileAsync(defaultName, mimeType, base64Data, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+
+        @JavascriptInterface fun copasOpen(url: String, callId: Int): String = try { AndroidBridge.copasOpen(url, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasEnsureOpen(callId: Int): String = try { AndroidBridge.copasEnsureOpen(callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasEval(js: String, callId: Int): String = try { AndroidBridge.copasEval(js, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasPasteIntoComposer(callId: Int): String = try { AndroidBridge.copasPasteIntoComposer(callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasPressEnter(callId: Int): String = try { AndroidBridge.copasPressEnter(callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasSetClipboard(text: String, callId: Int): String = try { AndroidBridge.copasSetClipboard(text, callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasGetClipboard(callId: Int): String = try { AndroidBridge.copasGetClipboard(callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+        @JavascriptInterface fun copasClose(callId: Int): String = try { AndroidBridge.copasClose(callId) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
 
         @JavascriptInterface fun saveFileToDownloads(filename: String, base64Data: String): String =
             try { AndroidBridge.saveFileToDownloads(filename, base64Data) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
@@ -616,14 +636,7 @@ object AndroidBridge {
         val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
         return try {
             val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-            val mimeType = when {
-                filename.endsWith(".zip", true) -> "application/zip"
-                filename.endsWith(".epub", true) -> "application/epub+zip"
-                filename.endsWith(".json", true) -> "application/json"
-                filename.endsWith(".txt", true) -> "text/plain"
-                filename.endsWith(".cstl", true) || filename.endsWith(".copas", true) -> "application/json"
-                else -> "application/octet-stream"
-            }
+            val mimeType = mimeTypeFor(filename)
 
             var saved = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -692,7 +705,7 @@ object AndroidBridge {
 
     @JvmStatic
     fun pickFolder(purpose: String): String {
-        if (purpose !in setOf("import", "backup", "restore", "game")) return "__CSTL_ERROR__ Invalid folder action"
+        if (purpose !in setOf("import", "backup", "restore", "game", "export")) return "__CSTL_ERROR__ Invalid folder action"
         val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
         act.runOnUiThread {
             try {
@@ -716,6 +729,10 @@ object AndroidBridge {
 
     @JvmStatic
     fun onFolderPickerResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == FILE_CREATE_REQUEST) {
+            handleFileCreateResult(resultCode, data)
+            return true
+        }
         if (requestCode != FOLDER_PICK_REQUEST) return false
         val purpose = pendingFolderPurpose ?: ""
         pendingFolderPurpose = null
@@ -732,6 +749,64 @@ object AndroidBridge {
         }
         deliverFolderPick(uri?.toString(), purpose)
         return true
+    }
+
+    /** Mode "Selalu tanya lokasi simpan": ACTION_CREATE_DOCUMENT menampilkan
+     * picker buat-file dengan kolom nama, lalu data langsung ditulis ke URI
+     * hasilnya. Hasil dikirim balik lewat deliverFolderIo(callId, ...). */
+    @JvmStatic
+    fun createFileAsync(defaultName: String, mimeType: String, base64Data: String, callId: Int): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        act.runOnUiThread {
+            try {
+                pendingFileCreateCallId = callId
+                pendingFileCreateBase64 = base64Data
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    setType(if (mimeType.isNotBlank()) mimeType else "application/octet-stream")
+                    putExtra(Intent.EXTRA_TITLE, defaultName)
+                }
+                act.startActivityForResult(intent, FILE_CREATE_REQUEST)
+            } catch (t: Throwable) {
+                pendingFileCreateCallId = -1
+                pendingFileCreateBase64 = null
+                deliverFolderIo(callId, "__CSTL_ERROR__ ${t.message ?: "Could not open the file picker"}")
+            }
+        }
+        return "ok"
+    }
+
+    private fun handleFileCreateResult(resultCode: Int, data: Intent?) {
+        val callId = pendingFileCreateCallId
+        val base64 = pendingFileCreateBase64
+        pendingFileCreateCallId = -1
+        pendingFileCreateBase64 = null
+        if (callId < 0) return
+        val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+        if (uri == null) {
+            deliverFolderIo(callId, "__CSTL_ERROR__ cancelled")
+            return
+        }
+        folderIoExecutor.execute {
+            var result: String
+            try {
+                val resolver = activity?.contentResolver
+                if (resolver == null) {
+                    result = "__CSTL_ERROR__ Activity not attached"
+                } else {
+                    val stream = resolver.openOutputStream(uri, "wt")
+                    if (stream == null) {
+                        result = "__CSTL_ERROR__ Provider did not open the created document"
+                    } else {
+                        stream.use { it.write(Base64.decode(base64 ?: "", Base64.DEFAULT)) }
+                        result = "ok"
+                    }
+                }
+            } catch (t: Throwable) {
+                result = "__CSTL_ERROR__ ${t.message ?: "Could not write the created document"}"
+            }
+            deliverFolderIo(callId, result)
+        }
     }
 
     private fun deliverFolderPick(uri: String?, purpose: String) {
@@ -881,7 +956,7 @@ object AndroidBridge {
                 targetUri = DocumentsContract.createDocument(
                     act.contentResolver,
                     DocumentsContract.buildDocumentUriUsingTree(treeUri, rootId),
-                    "application/json",
+                    mimeTypeFor(name),
                     name
                 )
             }
@@ -893,5 +968,243 @@ object AndroidBridge {
         } catch (t: Throwable) {
             "__CSTL_ERROR__ ${t.message ?: "Could not write backup document"}"
         }
+    }
+
+    /** MIME dari ekstensi nama file — dipakai MediaStore (Downloads) dan
+     * SAF createDocument agar export .epub/.zip tidak terdaftar sebagai JSON. */
+    private fun mimeTypeFor(filename: String): String = when {
+        filename.endsWith(".zip", true) -> "application/zip"
+        filename.endsWith(".epub", true) -> "application/epub+zip"
+        filename.endsWith(".json", true) -> "application/json"
+        filename.endsWith(".txt", true) -> "text/plain"
+        filename.endsWith(".cstl", true) || filename.endsWith(".copas", true) -> "application/json"
+        else -> "application/octet-stream"
+    }
+
+    // ── Auto Copas: in-app webview automation ("for android just webview") ──
+    //
+    // Text only ever moves through the system clipboard: copasPasteIntoComposer
+    // performs a real InputConnection paste into the focused composer, and the
+    // response is captured by clicking the site's own Copy button, then read
+    // back here with ClipboardManager. copasEval only runs the read-only
+    // focus/state/click scripts handed over by the frontend.
+
+    private var copasActivity: AutoCopasActivity? = null
+    private var copasWebView: WebView? = null
+
+    /** copasOpen callId that is resolved once the page finished loading. */
+    @Volatile private var pendingCopasOpenCallId = -1
+
+    @JvmStatic
+    fun attachCopas(activity: AutoCopasActivity, webView: WebView) {
+        copasActivity = activity
+        copasWebView = webView
+        // copasOpen resolves via onCopasPageFinished, not here: the webview is
+        // attached before the site has loaded, and callers must not evaluate
+        // scripts against a blank page.
+    }
+
+    @JvmStatic
+    fun detachCopas(activity: AutoCopasActivity) {
+        if (copasActivity === activity) {
+            copasActivity = null
+            copasWebView = null
+        }
+    }
+
+    /** WebViewClient.onPageFinished from the copas webview. */
+    @JvmStatic
+    fun onCopasPageFinished(url: String) {
+        log("copas page finished: $url")
+        val callId = pendingCopasOpenCallId
+        if (callId >= 0) {
+            pendingCopasOpenCallId = -1
+            deliverCopas(callId, "ok")
+        }
+    }
+
+    private fun deliverCopas(callId: Int, result: String) {
+        val main = mainWebView ?: return
+        val resultArg = JSONObject.quote(result)
+        main.post {
+            try {
+                main.evaluateJavascript(
+                    "window.__cstlCopasFinished && window.__cstlCopasFinished($callId, $resultArg);",
+                    null
+                )
+            } catch (t: Throwable) {
+                log("deliver copas result failed: ${t.message}")
+            }
+        }
+    }
+
+    @JvmStatic
+    fun copasOpen(url: String, callId: Int): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        act.runOnUiThread {
+            try {
+                val existing = copasActivity
+                if (existing != null) {
+                    existing.loadCopasUrl(url)
+                    pendingCopasOpenCallId = callId
+                    val bringBack = Intent(act, AutoCopasActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    }
+                    act.startActivity(bringBack)
+                } else {
+                    pendingCopasOpenCallId = callId
+                    val intent = Intent(act, AutoCopasActivity::class.java).apply {
+                        putExtra(AutoCopasActivity.EXTRA_URL, url)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    act.startActivity(intent)
+                }
+            } catch (t: Throwable) {
+                pendingCopasOpenCallId = -1
+                deliverCopas(callId, "__CSTL_ERROR__ ${t.message ?: "Could not open the Auto Copas webview"}")
+            }
+        }
+        return "ok"
+    }
+
+    @JvmStatic
+    fun copasEnsureOpen(callId: Int): String {
+        return if (copasWebView != null && copasActivity != null) {
+            deliverCopas(callId, "ok")
+            "ok"
+        } else {
+            "__CSTL_ERROR__ Auto Copas webview is not open"
+        }
+    }
+
+    @JvmStatic
+    fun copasEval(js: String, callId: Int): String {
+        val wv = copasWebView
+        if (wv == null) {
+            deliverCopas(callId, "__CSTL_ERROR__ Auto Copas webview is not open")
+            return "ok"
+        }
+        wv.post {
+            try {
+                wv.evaluateJavascript(js) { value ->
+                    // evaluateJavascript already returns a JSON-encoded string.
+                    deliverCopas(callId, value ?: "null")
+                }
+            } catch (t: Throwable) {
+                deliverCopas(callId, "__CSTL_ERROR__ ${t.message ?: "copasEval failed"}")
+            }
+        }
+        return "ok"
+    }
+
+    /** Real clipboard paste into the focused composer: select-all + paste via
+     * the IME InputConnection, with a KEYCODE_PASTE fallback. */
+    @JvmStatic
+    fun copasPasteIntoComposer(callId: Int): String {
+        val wv = copasWebView
+        if (wv == null) {
+            deliverCopas(callId, "__CSTL_ERROR__ Auto Copas webview is not open")
+            return "ok"
+        }
+        wv.post {
+            var result = "ok"
+            try {
+                wv.requestFocus()
+                val ic = wv.onCreateInputConnection(android.view.inputmethod.EditorInfo())
+                var pasted = false
+                if (ic != null) {
+                    ic.performContextMenuAction(android.R.id.selectAll)
+                    pasted = ic.performContextMenuAction(android.R.id.paste)
+                    if (!pasted) {
+                        // Some editors need the selection cleared first.
+                        ic.performContextMenuAction(android.R.id.selectAll)
+                        pasted = ic.performContextMenuAction(android.R.id.paste)
+                    }
+                }
+                if (!pasted) {
+                    wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_PASTE))
+                    wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_PASTE))
+                    result = "__CSTL_ERROR__ Paste tidak masuk ke kolom chat (InputConnection ditolak)"
+                }
+            } catch (t: Throwable) {
+                result = "__CSTL_ERROR__ ${t.message ?: "copasPasteIntoComposer failed"}"
+            }
+            deliverCopas(callId, result)
+        }
+        return "ok"
+    }
+
+    /** Best-effort Enter through the InputConnection. Delivery is always "ok":
+     * the frontend verifies the send actually started and falls back to
+     * clicking the site's send button. */
+    @JvmStatic
+    fun copasPressEnter(callId: Int): String {
+        val wv = copasWebView
+        if (wv == null) {
+            deliverCopas(callId, "__CSTL_ERROR__ Auto Copas webview is not open")
+            return "ok"
+        }
+        wv.post {
+            try {
+                val ic = wv.onCreateInputConnection(android.view.inputmethod.EditorInfo())
+                val down = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)
+                val up = KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER)
+                val sent = ic != null && ic.sendKeyEvent(down) && ic.sendKeyEvent(up)
+                if (!sent) {
+                    wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                    wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                }
+            } catch (t: Throwable) {
+                log("copasPressEnter failed: ${t.message}")
+            }
+            deliverCopas(callId, "ok")
+        }
+        return "ok"
+    }
+
+    @JvmStatic
+    fun copasSetClipboard(text: String, callId: Int): String {
+        val act = activity
+        if (act == null) {
+            deliverCopas(callId, "__CSTL_ERROR__ Activity not attached")
+            return "ok"
+        }
+        try {
+            val cb = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cb.setPrimaryClip(ClipData.newPlainText("CSTL", text))
+            deliverCopas(callId, "ok")
+        } catch (t: Throwable) {
+            deliverCopas(callId, "__CSTL_ERROR__ ${t.message ?: "Could not write clipboard"}")
+        }
+        return "ok"
+    }
+
+    @JvmStatic
+    fun copasGetClipboard(callId: Int): String {
+        val act = activity
+        if (act == null) {
+            deliverCopas(callId, "__CSTL_ERROR__ Activity not attached")
+            return "ok"
+        }
+        try {
+            val cb = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val text = cb.primaryClip?.getItemAt(0)?.coerceToText(act)?.toString() ?: ""
+            deliverCopas(callId, JSONObject.quote(text))
+        } catch (t: Throwable) {
+            deliverCopas(callId, "__CSTL_ERROR__ ${t.message ?: "Could not read clipboard"}")
+        }
+        return "ok"
+    }
+
+    @JvmStatic
+    fun copasClose(callId: Int): String {
+        val act = copasActivity
+        if (act != null) {
+            act.runOnUiThread { act.finish() }
+        }
+        copasActivity = null
+        copasWebView = null
+        deliverCopas(callId, "ok")
+        return "ok"
     }
 }
