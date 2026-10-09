@@ -40,7 +40,7 @@ class AutoCopasActivity : AppCompatActivity() {
         // Keep the page alive when the activity is paused: the automation loop
         // continues in the background webview and only talks to this one.
         wv.settings.loadsImagesAutomatically = true
-        wv.settings.mixedContentMode = WebView.MIXED_CONTENT_COMPATIBILITY_MODE
+        wv.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         wv.settings.setSupportMultipleWindows(false)
         // Strip the WebView marker so sites serve the normal desktop/mobile
         // chat UI instead of a "open in app" interstitial.
