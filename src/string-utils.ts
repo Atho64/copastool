@@ -128,6 +128,7 @@ export function stripDecorativeWrapping(value: string): string {
     ['[', ']'],
     ['「', '」'],
     ['『', '』'],
+    ['“', '”'],
   ];
   let changed = true;
   while (changed && clean.length >= 2) {
@@ -143,11 +144,15 @@ export function stripDecorativeWrapping(value: string): string {
 }
 
 export function matchKnownName(source: string, knownNames: Set<string>): string | null {
-  const clean = stripDecorativeWrapping(source);
+  let clean = stripDecorativeWrapping(source);
   if (knownNames.has(clean)) return clean;
-  const normalized = clean.replace(/\s+/g, '');
+  // Strip "(current: ...)" or "(current variants: ...)" if leaked from prompt
+  clean = clean.replace(/\s*\((?:current|varian)[^)]*\)/i, '').trim();
+  if (knownNames.has(clean)) return clean;
+  const norm = (s: string) => s.replace(/\s+/g, '').replace(/？/g, '?').replace(/！/g, '!').toLowerCase();
+  const normalized = norm(clean);
   for (const name of knownNames) {
-    if (name.replace(/\s+/g, '') === normalized) return name;
+    if (norm(name) === normalized) return name;
   }
   return null;
 }

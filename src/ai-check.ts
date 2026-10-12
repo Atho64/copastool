@@ -8,14 +8,25 @@ import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, updateButtonSta
 import { queueAutoSave } from './project';
 import { applyPromptVariables } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
-import { DEFAULT_AI_CHECK_PROMPT, getDefaultAiCheckSummaryPrompt } from './constants';
+import { DEFAULT_AI_CHECK_PROMPT, getDefaultAiCheckSummaryPrompt, AI_CHECK_JSON_FORMAT_RULES, AI_CHECK_PASS_FORMAT_RULES } from './constants';
 import { getDisplayOrderedLines } from './selection';
+import { lintTranslatedLines, buildLintHintBlock, normalizeForNoopCheck } from './ai-check-linter';
+import { salvageJsonObject } from './json-repair';
 import type { Line, AiCheckCorrection } from './types';
 
 
 // ─── Category helpers ─────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES = ['Grammar', 'Naturalness', 'Punctuation', 'Consistency', 'Accuracy', 'Name'] as const;
+const VALID_CONFIDENCES = ['high', 'medium', 'low'] as const;
+
+export type AiCheckConfidence = (typeof VALID_CONFIDENCES)[number];
+
+export function normalizeConfidence(raw: string | undefined | null): AiCheckConfidence {
+  const lower = String(raw || '').trim().toLowerCase();
+  if (lower === 'high' || lower === 'medium' || lower === 'low') return lower;
+  return 'medium'; // absent / unrecognized → medium (never auto-high)
+}
 const CATEGORY_COLORS: Record<string, string> = {
   Grammar: '#c98a12',
   Naturalness: '#2d7d5f',
@@ -38,17 +49,9 @@ export function getSelectedTranslatedLines(): Line[] {
   return getDisplayOrderedLines().filter(l => state.selectedLines.has(l.line_num) && isTranslated(l) && !isIlustrasiLine(l));
 }
 
-// ─── Context building (once, at the start — same logic as Copy for AI) ────────
+// ─── Context building (before + after selection, same logic as Copy for AI) ───
 
-function buildAiCheckContextBlock(sel: Line[]): string {
-  if (state.contextLines <= 0 || !sel.length) return '';
-  const orderedLines = getDisplayOrderedLines();
-  const firstSelLineNum = sel[0].line_num;
-  const firstSelIdx = orderedLines.findIndex(l => l.line_num === firstSelLineNum);
-  if (firstSelIdx <= 0) return '';
-  const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
-  const ctxLines = visiblePreceding.slice(-state.contextLines);
-  if (!ctxLines.length) return '';
+function buildContextLinesText(ctxLines: Line[]): string[] {
   const ctxOut: string[] = [];
   for (const l of ctxLines) {
     const origNameStr = l.name ? `${l.name}: ` : '';
@@ -61,9 +64,39 @@ function buildAiCheckContextBlock(sel: Line[]): string {
       ctxOut.push(`${transNameStr}${l.trans_message || l.message}`);
     }
   }
-  if (!ctxOut.length) return '';
-  const block = `<Context>\nThese lines are for context only. Do NOT correct them.\n${ctxOut.join('\n')}\n</Context>`;
-  return sanitizeTagsForChatgpt(block);
+  return ctxOut;
+}
+
+function buildAiCheckContextBlock(sel: Line[]): string {
+  if ((state.contextLines <= 0 && state.contextLinesAfter <= 0) || !sel.length) return '';
+  const orderedLines = getDisplayOrderedLines();
+  const firstSelLineNum = sel[0].line_num;
+  const lastSelLineNum = sel[sel.length - 1].line_num;
+  const firstSelIdx = orderedLines.findIndex(l => l.line_num === firstSelLineNum);
+  if (firstSelIdx <= 0 && state.contextLines <= 0) return '';
+  // Visible lines are the context universe — hidden and ilustrasi lines are excluded.
+  const visible = orderedLines.filter(l => !l._hidden && !isIlustrasiLine(l));
+  const lastSelVisibleIdx = visible.findIndex(l => l.line_num === lastSelLineNum);
+
+  const blocks: string[] = [];
+  if (state.contextLines > 0 && firstSelIdx > 0) {
+    const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
+    const beforeText = buildContextLinesText(visiblePreceding.slice(-state.contextLines));
+    if (beforeText.length) {
+      const block = `<Context>\nThese lines come BEFORE the reviewed lines (context only — do NOT correct them). They happened earlier in the story.\n${beforeText.join('\n')}\n</Context>`;
+      blocks.push(sanitizeTagsForChatgpt(block));
+    }
+  }
+  if (state.contextLinesAfter > 0 && lastSelVisibleIdx !== -1) {
+    const selNums = new Set(sel.map(l => l.line_num));
+    const following = visible.slice(lastSelVisibleIdx + 1).filter(l => !selNums.has(l.line_num));
+    const afterText = buildContextLinesText(following.slice(0, state.contextLinesAfter));
+    if (afterText.length) {
+      const block = `<Context_After>\nThese lines come AFTER the reviewed lines (context only — do NOT correct them). They happen later in the story — use them to see where the scene is heading, but the reviewed lines must fit what came BEFORE.\n${afterText.join('\n')}\n</Context_After>`;
+      blocks.push(sanitizeTagsForChatgpt(block));
+    }
+  }
+  return blocks.join('\n\n');
 }
 
 export function getLineForAiCheck(line: Line): string {
@@ -120,9 +153,28 @@ export function buildAiCheckLocalizationBlock(): string {
   return sanitizeTagsForChatgpt(block);
 }
 
-export function buildAiCheckPrompt(sel: Line[]): string {
+export interface BuildAiCheckPromptOptions {
+  /**
+   * Override the base check prompt (used by Deep Check passes). The base prompt
+   * carries the output specification, so an override must ship its own —
+   * see AI_CHECK_PASS_FORMAT_RULES.
+   */
+  basePrompt?: string;
+  /**
+   * Replace the output-format spec of an overriding base prompt with the
+   * Deep Check contract (plaintext spec in text mode, JSON spec in JSON mode).
+   * No-op for the default prompt, which already contains the spec.
+   */
+  deepPassFormat?: boolean;
+  /** Extra lint hint block (precomputed). */
+  lintBlock?: string;
+}
+
+export function buildAiCheckPrompt(sel: Line[], opts: BuildAiCheckPromptOptions = {}): string {
   if (!sel.length) return '';
-  const baseCheck = sanitizeTagsForChatgpt(applyPromptVariables((state.aiCheckPrompt || DEFAULT_AI_CHECK_PROMPT).trim()));
+  const useJson = state.aiCheckOutputFormat === 'json';
+  const baseCheck = sanitizeTagsForChatgpt(applyPromptVariables(
+    (opts.basePrompt || (state.aiCheckPrompt || DEFAULT_AI_CHECK_PROMPT)).trim()));
   const contextBlock = buildAiCheckContextBlock(sel);
   const storyBlock = buildAiCheckStoryBlock();
   const joinedOriginal = sel.map(l => {
@@ -140,11 +192,19 @@ export function buildAiCheckPrompt(sel: Line[]): string {
   if (glossaryBlock) sections.push(glossaryBlock);
   if (localizationBlock) sections.push(localizationBlock);
   if (revisionsBlock) sections.push(revisionsBlock);
+  if (opts.lintBlock) sections.push(opts.lintBlock);
   if (state.enableAiCheckStoryContext !== false) {
     const summaryInstr = sanitizeTagsForChatgpt(applyPromptVariables((state.aiCheckSummaryPrompt || getDefaultAiCheckSummaryPrompt(state.targetLang)).trim()));
     if (summaryInstr) sections.push(summaryInstr);
   }
+  // A Deep Check pass replaces the base prompt, and with it the output spec.
+  // Inject the pass contract right before <lines> so the model sees the rules
+  // in context instead of having to guess a format it was never shown.
+  if (opts.deepPassFormat) {
+    sections.push(sanitizeTagsForChatgpt(applyPromptVariables(AI_CHECK_PASS_FORMAT_RULES)));
+  }
   sections.push(linesBlock);
+  if (useJson) sections.push(AI_CHECK_JSON_FORMAT_RULES);
   return sections.join('\n\n') + '\n';
 }
 
@@ -307,6 +367,18 @@ export function renderAiCheckSettingsUI(): void {
   const setChkAgentMem = document.getElementById('settingsEnableAiCheckAgentMemory') as HTMLInputElement | null;
   if (setChkAgentMem) setChkAgentMem.checked = isAgentMem;
 
+  const setChkReview = document.getElementById('settingsAiCheckReviewMode') as HTMLInputElement | null;
+  if (setChkReview) setChkReview.checked = state.aiCheckReviewMode === true;
+
+  const setChkAutoApply = document.getElementById('settingsAiCheckAutoApplyHigh') as HTMLInputElement | null;
+  if (setChkAutoApply) setChkAutoApply.checked = state.aiCheckAutoApplyHigh !== false;
+
+  const setChkDeep = document.getElementById('settingsAiCheckDeepMode') as HTMLInputElement | null;
+  if (setChkDeep) setChkDeep.checked = !!state.aiCheckDeepMode;
+
+  const setChkFmt = document.getElementById('settingsAiCheckOutputFormat') as HTMLSelectElement | null;
+  if (setChkFmt) setChkFmt.value = state.aiCheckOutputFormat === 'json' ? 'json' : 'text';
+
   const setLocNotes = document.getElementById('settingsAiCheckLocalizationNotes') as HTMLTextAreaElement | null;
   if (setLocNotes && document.activeElement !== setLocNotes) setLocNotes.value = notes;
 
@@ -337,6 +409,28 @@ export function recordAiCheckCorrections(corrections: AiCheckCorrection[]): void
   const combined = [...existingLines, ...entries].slice(-25);
   state.aiCheckRevisionsSummary = combined.join('\n');
 
+  renderAiCheckSettingsUI();
+}
+
+/**
+ * Record REJECTED corrections (user unchecked / declined them) so the model
+ * does not propose the same change again in later batches. Kept short — only
+ * the most recent rejections survive the 25-line window.
+ */
+export function recordAiCheckRejections(corrections: AiCheckCorrection[]): void {
+  if (state.enableAiCheckChaining === false || !corrections.length) return;
+  const entries: string[] = [];
+  for (const c of corrections) {
+    const shortNew = (c.text || '').length > 40 ? (c.text || '').slice(0, 37) + '...' : (c.text || '');
+    const reason = c.reason ? ` — alasan AI: ${c.reason}` : '';
+    entries.push(`- [line ${c.num}] REJECTED: jangan usulkan "${shortNew}"${reason}`);
+  }
+  if (!entries.length) return;
+  const existing = (state.aiCheckRevisionsSummary || '').trim();
+  const existingLines = existing ? existing.split('\n') : [];
+  // Rejections replace nothing — appended at the end so they stay inside the window.
+  const combined = [...existingLines, ...entries].slice(-25);
+  state.aiCheckRevisionsSummary = combined.join('\n');
   renderAiCheckSettingsUI();
 }
 
@@ -414,11 +508,111 @@ export function parseAiCheckBlocks(text: string): { num: number; category: strin
   return blocks;
 }
 
-export function onParseAiCheck(selectedLineNums?: Set<number>): boolean {
+// ─── JSON response parsing (API engine, JSON output mode) ────────────────────
+
+/** Parse the JSON shape emitted by AI_CHECK_JSON_FORMAT_RULES. Throws on unusable payloads. */
+export function parseAiCheckJson(rawText: string): { corrections: { num: number; category: string; reason: string; name: string; text: string; confidence?: string }[]; aiSummary: string; aiRevisions: string } {
+  const raw = String(rawText || '').trim();
+  if (!raw) throw new Error('Respons JSON kosong.');
+  // Tolerate a markdown fence around the JSON.
+  const unfenced = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  let obj: any = null;
+  try {
+    obj = JSON.parse(unfenced);
+  } catch (_) {
+    obj = salvageJsonObject(unfenced);
+  }
+  if (!obj || typeof obj !== 'object') throw new Error('Respons bukan JSON yang valid.');
+  const arr = Array.isArray(obj) ? obj : Array.isArray(obj.corrections) ? obj.corrections : null;
+  if (!arr) throw new Error('JSON tidak berisi array "corrections".');
+  const corrections: { num: number; category: string; reason: string; name: string; text: string; confidence?: string }[] = [];
+  for (const item of arr) {
+    if (!item || typeof item !== 'object') continue;
+    const num = Number(item.num ?? item.line ?? item.line_num);
+    if (!Number.isFinite(num)) continue;
+    const text = String(item.text ?? item.correction ?? item.message ?? '').trim();
+    if (!text) continue;
+    const name = String(item.name ?? '').trim();
+    // JSON "text" is defined as message-only, but be lenient if the model
+    // still prefixed it with the speaker name.
+    const stripped = name && text.toLowerCase().startsWith(`${name.toLowerCase()}: `) ? text.slice(name.length + 2).trim() : text;
+    corrections.push({
+      num,
+      category: normalizeCategory(String(item.category || '')),
+      reason: String(item.reason || '').trim(),
+      name,
+      text: stripped,
+      confidence: typeof item.confidence === 'string' ? item.confidence : undefined,
+    });
+  }
+  return {
+    corrections,
+    aiSummary: String(obj.summary || '').trim(),
+    aiRevisions: String(obj.revisions || '').trim(),
+  };
+}
+
+// ─── Local sanity gate (no-op filter + risky-diff flag) ───────────────────────
+
+/**
+ * Post-parse quality gate applied to every correction:
+ * 1. Drop no-op corrections (identical to the current text after normalization).
+ * 2. Flag large rewrites (>60% of tokens changed) for manual review.
+ * Returns filtered corrections; rejected items are reported via `dropped`.
+ */
+export function applySanityGate(corrections: AiCheckCorrection[]): { kept: AiCheckCorrection[]; droppedNoop: number; flaggedReview: number } {
+  const kept: AiCheckCorrection[] = [];
+  let droppedNoop = 0;
+  let flaggedReview = 0;
+  for (const c of corrections) {
+    const line = state.lineByNum.get(c.num);
+    const current = line ? (line.trans_message || '') : '';
+    if (line && normalizeForNoopCheck(c.text) === normalizeForNoopCheck(current)) {
+      droppedNoop++;
+      continue;
+    }
+    // Token-overlap ratio — how much of the proposal differs from the current text.
+    if (line && current.trim()) {
+      const a = new Set(normalizeForNoopCheck(current).split(/\s+/).filter(Boolean));
+      const b = new Set(normalizeForNoopCheck(c.text).split(/\s+/).filter(Boolean));
+      if (a.size > 0) {
+        let overlap = 0;
+        for (const t of b) if (a.has(t)) overlap++;
+        const changedRatio = 1 - overlap / Math.max(a.size, b.size, 1);
+        if (changedRatio > 0.6) {
+          c.needsReview = true;
+          c.checked = false;
+          c.reviewNote = `Rewrite besar (~${Math.round(changedRatio * 100)}% teks berubah) — perlu review manual`;
+          flaggedReview++;
+        }
+      }
+    }
+    kept.push(c);
+  }
+  return { kept, droppedNoop, flaggedReview };
+}
+
+export function onParseAiCheck(selectedLineNums?: Set<number>, opts: { silent?: boolean } = {}): boolean {
   try {
     const rawVal = ui.pasteAiCheckArea.value.trim();
-    const { cleanText, aiRevisions, aiSummary } = extractAiCheckRevisionsAndPayload(rawVal);
-    const parsed = parseAiCheckBlocks(cleanText);
+    // JSON mode: the payload (or its corrections array) is JSON. Fall back to
+    // the plaintext parser when no JSON is detected so manual paste still works.
+    const looksJson = /^\s*(?:```(?:json)?\s*)?[{[]/.test(rawVal) &&
+      (/"corrections"/.test(rawVal) || /^\s*\[\s*{/.test(rawVal.replace(/^\s*```(?:json)?\s*/i, '')));
+    let parsed: { num: number; category: string; reason: string; name: string; text: string; confidence?: string }[];
+    let aiRevisions = '';
+    let aiSummary = '';
+    if (looksJson) {
+      const j = parseAiCheckJson(rawVal);
+      parsed = j.corrections;
+      aiSummary = j.aiSummary;
+      aiRevisions = j.aiRevisions;
+    } else {
+      const p = extractAiCheckRevisionsAndPayload(rawVal);
+      parsed = parseAiCheckBlocks(p.cleanText);
+      aiRevisions = p.aiRevisions;
+      aiSummary = p.aiSummary;
+    }
     const selectedTranslated = selectedLineNums
       ? new Set([...selectedLineNums].filter(num => {
           const line = state.lineByNum.get(num);
@@ -438,16 +632,26 @@ export function onParseAiCheck(selectedLineNums?: Set<number>): boolean {
       if (!item.reason) errors.push(`[#${item.num}] Reason kosong.`);
       if (!item.text) errors.push(`[#${item.num}] Text koreksi kosong.`);
       if (line && item.text && item.reason && selectedTranslated.has(item.num)) {
-        corrections.push({ ...item, category: item.category || 'Naturalness', checked: true });
+        corrections.push({
+          ...item,
+          category: item.category || 'Naturalness',
+          confidence: normalizeConfidence(item.confidence),
+          checked: true,
+        });
       }
     }
     if (errors.length) {
       state.aiCheckCorrections = [];
       renderAiCheckCorrections();
-      alert('AI CHECK DITOLAK:\n\n' + errors.slice(0, 12).join('\n') + (errors.length > 12 ? `\n\n... (+${errors.length - 12} error lain)` : ''));
+      if (!opts.silent) {
+        alert('AI CHECK DITOLAK:\n\n' + errors.slice(0, 12).join('\n') + (errors.length > 12 ? `\n\n... (+${errors.length - 12} error lain)` : ''));
+      }
       return false;
     }
-    state.aiCheckCorrections = corrections;
+
+    // Local sanity gate: drop no-ops, flag large rewrites for review.
+    const gate = applySanityGate(corrections);
+    state.aiCheckCorrections = gate.kept;
     renderAiCheckCorrections();
 
     if (aiSummary && state.enableAiCheckStoryContext !== false) {
@@ -461,12 +665,14 @@ export function onParseAiCheck(selectedLineNums?: Set<number>): boolean {
     }
     renderAiCheckSettingsUI();
 
-    setAiCheckStatus(`Parsed ${corrections.length} koreksi.`);
+    const gateNote = gate.droppedNoop ? ` (${gate.droppedNoop} no-op dibuang)` : '';
+    const reviewNote = gate.flaggedReview ? ` — ${gate.flaggedReview} perlu review` : '';
+    setAiCheckStatus(`Parsed ${gate.kept.length} koreksi${gateNote}${reviewNote}.`);
     return true;
   } catch (err: any) {
     state.aiCheckCorrections = [];
     renderAiCheckCorrections();
-    alert('Gagal parse AI Check:\n\n' + err.message);
+    if (!opts.silent) alert('Gagal parse AI Check:\n\n' + err.message);
     return false;
   }
 }
@@ -524,6 +730,12 @@ function computeDiff(oldText: string, newText: string): { type: 'same' | 'del' |
   while (j > 0) { result.unshift({ type: 'add', text: newTokens[j - 1] }); j--; }
   return result;
 }
+
+const CONFIDENCE_COLORS: Record<string, string> = {
+  high: '#2d7d5f',
+  medium: '#c98a12',
+  low: '#c84e18',
+};
 
 function renderDiff(oldText: string, newText: string): HTMLElement {
   const span = document.createElement('span');
@@ -611,6 +823,25 @@ export function renderAiCheckCorrections(): void {
     catBadge.textContent = correction.category;
     title.appendChild(catBadge);
 
+    // Confidence badge
+    const conf = correction.confidence || 'medium';
+    const confBadge = document.createElement('span');
+    confBadge.className = 'badge';
+    confBadge.style.background = CONFIDENCE_COLORS[conf] || 'var(--muted)';
+    confBadge.textContent = conf === 'high' ? '✓ high' : conf;
+    confBadge.title = 'Confidence dari AI: high = aman auto-apply, low = mungkin tidak perlu diubah';
+    title.appendChild(confBadge);
+
+    // Sanity-gate review flag
+    if (correction.needsReview) {
+      const revBadge = document.createElement('span');
+      revBadge.className = 'badge';
+      revBadge.style.background = '#c82a3a';
+      revBadge.textContent = '⚠ review';
+      revBadge.title = correction.reviewNote || 'Perlu review manual';
+      title.appendChild(revBadge);
+    }
+
     const reason = document.createElement('div');
     reason.className = 'ai-check-reason';
     reason.textContent = `Reason: ${correction.reason}`;
@@ -682,6 +913,8 @@ export function onApplyAiCheckCorrections(pushUndo = true): { applied: number; c
     catStats.set(correction.category, (catStats.get(correction.category) || 0) + 1);
   }
   recordAiCheckCorrections(corrections);
+  // Unchecked corrections stay in the list (user may still apply them later);
+  // they are recorded as rejections only when explicitly cleared/skipped.
   state.aiCheckCorrections = state.aiCheckCorrections.filter(c => !c.checked);
   renderAiCheckCorrections();
   refreshAll();
@@ -694,11 +927,15 @@ export function onApplyAiCheckCorrections(pushUndo = true): { applied: number; c
 // ─── Skip / Confirm line ──────────────────────────────────────────────────────
 
 export function onClearAiCheck(): void {
+  // Discarded (unchecked) corrections count as rejections — remember them so
+  // future batches do not propose the same changes again.
+  const rejected = state.aiCheckCorrections.filter(c => !c.checked);
+  if (rejected.length) recordAiCheckRejections(rejected);
   state.aiCheckCorrections = [];
   activeCategoryFilter = null;
   ui.pasteAiCheckArea.value = '';
   ui.aiCheckResults.textContent = '';
-  setAiCheckStatus('AI Check dibersihkan.');
+  setAiCheckStatus(rejected.length ? `AI Check dibersihkan (${rejected.length} penolakan dicatat).` : 'AI Check dibersihkan.');
   updateButtonStates();
 }
 

@@ -60,7 +60,7 @@ export function buildExistingGlossaryHint(sourceText: string): string {
  * `<line num="...">` tags inside the payload are left intact.
  * No-op when the setting is off.
  */
-const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'lines', 'AlreadyInGlossary', 'background', 'summary'];
+const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'Context_After', 'lines', 'AlreadyInGlossary', 'background', 'summary', 'local_lint_hints'];
 export function sanitizeTagsForChatgpt(text: string): string {
   if (!state.safeTagsForChatgpt) return text;
   let out = text;

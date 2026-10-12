@@ -187,7 +187,15 @@ export async function onAgentTranslate(): Promise<void> {
     targetLines.sort((a, b) => (rankMap.get(a.line_num) ?? 0) - (rankMap.get(b.line_num) ?? 0));
   }
 
-  const maxTurns = state.agentMaxTurns || 10;
+  // 0 = unlimited (Stop is the only exit), otherwise 3–999. Must not use
+  // `|| 10` here: 0 is falsy and would silently become 10.
+  const configuredTurns = Math.floor(Number(state.agentMaxTurns));
+  const maxTurns = Number.isFinite(configuredTurns) && configuredTurns > 0 ? configuredTurns : 0; // 0 = unlimited
+  // Safety ceiling: this loop runs unattended per chunk, so a model that keeps
+  // calling tools without ever committing would burn tokens forever. The cap is
+  // far above any realistic chunk and only guards against a true runaway.
+  const AGENT_TRANSLATE_SAFETY_CEILING = 500;
+  const turnBudgetLabel = maxTurns > 0 ? String(maxTurns) : `∞ (cap ${AGENT_TRANSLATE_SAFETY_CEILING})`;
   const batchSize = state.selectionBatchSize || 100;
   let chunkIndex = 0;
   const totalChunks = Math.ceil(targetLines.length / batchSize);
@@ -253,8 +261,8 @@ export async function onAgentTranslate(): Promise<void> {
 
       // Multi-turn loop
       let committed = false;
-      for (let turn = 0; turn < maxTurns && isAgentTranslating; turn++) {
-        btn.textContent = `Agent: chunk ${chunkIndex}/${totalChunks}, turn ${turn + 1}/${maxTurns}... (Klik Stop)`;
+      for (let turn = 0; (maxTurns === 0 ? turn < AGENT_TRANSLATE_SAFETY_CEILING : turn < maxTurns) && isAgentTranslating; turn++) {
+        btn.textContent = `Agent: chunk ${chunkIndex}/${totalChunks}, turn ${turn + 1}/${turnBudgetLabel}... (Klik Stop)`;
 
         let responseText = '';
         try {
@@ -373,7 +381,7 @@ export async function onAgentTranslate(): Promise<void> {
       }
 
       if (!committed && isAgentTranslating) {
-        throw new Error(`Agent gagal menyelesaikan batch ${chunkIndex} setelah ${maxTurns} giliran.`);
+        throw new Error(`Agent gagal menyelesaikan batch ${chunkIndex} setelah ${turnBudgetLabel} giliran.`);
       }
 
       // RPM pacing between agent turns/chunks is enforced by the shared

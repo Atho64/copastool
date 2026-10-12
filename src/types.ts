@@ -210,6 +210,8 @@ export interface AppState {
   aiApiUrl: string;
   aiApiKey: string;
   aiModel: string;
+  /** Manual context window override (tokens). 0 = auto per model lookup. */
+  aiContextWindow: number;
   aiTemperature: number;
   aiTopP: number;
   aiMaxTokens: number;
@@ -264,6 +266,16 @@ export interface AppState {
   enableAiCheckAgentMemory: boolean;
   aiCheckLocalizationNotes: string;
   aiCheckRevisionsSummary: string;
+  /** Auto-apply tier: high-confidence corrections apply without review. */
+  aiCheckAutoApplyHigh: boolean;
+  /** Review mode: pause after every batch so all corrections are reviewed manually. */
+  aiCheckReviewMode: boolean;
+  /** Include following lines (after selection) in the AI Check context block. */
+  contextLinesAfter: number;
+  /** AI Check output format for the API engine. */
+  aiCheckOutputFormat: 'text' | 'json';
+  /** Two-pass specialized review (Accuracy pass + Naturalness pass). */
+  aiCheckDeepMode: boolean;
 }
 
 export type WorkspaceTab = 'translate' | 'glossary' | 'aiCheck' | 'delete';
@@ -359,6 +371,12 @@ export interface AiCheckCorrection {
   name: string;
   text: string;
   checked: boolean;
+  /** Confidence reported by the model (default 'medium' when absent). */
+  confidence?: 'high' | 'medium' | 'low';
+  /** Set when the local sanity gate flagged this correction for manual review. */
+  needsReview?: boolean;
+  /** Short reason why the sanity gate flagged this correction. */
+  reviewNote?: string;
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────

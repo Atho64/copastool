@@ -236,6 +236,11 @@ export function getDefaultSettings(): Record<string, any> {
     enableAiCheckChaining: false,
     enableAiCheckStoryContext: true,
     enableAiCheckAgentMemory: true,
+    aiCheckAutoApplyHigh: true,
+    aiCheckReviewMode: false,
+    contextLinesAfter: 0,
+    aiCheckOutputFormat: 'text' as const,
+    aiCheckDeepMode: false,
     enableUncertainMarking: false,
     safeTagsForChatgpt: false,
     agentMaxTurns: 10,
@@ -281,7 +286,7 @@ export function openDashboardSettings(): void {
   if (ui.dsEnableBackgroundChaining) (ui.dsEnableBackgroundChaining as HTMLInputElement).checked = !!d.enableBackgroundChaining;
   if (ui.dsEnableUncertainMarking) (ui.dsEnableUncertainMarking as HTMLInputElement).checked = !!d.enableUncertainMarking;
   if (ui.dsSafeTagsForChatgpt) (ui.dsSafeTagsForChatgpt as HTMLInputElement).checked = !!d.safeTagsForChatgpt;
-  if (ui.dsAgentMaxTurns) (ui.dsAgentMaxTurns as HTMLInputElement).value = String(d.agentMaxTurns || 10);
+  if (ui.dsAgentMaxTurns) (ui.dsAgentMaxTurns as HTMLInputElement).value = String(Number.isFinite(d.agentMaxTurns) ? d.agentMaxTurns : 10);
   if (ui.dsEpubTags) (ui.dsEpubTags as HTMLInputElement).value = d.epubTags || 'p';
   const dsShowEpub = (document.getElementById('dsShowEpubImages') || ui.dsShowEpubImages) as HTMLInputElement | null;
   if (dsShowEpub) dsShowEpub.checked = d.showEpubImages !== false;
@@ -318,6 +323,7 @@ export function saveDashboardSettings(): void {
   if (ui.dsTranslationMode) d.translationMode = (ui.dsTranslationMode as HTMLSelectElement)?.value === 'htl' ? 'htl' : 'ai';
   if (ui.dsAiFormat) d.aiFormat = (ui.dsAiFormat as HTMLSelectElement).value;
   if (ui.dsContextLines) d.contextLines = parseInt((ui.dsContextLines as HTMLInputElement).value) || 10;
+  if (ui.dsContextLinesAfter) d.contextLinesAfter = Math.max(0, Math.min(50, parseInt((ui.dsContextLinesAfter as HTMLInputElement).value) || 0));
   if (ui.dsContextType) d.contextType = (ui.dsContextType as HTMLSelectElement).value || 'raw';
   if (ui.dsSelectionBatch) d.selectionBatch = parseInt((ui.dsSelectionBatch as HTMLInputElement).value) || DEFAULT_SELECTION_BATCH_SIZE;
   if (ui.dsGlossaryBatch) d.glossaryBatch = parseInt((ui.dsGlossaryBatch as HTMLInputElement).value) || DEFAULT_GLOSSARY_BATCH_SIZE;
@@ -346,7 +352,11 @@ export function saveDashboardSettings(): void {
   if (ui.dsEnableBackgroundChaining) d.enableBackgroundChaining = !!(ui.dsEnableBackgroundChaining as HTMLInputElement).checked;
   if (ui.dsEnableUncertainMarking) d.enableUncertainMarking = !!(ui.dsEnableUncertainMarking as HTMLInputElement).checked;
   if (ui.dsSafeTagsForChatgpt) d.safeTagsForChatgpt = !!(ui.dsSafeTagsForChatgpt as HTMLInputElement).checked;
-  if (ui.dsAgentMaxTurns) d.agentMaxTurns = parseInt((ui.dsAgentMaxTurns as HTMLInputElement).value) || 10;
+  if (ui.dsAgentMaxTurns) {
+    // 0 = unlimited; otherwise 3–999. `|| 10` would turn 0 back into 10.
+    const dsAmt = parseInt((ui.dsAgentMaxTurns as HTMLInputElement).value);
+    d.agentMaxTurns = (!isNaN(dsAmt) && (dsAmt === 0 || (dsAmt >= 3 && dsAmt <= 999))) ? dsAmt : 10;
+  }
   if (ui.dsEpubTags) d.epubTags = (ui.dsEpubTags as HTMLInputElement).value || 'p';
   const dsShowEpub = (document.getElementById('dsShowEpubImages') || ui.dsShowEpubImages) as HTMLInputElement | null;
   if (dsShowEpub) d.showEpubImages = dsShowEpub.checked;
@@ -397,6 +407,10 @@ export function openDashboardPrompts(): void {
   setCheck('dpEnableAiCheckChaining', d.enableAiCheckChaining === true);
   setCheck('dpEnableAiCheckStoryContext', d.enableAiCheckStoryContext !== false);
   setCheck('dpEnableAiCheckAgentMemory', d.enableAiCheckAgentMemory !== false);
+  setCheck('dpAiCheckReviewMode', d.aiCheckReviewMode === true);
+  setCheck('dpAiCheckAutoApplyHigh', d.aiCheckAutoApplyHigh !== false);
+  setCheck('dpAiCheckDeepMode', d.aiCheckDeepMode === true);
+  if (ui.dsContextLinesAfter) (ui.dsContextLinesAfter as HTMLInputElement).value = String(d.contextLinesAfter !== undefined ? d.contextLinesAfter : 0);
   setText('dpAiCheckStoryContextInput', d.aiCheckStoryContext || '');
   setText('dpAiCheckSummaryPromptInput', d.aiCheckSummaryPrompt || getDefaultAiCheckSummaryPrompt(english ? 'English' : template === 'simple' || template === 'kagikakko' ? 'Indonesian' : d.targetLang || 'Indonesian'));
   setText('dpAiCheckLocalizationNotesInput', d.aiCheckLocalizationNotes || '');
@@ -418,6 +432,11 @@ export function saveDashboardPrompts(): void {
   d.enableAiCheckChaining = getCheck('dpEnableAiCheckChaining', true);
   d.enableAiCheckStoryContext = getCheck('dpEnableAiCheckStoryContext', true);
   d.enableAiCheckAgentMemory = getCheck('dpEnableAiCheckAgentMemory', true);
+  d.aiCheckReviewMode = getCheck('dpAiCheckReviewMode', false);
+  d.aiCheckAutoApplyHigh = getCheck('dpAiCheckAutoApplyHigh', true);
+  d.aiCheckDeepMode = getCheck('dpAiCheckDeepMode', false);
+  const dsAfter = document.getElementById('dsContextLinesAfter') as HTMLInputElement | null;
+  if (dsAfter) d.contextLinesAfter = Math.max(0, Math.min(50, parseInt(dsAfter.value) || 0));
   d.aiCheckStoryContext = getText('dpAiCheckStoryContextInput');
   d.aiCheckSummaryPrompt = getText('dpAiCheckSummaryPromptInput');
   d.aiCheckLocalizationNotes = getText('dpAiCheckLocalizationNotesInput');
@@ -445,6 +464,9 @@ export function resetDashboardPrompts(): void {
   setCheck('dpEnableAiCheckChaining', false);
   setCheck('dpEnableAiCheckStoryContext', true);
   setCheck('dpEnableAiCheckAgentMemory', true);
+  setCheck('dpAiCheckReviewMode', false);
+  setCheck('dpAiCheckAutoApplyHigh', true);
+  setCheck('dpAiCheckDeepMode', false);
   setText('dpAiCheckStoryContextInput', '');
   setText('dpAiCheckSummaryPromptInput', getDefaultAiCheckSummaryPrompt(english ? 'English' : template === 'simple' || template === 'kagikakko' ? 'Indonesian' : d.targetLang || 'Indonesian'));
   setText('dpAiCheckLocalizationNotesInput', '');
@@ -996,7 +1018,7 @@ export function buildProjectScaffold(
     ignore_paste_names: !!d.ignorePasteNames,
     enable_uncertain_marking: !!d.enableUncertainMarking,
     safe_tags_for_chatgpt: !!d.safeTagsForChatgpt,
-    agent_max_turns: d.agentMaxTurns || 10,
+    agent_max_turns: Number.isFinite(d.agentMaxTurns) ? d.agentMaxTurns : 10,
     enableBackgroundChaining: !!d.enableBackgroundChaining,
     summary_prompt: d.summaryPrompt !== undefined ? d.summaryPrompt : '',
     enable_ai_check_chaining: d.enableAiCheckChaining !== undefined ? !!d.enableAiCheckChaining : false,
@@ -1006,6 +1028,11 @@ export function buildProjectScaffold(
     enable_ai_check_agent_memory: d.enableAiCheckAgentMemory !== undefined ? !!d.enableAiCheckAgentMemory : true,
     ai_check_localization_notes: d.aiCheckLocalizationNotes || '',
     ai_check_revisions_summary: d.aiCheckRevisionsSummary || '',
+    ai_check_auto_apply_high: d.aiCheckAutoApplyHigh !== undefined ? !!d.aiCheckAutoApplyHigh : true,
+    ai_check_review_mode: !!d.aiCheckReviewMode,
+    context_lines_after: d.contextLinesAfter !== undefined ? d.contextLinesAfter : 0,
+    ai_check_output_format: d.aiCheckOutputFormat || 'text',
+    ai_check_deep_mode: !!d.aiCheckDeepMode,
     show_epub_images: d.showEpubImages !== undefined ? !!d.showEpubImages : true,
     imported_files: [], file_order: [], lines: [],
     prompt_header: d.promptHeader !== undefined ? d.promptHeader : getDefaultPromptHeaderForFormat(d.aiFormat),
@@ -1360,6 +1387,11 @@ function buildProjectPersistenceData(): Record<string, any> {
     enable_ai_check_agent_memory: state.enableAiCheckAgentMemory,
     ai_check_localization_notes: state.aiCheckLocalizationNotes,
     ai_check_revisions_summary: state.aiCheckRevisionsSummary,
+    ai_check_auto_apply_high: state.aiCheckAutoApplyHigh,
+    ai_check_review_mode: state.aiCheckReviewMode,
+    context_lines_after: state.contextLinesAfter,
+    ai_check_output_format: state.aiCheckOutputFormat,
+    ai_check_deep_mode: state.aiCheckDeepMode,
     enable_logging: state.projectLoggingEnabled,
     show_epub_images: state.showEpubImages === true,
     increment_enabled: state.incrementEnabled === true,
@@ -1932,7 +1964,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   if (ui.settingsIgnorePasteNames) (ui.settingsIgnorePasteNames as HTMLInputElement).checked = state.ignorePasteNames;
   state.enableUncertainMarking = !!data.enable_uncertain_marking;
   state.safeTagsForChatgpt = data.safe_tags_for_chatgpt !== undefined ? !!data.safe_tags_for_chatgpt : false;
-  state.agentMaxTurns = (typeof data.agent_max_turns === 'number' && data.agent_max_turns >= 3) ? data.agent_max_turns : 10;
+  state.agentMaxTurns = (typeof data.agent_max_turns === 'number' && (data.agent_max_turns === 0 || data.agent_max_turns >= 3)) ? data.agent_max_turns : 10;
   state.showFurigana = !!data.show_furigana;
   state.furiganaType = data.furigana_type || 'hiragana';
   if (state.showFurigana) {
@@ -2001,6 +2033,11 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.enableAiCheckAgentMemory = data.enable_ai_check_agent_memory !== undefined ? !!data.enable_ai_check_agent_memory : true;
   state.aiCheckLocalizationNotes = data.ai_check_localization_notes || '';
   state.aiCheckRevisionsSummary = data.ai_check_revisions_summary || '';
+  state.aiCheckAutoApplyHigh = data.ai_check_auto_apply_high !== undefined ? !!data.ai_check_auto_apply_high : true;
+  state.aiCheckReviewMode = !!data.ai_check_review_mode;
+  state.contextLinesAfter = Math.max(0, Math.min(50, parseInt(data.context_lines_after) || 0));
+  state.aiCheckOutputFormat = data.ai_check_output_format === 'json' ? 'json' : 'text';
+  state.aiCheckDeepMode = !!data.ai_check_deep_mode;
   
   const proofreadSettings = data.proofread_settings || {};
   if (ui.proofreadScope) (ui.proofreadScope as HTMLSelectElement).value = proofreadSettings.scope || 'all';
@@ -2224,7 +2261,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
       check_untrans_name: !!p.check_untrans_name,
       enable_uncertain_marking: !!p.enable_uncertain_marking,
       safe_tags_for_chatgpt: p.safe_tags_for_chatgpt !== undefined ? !!p.safe_tags_for_chatgpt : false,
-      agent_max_turns: (typeof p.agent_max_turns === 'number' && p.agent_max_turns >= 3) ? p.agent_max_turns : 10,
+      agent_max_turns: (typeof p.agent_max_turns === 'number' && (p.agent_max_turns === 0 || p.agent_max_turns >= 3)) ? p.agent_max_turns : 10,
       show_furigana: !!p.show_furigana,
       furigana_type: p.furigana_type || 'hiragana',
       font_size: typeof p.font_size === 'number' ? p.font_size : 14,
@@ -2247,6 +2284,11 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
       selection_batch_size: normalizeSelectionBatchSize(p.selection_batch_size),
       glossary_batch_size: normalizeSelectionBatchSize(p.glossary_batch_size, DEFAULT_GLOSSARY_BATCH_SIZE),
       ai_check_batch_size: normalizeSelectionBatchSize(p.ai_check_batch_size, DEFAULT_AI_CHECK_BATCH_SIZE),
+      ai_check_auto_apply_high: p.ai_check_auto_apply_high !== undefined ? !!p.ai_check_auto_apply_high : true,
+      ai_check_review_mode: !!p.ai_check_review_mode,
+      context_lines_after: p.context_lines_after !== undefined ? Math.max(0, Math.min(50, parseInt(p.context_lines_after) || 0)) : 0,
+      ai_check_output_format: p.ai_check_output_format === 'json' ? 'json' : 'text',
+      ai_check_deep_mode: !!p.ai_check_deep_mode,
       enableBackgroundChaining: !!p.enableBackgroundChaining,
       currentBackground: p.currentBackground || '', enable_logging: !!p.enable_logging,
       proofread_settings: p.proofread_settings || {},

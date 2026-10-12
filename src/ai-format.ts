@@ -8,7 +8,7 @@ import {
   DEFAULT_PROMPT_HEADER_XML, DEFAULT_PROMPT_HEADER_JSONL, DEFAULT_PROMPT_HEADER_JSON_ARRAY,
   DEFAULT_PROMPT_HEADER_STANDARD_ID, DEFAULT_PROMPT_HEADER_STANDARD_EN,
 } from './constants';
-import { unescapeStoredNewlines, escapeStoredNewlines, escapeXml, stripPlaintextFences, stripScrapedAiPreamble, applyReplaceRules, stripLeakedAiSections } from './string-utils';
+import { unescapeStoredNewlines, escapeStoredNewlines, escapeXml, stripPlaintextFences, stripScrapedAiPreamble, applyReplaceRules, stripLeakedAiSections, stripDecorativeWrapping } from './string-utils';
 import { getLineDisplayName } from './luca-engine';
 import { isTranslated, isIlustrasiLine } from './state';
 import { getDisplayOrderedLines } from './selection';
@@ -372,32 +372,35 @@ export function parseTranslationNumberedPaste(
   };
 
   const isPlausibleSpeaker = (cand: string): boolean => {
-    const clean = cand.replace(/^\[\?\]\s*/, '').trim();
+    let clean = cand.replace(/^\[\?\]\s*/, '').trim();
     if (!clean) return false;
-    // Karakter misterius/anonim seperti "???", "？？？", "??", "？"
+    clean = stripDecorativeWrapping(clean);
+    if (!clean) return false;
+    // Karakter misterius/anonim seperti "???", "？？？", "??", "？", "!"
     if (/^[?？!！]+$/.test(clean)) return true;
     if (/^\d+$/.test(clean)) return false;
     if (clean.length > 40) return false;
     if (clean.split(/\s+/).filter(Boolean).length > 5) return false;
-    // Apostrophes are valid inside romanized names (e.g. Shin'ichirō).
-    if (/[.,!?~…—–\n\r"“”«»「」『』]/.test(clean)) return false;
+    // Tanda baca yang tidak boleh ada di nama karakter (koma, titik akhir kalimat, tanda kutip, kurung siku tak berpasangan, dll).
+    // Tanda tanya (?/？), tanda seru (!/！), tilde (~/〜), tanda kurung, dan apostrof diperbolehkan di nama karakter (misal: "Nama???", "Gadis?", "???", "Nama!", "Sosok (???)").
+    if (/[.,…—–\n\r"“”«»「」『』]/.test(clean)) return false;
     return true;
   };
 
   const matchesSourceSpeaker = (cand: string, sourceLine: any): boolean => {
     if (!sourceLine?.name) return false;
-    const cleanCand = cand.replace(/^\[\?\]\s*/, '').trim().toLowerCase();
-    const origName = String(sourceLine.name).trim().toLowerCase();
+    const cleanCand = stripDecorativeWrapping(cand.replace(/^\[\?\]\s*/, '')).trim().toLowerCase();
+    const origName = stripDecorativeWrapping(String(sourceLine.name)).trim().toLowerCase();
     const normCand = cleanCand.replace(/？/g, '?').replace(/！/g, '!');
     const normOrig = origName.replace(/？/g, '?').replace(/！/g, '!');
     if (normCand === normOrig) return true;
     if (sourceLine.trans_name) {
-      const normTrans = String(sourceLine.trans_name).trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!');
+      const normTrans = stripDecorativeWrapping(String(sourceLine.trans_name)).trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!');
       if (normCand === normTrans) return true;
     }
     for (const l of state.lines) {
-      if (l.name && l.name.trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!') === normOrig) {
-        if (l.trans_name && l.trans_name.trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!') === normCand) return true;
+      if (l.name && stripDecorativeWrapping(String(l.name)).trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!') === normOrig) {
+        if (l.trans_name && stripDecorativeWrapping(String(l.trans_name)).trim().toLowerCase().replace(/？/g, '?').replace(/！/g, '!') === normCand) return true;
       }
     }
     return false;
@@ -441,7 +444,10 @@ export function parseTranslationNumberedPaste(
         const shouldSplit = matchesExact || (batchHasSpeakers && plausible);
 
         if (shouldSplit) {
-          name = cand;
+          const hasUncertain = cand.startsWith('[?]');
+          const rawCand = hasUncertain ? cand.slice(3).trim() : cand;
+          const cleanCand = stripDecorativeWrapping(rawCand);
+          name = hasUncertain ? `[?] ${cleanCand}` : cleanCand;
           msg = msg.substring(splitIdx + 1).trim();
         }
       }

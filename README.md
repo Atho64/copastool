@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.12-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.13-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -297,6 +297,17 @@ Setelah selesai menerjemahkan, bisa minta AI untuk cek ulang kualitasnya:
 2. Klik **Copy AI Check** — teks asli + terjemahan di-copy ke format khusus
 3. Paste ke AI, minta koreksi
 4. Copy hasilnya, paste ke kotak **Paste AI Check**, klik **Terapkan Koreksi**
+
+Fitur kualitas AI Check:
+
+- **Confidence scoring** — AI memberi confidence (high/medium/low) per koreksi. Koreksi **high confidence** (typo, grammar, nama salah, sisa aksara Jepang) auto-apply saat Auto Check; medium/low masuk antrian review manual di tab AI Check. Matikan **Auto-apply koreksi high confidence** agar semua koreksi tetap direview manual.
+- **Sanity gate lokal** — koreksi yang identik dengan teks sekarang (no-op) dibuang otomatis; rewrite besar (>60% teks berubah) ditandai ⚠ review dan tidak di-auto-apply.
+- **Linter lokal** — sisa tanda baca Jepang (。、・〜ー) dan spasi ganda diperbaiki otomatis tanpa AI; sisa aksara CJK dan nama yang melanggar glosarium dikirim sebagai hint ke AI (baris ini diperiksa khusus).
+- **Konteks dua arah** — selain *Konteks Baris Sebelumnya*, tersedia *Konteks Baris Sesudah* (Dashboard Settings).
+- **Format output JSON** (mesin API) — parsing deterministik dengan perbaikan JSON otomatis; plaintext tetap didukung untuk jalur copas.
+- **Memori penolakan** — koreksi yang kamu tolak/skip dicatat sebagai entri REJECTED di changelog, sehingga batch berikutnya tidak mengusulkan perubahan yang sama lagi.
+- **Deep Check (opsional)** — dua pass spesialis per batch: pass 1 fokus akurasi makna terhadap teks sumber, pass 2 fokus naturalness. 2x request per batch, untuk proyek yang butuh kualitas maksimal.
+- Prompt bawaan kini menegaskan prinsip **minimal edit**: AI hanya boleh mengubah bagian yang bermasalah, tanpa menggaya ulang bagian yang sudah benar.
 
 ### 8. Proofread & Replace
 

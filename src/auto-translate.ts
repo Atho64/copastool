@@ -10,6 +10,8 @@ import * as Translate from './translate';
 import { TranslationApplyError } from './translate';
 import { onSaveGlossary } from './glossary';
 import { onApplyAiCheckCorrections } from './ai-check';
+import { normalizeForNoopCheck } from './ai-check-linter';
+import { escapeStoredNewlines } from './string-utils';
 import { appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
 import { chatCompletionText, abortActiveRequests } from './ai-client';
 import { normalizeCopasTarget } from './auto-copas/targets';
@@ -38,6 +40,7 @@ export function loadApiSettings(): void {
       if (p.aiApiUrl) state.aiApiUrl = p.aiApiUrl;
       if (p.aiApiKey) state.aiApiKey = p.aiApiKey;
       if (p.aiModel) state.aiModel = p.aiModel;
+      if (p.aiContextWindow !== undefined) state.aiContextWindow = Math.max(0, Math.trunc(Number(p.aiContextWindow)) || 0);
       if (p.aiTemperature !== undefined) state.aiTemperature = Number(p.aiTemperature);
       if (p.aiTopP !== undefined) state.aiTopP = Number(p.aiTopP);
       if (p.aiMaxTokens !== undefined) state.aiMaxTokens = Number(p.aiMaxTokens);
@@ -90,6 +93,7 @@ export function saveApiSettings(): void {
     aiApiUrl: state.aiApiUrl,
     aiApiKey: state.aiApiKey,
     aiModel: state.aiModel,
+    aiContextWindow: state.aiContextWindow ?? 0,
     aiTemperature: state.aiTemperature,
     aiTopP: state.aiTopP,
     aiMaxTokens: state.aiMaxTokens,
@@ -119,6 +123,8 @@ export function onOpenApiSettings(): void {
   if (ui.apiUrlInput) (ui.apiUrlInput as HTMLInputElement).value = state.aiApiUrl || '';
   if (ui.apiKeyInput) (ui.apiKeyInput as HTMLInputElement).value = state.aiApiKey || '';
   if (ui.apiModelInput) (ui.apiModelInput as HTMLInputElement).value = state.aiModel || 'gpt-4o-mini';
+  const ctxWinInput = document.getElementById('apiContextWindowInput') as HTMLInputElement | null;
+  if (ctxWinInput) ctxWinInput.value = String(state.aiContextWindow ?? 0);
   if (ui.apiModelSelect) (ui.apiModelSelect as HTMLSelectElement).style.display = 'none';
   if (ui.apiModelInput) (ui.apiModelInput as HTMLInputElement).style.display = '';
   if (ui.apiModelFetchStatus) (ui.apiModelFetchStatus as HTMLElement).style.display = 'none';
@@ -439,6 +445,8 @@ export function onSaveApiSettings(): void {
     }
   }
   if (ui.apiModelInput) state.aiModel = (ui.apiModelInput as HTMLInputElement).value.trim();
+  const ctxWinSave = document.getElementById('apiContextWindowInput') as HTMLInputElement | null;
+  if (ctxWinSave) state.aiContextWindow = Math.max(0, Math.trunc(numberFromInput(ctxWinSave, 0)));
   state.aiTemperature = numberFromInput(ui.apiTemperatureInput, 1);
   state.aiTopP = numberFromInput(ui.apiTopPInput, 1);
   state.aiMaxTokens = Math.max(1, Math.trunc(numberFromInput(ui.apiMaxTokensInput, 8192)));
@@ -937,8 +945,8 @@ export async function onAutoAiCheck(): Promise<void> {
     return;
   }
 
-  // Check if review mode is enabled
-  const reviewMode = (document.getElementById('settingsAiCheckReviewMode') as HTMLInputElement)?.checked ?? false;
+  // Check if review mode is enabled (per-project setting, see Settings → Prompt AI Check)
+  const reviewMode = state.aiCheckReviewMode === true;
 
   isAutoAiCheck = true;
   btn.classList.remove('btn-success');
@@ -968,13 +976,88 @@ export async function onAutoAiCheck(): Promise<void> {
 
       btn.textContent = `Cek Batch (${batchLines.length} baris)... (Klik Stop)`;
 
-      // Build prompt with context (once at start) + glossary + lines
-      const { buildAiCheckPrompt } = await import('./ai-check');
-      const prompt = buildAiCheckPrompt(batchLines);
+      // One undo must cover every mutation of this batch — local lint fixes,
+      // both Deep Check passes, the corrections and the checked flags — so the
+      // snapshot is taken before anything writes to these lines.
+      // Snapshot only this batch's lines — O(batch) instead of O(project).
+      const { pushUndoSnapshot } = await import('./render');
+      pushUndoSnapshot(true, batchLines.map(l => l.line_num));
 
-      let rawResult = await fetchWithRetry(() => fetchApiResult(prompt), (retry) => {
-        btn.textContent = `${formatRetryLabel(retry)}... (Klik Stop)`;
-      }, () => !isAutoAiCheck);
+      // Local lint pass (deterministic, no AI): auto-fixable findings are
+      // applied directly, the rest become prompt hints for this batch.
+      const { lintTranslatedLines, buildLintHintBlock } = await import('./ai-check-linter');
+      const findings = lintTranslatedLines(batchLines);
+      let autoFixed = 0;
+      for (const f of findings) {
+        if (!f.autoFixable) continue;
+        const line = state.lineByNum.get(f.num);
+        if (!line) continue;
+        let changed = false;
+        if (f.fixedText !== undefined && normalizeForNoopCheck(f.fixedText) !== normalizeForNoopCheck(line.trans_message || '')) {
+          line.trans_message = escapeStoredNewlines(f.fixedText);
+          changed = true;
+        }
+        if (f.fixedName && (line.trans_name || '').trim() && line.trans_name !== f.fixedName) {
+          line.trans_name = f.fixedName;
+          changed = true;
+        }
+        if (changed) autoFixed++;
+      }
+      if (autoFixed) {
+        import('./render').then(m => m.renderPreviewRows()).catch(() => {});
+      }
+      const lintBlock = buildLintHintBlock(findings);
+
+      // Deep Check mode: two specialized passes (accuracy → naturalness).
+      // Pass 1 (accuracy): high-confidence corrections apply immediately (same
+      // tiered gate); the rest is kept and merged with pass 2 results below.
+      const { buildAiCheckPrompt } = await import('./ai-check');
+      const { DEFAULT_AI_CHECK_ACCURACY_PROMPT, DEFAULT_AI_CHECK_NATURALNESS_PROMPT } = await import('./constants');
+      let rawResult = '';
+      let deepPass1Queue: typeof state.aiCheckCorrections = [];
+      if (state.aiCheckDeepMode) {
+        const accPrompt = buildAiCheckPrompt(batchLines, { basePrompt: DEFAULT_AI_CHECK_ACCURACY_PROMPT, deepPassFormat: true, lintBlock });
+        const accRaw = await fetchWithRetry(() => fetchApiResult(accPrompt), (retry) => {
+          btn.textContent = `${formatRetryLabel(retry)} (akurasi)... (Klik Stop)`;
+        }, () => !isAutoAiCheck);
+        if (accRaw && accRaw.trim()) {
+          (ui.pasteAiCheckArea as HTMLTextAreaElement).value = accRaw;
+          const { onParseAiCheck: parsePass, onApplyAiCheckCorrections: applyPass } = await import('./ai-check');
+          if (parsePass(new Set(batchLines.map(l => l.line_num)), { silent: true })) {
+            // Keep the full pass-1 result: `applyPass` filters
+            // state.aiCheckCorrections down to the applied subset, so the
+            // leftover queue must be derived from this snapshot instead.
+            const pass1All = state.aiCheckCorrections;
+            // Review mode is absolute: nothing auto-applies, everything is
+            // queued for manual review (same contract as the main tiered gate).
+            const applyable = (state.aiCheckAutoApplyHigh !== false && !state.aiCheckReviewMode)
+              ? pass1All.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
+              : [];
+            if (applyable.length) {
+              state.aiCheckCorrections = applyable;
+              const { applied, categories } = applyPass(false);
+              autoAiCheckStats.totalApplied += applied;
+              for (const [cat, count] of categories) {
+                autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
+              }
+            }
+            // Non-applied pass-1 corrections merge into the pass-2 review queue
+            // (dedup by line number — pass 2 wins, it sees the freshest text).
+            deepPass1Queue = pass1All.filter(c => !applyable.includes(c));
+            state.aiCheckCorrections = [];
+          }
+        }
+        // Pass 2: naturalness specialist on the (possibly corrected) text.
+        const natPrompt = buildAiCheckPrompt(batchLines, { basePrompt: DEFAULT_AI_CHECK_NATURALNESS_PROMPT, deepPassFormat: true, lintBlock });
+        rawResult = await fetchWithRetry(() => fetchApiResult(natPrompt), (retry) => {
+          btn.textContent = `${formatRetryLabel(retry)} (naturalness)... (Klik Stop)`;
+        }, () => !isAutoAiCheck);
+      } else {
+        const prompt = buildAiCheckPrompt(batchLines, { lintBlock });
+        rawResult = await fetchWithRetry(() => fetchApiResult(prompt), (retry) => {
+          btn.textContent = `${formatRetryLabel(retry)}... (Klik Stop)`;
+        }, () => !isAutoAiCheck);
+      }
 
       if (!rawResult || !rawResult.trim()) {
         throw new Error('Respons dari API kosong.');
@@ -988,23 +1071,50 @@ export async function onAutoAiCheck(): Promise<void> {
         isAutoAiCheck = false;
         break;
       }
+      // Deep Check: merge pass-1 leftovers into the pass-2 results (pass 2 wins
+      // on duplicate line numbers since it reviewed the freshest text).
+      if (deepPass1Queue.length) {
+        const pass2Nums = new Set(state.aiCheckCorrections.map(c => c.num));
+        const pass1Leftover = deepPass1Queue.filter(c => !pass2Nums.has(c.num));
+        state.aiCheckCorrections = [...state.aiCheckCorrections, ...pass1Leftover];
+        deepPass1Queue = [];
+      }
       autoAiCheckStats.totalCorrections += state.aiCheckCorrections.length;
-      // One undo must cover both corrections and the checked flags, including
-      // batches with no corrections or batches skipped in review mode.
-      // Snapshot only this batch's lines — O(batch) instead of O(project).
-      const { pushUndoSnapshot } = await import('./render');
-      pushUndoSnapshot(true, batchLines.map(l => l.line_num));
 
       if (!isAutoAiCheck) break;
 
-      if (reviewMode && state.aiCheckCorrections.length > 0) {
-        // Pause for review — show corrections, wait for user to apply or skip
+      // Tiered auto-apply:
+      // - aiCheckAutoApplyHigh ON (default): high-confidence corrections without
+      //   review flags apply immediately; the rest goes to review.
+      // - aiCheckAutoApplyHigh OFF ("high tetap manual"): NOTHING auto-applies —
+      //   every correction (high included) must pass manual review.
+      // - reviewMode ON: pause every batch that still has unapplied corrections.
+      // - reviewMode OFF + autoApplyHigh ON: medium/low stay queued in the AI
+      //   Check tab for manual inspection without pausing the loop.
+      const autoApplyHigh = state.aiCheckAutoApplyHigh !== false && !reviewMode;
+      const autoApplyable = autoApplyHigh
+        ? state.aiCheckCorrections.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
+        : [];
+      const restCorrections = state.aiCheckCorrections.filter(c => !autoApplyable.includes(c));
+
+      if (autoApplyable.length) {
+        state.aiCheckCorrections = autoApplyable;
+        const { applied, categories } = onApplyAiCheckCorrections(false);
+        autoAiCheckStats.totalApplied += applied;
+        for (const [cat, count] of categories) {
+          autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
+        }
+      }
+
+      const shouldPauseReview = restCorrections.length > 0 && (reviewMode || !autoApplyHigh);
+      if (shouldPauseReview) {
+        // Pause for review — show remaining corrections, wait for apply or skip.
+        state.aiCheckCorrections = restCorrections;
         renderAiCheckCorrections();
-        btn.textContent = `Review ${state.aiCheckCorrections.length} koreksi... (Klik Stop untuk batalkan)`;
+        btn.textContent = `Review ${restCorrections.length} koreksi... (Klik Stop untuk batalkan)`;
         btn.classList.remove('btn-danger');
         btn.classList.add('btn-success');
 
-        // Wait for user action (apply or skip)
         const reviewResult = await waitForReviewAction();
         if (reviewResult === 'stop') {
           isAutoAiCheck = false;
@@ -1016,15 +1126,23 @@ export async function onAutoAiCheck(): Promise<void> {
           for (const [cat, count] of categories) {
             autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
           }
+        } else if (reviewResult === 'skip') {
+          // Skipped corrections count as rejections — remember them.
+          const remaining = state.aiCheckCorrections.filter(c => !c.checked);
+          if (remaining.length) {
+            const { recordAiCheckRejections } = await import('./ai-check');
+            recordAiCheckRejections(remaining);
+          }
+          state.aiCheckCorrections = [];
         }
         btn.classList.remove('btn-success');
         btn.classList.add('btn-danger');
       } else {
-        // Auto-apply (original behavior)
-        const { applied, categories } = onApplyAiCheckCorrections(false);
-        autoAiCheckStats.totalApplied += applied;
-        for (const [cat, count] of categories) {
-          autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
+        // No review pause: medium/low corrections stay queued in the AI Check
+        // tab for manual inspection.
+        state.aiCheckCorrections = restCorrections;
+        if (restCorrections.length) {
+          import('./render').then(m => m.updateButtonStates()).catch(() => {});
         }
       }
 

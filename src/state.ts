@@ -79,6 +79,8 @@ export const state: AppState = {
   aiApiUrl: '',
   aiApiKey: '',
   aiModel: 'gpt-4o-mini',
+  /** 0 = auto (per-model lookup); >0 = manual context window override in tokens. */
+  aiContextWindow: 0,
   aiTemperature: 1.0,
   aiTopP: 1.0,
   aiMaxTokens: 8192,
@@ -129,6 +131,11 @@ export const state: AppState = {
   enableAiCheckAgentMemory: true,
   aiCheckLocalizationNotes: '',
   aiCheckRevisionsSummary: '',
+  aiCheckAutoApplyHigh: true,
+  aiCheckReviewMode: false,
+  contextLinesAfter: 0,
+  aiCheckOutputFormat: 'text',
+  aiCheckDeepMode: false,
 };
 
 // ─── Shared UI Element Cache ──────────────────────────────────────────────────

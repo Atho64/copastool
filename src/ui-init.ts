@@ -87,7 +87,7 @@ export function cacheElements(): void {
     'dashboardView', 'workspaceView', 'projectList', 'projectFilterInput', 'projectSortSelect', 'projectCountBadge', 'btnNewProject', 'btnRestoreProject', 'btnBackupAllProjects', 'btnFolderBackup', 'btnFolderRestore',
     'btnBackToDashboard', 'btnBackupProject', 'btnBatchPrev', 'btnBatchNext', 'projectNameDisplay', 'restoreProjectInput', 'btnDropdownImport', 'dropdownImportMenu', 'btnDropdownImportOther', 'dropdownImportOtherMenu', 'btnImportFile', 'btnDropdownTools', 'dropdownToolsMenu',
     'btnDropdownDashboardSettings', 'dropdownDashboardSettingsMenu', 'btnDashboardSettings', 'dashboardSettingsModal', 'btnDashboardSettingsSave', 'btnDashboardSettingsReset', 'paletteSelect', 'btnDashboardSettingsCancel', 'btnDashboardPrompts', 'dashboardPromptsModal', 'dpPromptInput', 'dpPromptTemplateSelect', 'dpGlossaryPromptInput', 'dpAiCheckPromptInput', 'dpAgentPromptInput', 'dpSummaryPromptInput', 'btnDashboardPromptsSave', 'btnDashboardPromptsReset', 'btnDashboardPromptsCancel',
-    'dsSourceLang', 'dsTargetLang', 'dsTranslationMode', 'dsAiFormat', 'dsContextLines', 'dsContextType', 'dsSelectionBatch', 'dsGlossaryBatch', 'dsAiCheckBatch', 'dsParallelBatch', 'dsSubagentWorkers', 'dsShowFurigana', 'dsFuriganaType', 'dsFontSize', 'dsEnableDictionary', 'dsDictionaryEngine', 'dsDictionaryPrompt', 'dsRegexFilter', 'dsRegexFilterCase', 'dsDisableEmptyLineValidation', 'dsCheckKanaResidue', 'dsCheckSimilarity', 'dsSimilarityThreshold', 'dsSimilarityThresholdWrap', 'dsCheckLengthRatio', 'dsLengthRatioThreshold', 'dsLengthRatioWrap', 'dsCheckLinebreak', 'dsCheckLanguage', 'dsCheckPunctuation', 'dsCheckUntransName', 'dsIgnorePasteNames', 'dsEnableBackgroundChaining', 'dsEnableUncertainMarking', 'dsSafeTagsForChatgpt', 'dsAgentMaxTurns', 'dsEpubTags', 'dsShowEpubImages', 'dsEnableLogging',
+    'dsSourceLang', 'dsTargetLang', 'dsTranslationMode', 'dsAiFormat', 'dsContextLines', 'dsContextLinesAfter', 'dsContextType', 'dsSelectionBatch', 'dsGlossaryBatch', 'dsAiCheckBatch', 'dsParallelBatch', 'dsSubagentWorkers', 'dsShowFurigana', 'dsFuriganaType', 'dsFontSize', 'dsEnableDictionary', 'dsDictionaryEngine', 'dsDictionaryPrompt', 'dsRegexFilter', 'dsRegexFilterCase', 'dsDisableEmptyLineValidation', 'dsCheckKanaResidue', 'dsCheckSimilarity', 'dsSimilarityThreshold', 'dsSimilarityThresholdWrap', 'dsCheckLengthRatio', 'dsLengthRatioThreshold', 'dsLengthRatioWrap', 'dsCheckLinebreak', 'dsCheckLanguage', 'dsCheckPunctuation', 'dsCheckUntransName', 'dsIgnorePasteNames', 'dsEnableBackgroundChaining', 'dsEnableUncertainMarking', 'dsSafeTagsForChatgpt', 'dsAgentMaxTurns', 'dsEpubTags', 'dsShowEpubImages', 'dsEnableLogging',
     'btnImportFolder', 'btnImportZip', 'btnImportTranslatedFile', 'btnImportTranslatedFolder', 'btnExport', 'btnProofread',
     'previewViewport', 'previewContainer', 'currentFileBar', 'progressFill', 'progressText', 'btnSelectAll',
     'btnClearSelection', 'copyCount', 'btnCopyForAi', 'copyStatus', 'pasteArea', 'btnApply',
@@ -120,9 +120,9 @@ export function cacheElements(): void {
     'settingsCheckKanaResidue', 'settingsCheckSimilarity', 'settingsSimilarityThreshold', 'settingsSimilarityThresholdWrap',
     'settingsContextTypeSelect',
     'btnQaCheck', 'qaModal', 'qaCheckGlossary', 'qaCheckKana', 'qaCheckSimilarity', 'qaCheckLinebreak', 'qaCheckLength', 'qaCheckLanguage', 'qaCheckPunctuation', 'btnRunQa', 'btnQaReset', 'qaStats', 'qaResults', 'btnQaClose', 'btnRetranslateFlagged', 'settingsCheckLengthRatio', 'settingsLengthRatioThreshold', 'settingsLengthRatioWrap', 'settingsCheckLinebreak', 'settingsCheckLanguage', 'settingsCheckPunctuation', 'settingsCheckUntransName', 'settingsIgnorePasteNames', 'settingsEnableUncertainMarking', 'settingsSafeTagsForChatgpt', 'qaCheckUncertain', 'qaCheckUntransName', 'aiTranslateModeSelect', 'settingsAgentMaxTurns',
-    'btnAutoTranslate', 'btnSemiAutoCopas', 'btnToggleFloatingBubble', 'semiAutoCopasStatus', 'btnAutoGlossaryAi', 'btnAutoAiCheck', 'btnFloatingApiSettings', 'apiSettingsModal', 'apiTypeSelect', 'apiUrlInput', 'apiKeyInput', 'apiModelInput', 'apiModelSelect', 'btnFetchModels', 'apiModelFetchStatus', 'apiTemperatureInput', 'apiTopPInput', 'apiMaxTokensInput', 'apiFrequencyPenaltyInput', 'apiPresencePenaltyInput', 'apiSeedInput', 'apiTimeoutInput', 'apiReasoningEffortSelect', 'apiRpmInput', 'apiDelayPreview', 'apiThinkingSelect', 'apiFilterThinkingCheck', 'apiMergeSystemCheck', 'apiStreamingCheck', 'apiBackupKeysInput', 'apiKeyStrategySelect', 'btnApiSettingsCancel', 'btnApiSettingsSave', 'tavilyKeyInput', 'apiProfileSelect', 'btnLoadProfile', 'btnDeleteProfile', 'apiProfileNameInput', 'btnSaveProfile',
+    'btnAutoTranslate', 'btnSemiAutoCopas', 'btnToggleFloatingBubble', 'semiAutoCopasStatus', 'btnAutoGlossaryAi', 'btnAutoAiCheck', 'btnFloatingApiSettings', 'apiSettingsModal', 'apiTypeSelect', 'apiUrlInput', 'apiKeyInput', 'apiModelInput', 'apiModelSelect', 'apiContextWindowInput', 'btnFetchModels', 'apiModelFetchStatus', 'apiTemperatureInput', 'apiTopPInput', 'apiMaxTokensInput', 'apiFrequencyPenaltyInput', 'apiPresencePenaltyInput', 'apiSeedInput', 'apiTimeoutInput', 'apiReasoningEffortSelect', 'apiRpmInput', 'apiDelayPreview', 'apiThinkingSelect', 'apiFilterThinkingCheck', 'apiMergeSystemCheck', 'apiStreamingCheck', 'apiBackupKeysInput', 'apiKeyStrategySelect', 'btnApiSettingsCancel', 'btnApiSettingsSave', 'tavilyKeyInput', 'apiProfileSelect', 'btnLoadProfile', 'btnDeleteProfile', 'apiProfileNameInput', 'btnSaveProfile',
  'aiCheckReviewActions', 'btnReviewApply', 'btnReviewSkip',
-    'btnFloatingAiAgent', 'btnFloatingLogging', 'loggingPanel', 'loggingHistory', 'btnLoggingClear', 'btnLoggingClose', 'aiAgentChatPanel', 'btnAgentClose', 'btnAgentClear', 'btnAgentMemory', 'btnAgentStop', 'agentChatHistory', 'agentInput', 'btnAgentSend',
+    'btnFloatingAiAgent', 'btnFloatingLogging', 'loggingPanel', 'loggingHistory', 'btnLoggingClear', 'btnLoggingClose', 'aiAgentChatPanel', 'btnAgentClose', 'btnAgentClear', 'btnAgentMemory', 'btnAgentStop', 'agentChatHistory', 'agentInput', 'btnAgentSend', 'agentTokenMeter', 'btnAgentSessions', 'agentSessionsPanel', 'agentSessionsList', 'btnAgentNewSession',
     'agentMemoryModal', 'agentMemoryList', 'agentMemoryKey', 'agentMemoryCategory', 'agentMemoryScope', 'agentMemoryValue', 'btnAgentMemoryCancel', 'btnAgentMemorySave',
     'btnTextReplacer', 'textReplacerModal', 'replacerPreInput', 'replacerPostInput', 'btnTextReplacerCancel', 'btnTextReplacerSave',
     'btnImportCustom', 'btnImportCustomFolder', 'btnCustomParsers', 'importCustomInput', 'importCustomFolderInput', 'customParserModal',
@@ -1251,9 +1251,11 @@ if (ui.settingsCheckSimilarity) {
       const isHidden = panel.style.display === 'none';
       panel.style.display = isHidden ? 'flex' : 'none';
       if (isHidden) {
-        const { loadChatHistory, renderChatHistory } = await import('./ai-agent');
+        const { loadChatHistory, renderChatHistory, updateTokenMeter, attachLineLinkHandler } = await import('./ai-agent');
         loadChatHistory();
         renderChatHistory();
+        updateTokenMeter();
+        if (ui.agentChatHistory) attachLineLinkHandler(ui.agentChatHistory as HTMLElement);
       }
     });
   }
@@ -1474,6 +1476,43 @@ if (ui.settingsCheckSimilarity) {
     const text = input.value.trim();
     if (!text) return;
 
+    // Lazy session: ensure the run belongs to a named session slot.
+    import('./ai-agent').then(m => m.ensureActiveSession()).catch(() => {});
+
+    // A subagent question is waiting: forward the typed text as the answer
+    // (takes priority over steering — the agent is explicitly blocked on it).
+    const subagentMod = await import('./agent-subagent');
+    if (subagentMod.hasPendingSubagentQuestion()) {
+      const card = ui.agentChatHistory?.querySelector('.agent-question-card:not([data-answered])') as HTMLElement | null;
+      input.value = '';
+      const id = card?.dataset.questionId;
+      if (card && id) {
+        card.dataset.answered = '1';
+        card.querySelectorAll('button').forEach(b => ((b as HTMLButtonElement).disabled = true));
+        const ansEl = document.createElement('div');
+        ansEl.className = 'agent-question-answered';
+        ansEl.textContent = `➤ ${text}`;
+        card.appendChild(ansEl);
+      }
+      subagentMod.resolveSubagentQuestion(id || '', text);
+      return;
+    }
+
+    // Agent currently working? Then this is a STEERING message, not a new turn.
+    const steerMod = await import('./agent-plan');
+    if (steerMod.isAgentRunning()) {
+      input.value = '';
+      if (steerMod.queueSteerMessage(text)) {
+        const historyEl = ui.agentChatHistory as HTMLElement;
+        const steerDiv = document.createElement('div');
+        steerDiv.className = 'agent-msg user agent-steer';
+        steerDiv.textContent = `📣 ${text}`;
+        historyEl.appendChild(steerDiv);
+        historyEl.scrollTop = historyEl.scrollHeight;
+      }
+      return;
+    }
+
     input.value = '';
 
     const historyEl = ui.agentChatHistory as HTMLElement;
@@ -1492,13 +1531,12 @@ if (ui.settingsCheckSimilarity) {
     const sendAgentMessage = (await import('./ai-agent')).sendAgentMessage;
     const { setAgentMessageHtml, createStreamThrottle } = await import('./ai-agent');
 
-    // Disable input while agent runs; show the Stop button so a long multi-tool
-    // run (or a hung request) can be cancelled instead of locking the panel.
+    // Disable send button while agent runs; show the Stop button. The input
+    // stays ENABLED: typing mid-run queues a steering message instead.
     const sendBtn = ui.btnAgentSend as HTMLButtonElement | null;
     const stopBtn = ui.btnAgentStop as HTMLButtonElement | null;
     if (sendBtn) sendBtn.disabled = true;
     if (stopBtn) stopBtn.style.display = '';
-    input.disabled = true;
 
     const paint = createStreamThrottle();
 
@@ -1522,10 +1560,24 @@ if (ui.settingsCheckSimilarity) {
     } finally {
       if (sendBtn) sendBtn.disabled = false;
       if (stopBtn) stopBtn.style.display = 'none';
-      input.disabled = false;
       input.focus();
+      // Refresh the token meter after every completed run.
+      import('./ai-agent').then(m => m.updateTokenMeter()).catch(() => {});
     }
   };
+
+  // Clickable [line N] references in agent messages → jump to preview line.
+  if (ui.agentChatHistory) {
+    import('./ai-agent').then(m => m.attachLineLinkHandler(ui.agentChatHistory as HTMLElement)).catch(() => {});
+  }
+
+  // Sessions panel toggling + actions.
+  ui.btnAgentSessions?.addEventListener('click', () => {
+    import('./ai-agent').then(m => m.toggleSessionsPanel()).catch(() => {});
+  });
+  ui.btnAgentNewSession?.addEventListener('click', () => {
+    import('./ai-agent').then(m => m.startNewSession()).catch(() => {});
+  });
 
   ui.btnAgentSend?.addEventListener('click', doAgentSend);
   // Stop aborts every in-flight AI request (and cancels RPM/backoff waits);

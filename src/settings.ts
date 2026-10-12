@@ -62,6 +62,14 @@ function initializeSettingsTab(tabName: SettingsTabName): void {
     if (aiChkStoryEl) aiChkStoryEl.checked = state.enableAiCheckStoryContext !== false;
     const aiChkMemEl = document.getElementById('settingsEnableAiCheckAgentMemory') as HTMLInputElement | null;
     if (aiChkMemEl) aiChkMemEl.checked = state.enableAiCheckAgentMemory !== false;
+    const aiChkReviewEl = document.getElementById('settingsAiCheckReviewMode') as HTMLInputElement | null;
+    if (aiChkReviewEl) aiChkReviewEl.checked = state.aiCheckReviewMode === true;
+    const aiChkAutoApplyEl = document.getElementById('settingsAiCheckAutoApplyHigh') as HTMLInputElement | null;
+    if (aiChkAutoApplyEl) aiChkAutoApplyEl.checked = state.aiCheckAutoApplyHigh !== false;
+    const aiChkDeepEl = document.getElementById('settingsAiCheckDeepMode') as HTMLInputElement | null;
+    if (aiChkDeepEl) aiChkDeepEl.checked = state.aiCheckDeepMode === true;
+    const aiChkFmtEl = document.getElementById('settingsAiCheckOutputFormat') as HTMLSelectElement | null;
+    if (aiChkFmtEl) aiChkFmtEl.value = state.aiCheckOutputFormat === 'json' ? 'json' : 'text';
     const aiChkLocEl = document.getElementById('settingsAiCheckLocalizationNotes') as HTMLTextAreaElement | null;
     if (aiChkLocEl) aiChkLocEl.value = state.aiCheckLocalizationNotes || '';
     const aiChkStoryCtxEl = document.getElementById('settingsAiCheckStoryContextInput') as HTMLTextAreaElement | null;
@@ -300,11 +308,13 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   if (ui.settingsIgnorePasteNames) (ui.settingsIgnorePasteNames as HTMLInputElement).checked = !!state.ignorePasteNames;
   if (ui.settingsEnableUncertainMarking) (ui.settingsEnableUncertainMarking as HTMLInputElement).checked = !!state.enableUncertainMarking;
   if (ui.settingsSafeTagsForChatgpt) (ui.settingsSafeTagsForChatgpt as HTMLInputElement).checked = !!state.safeTagsForChatgpt;
-  if (ui.settingsAgentMaxTurns) (ui.settingsAgentMaxTurns as HTMLInputElement).value = String(state.agentMaxTurns || 10);
+  if (ui.settingsAgentMaxTurns) (ui.settingsAgentMaxTurns as HTMLInputElement).value = String(Number.isFinite(state.agentMaxTurns) ? state.agentMaxTurns : 10);
   if (ui.settingsAiTranslationFormatSelect) {
     (ui.settingsAiTranslationFormatSelect as HTMLSelectElement).value = normalizeAiTranslationFormat(state.aiTranslationFormat);
   }
   if (ui.settingsContextLinesInput) (ui.settingsContextLinesInput as HTMLInputElement).value = String(state.contextLines);
+  const ctxAfterEl = document.getElementById('settingsContextLinesAfterInput') as HTMLInputElement | null;
+  if (ctxAfterEl) ctxAfterEl.value = String(state.contextLinesAfter ?? 0);
   if (ui.settingsContextTypeSelect) {
     (ui.settingsContextTypeSelect as HTMLSelectElement).value = state.contextType || 'raw';
   }
@@ -370,6 +380,7 @@ export function onSavePromptSettings(): void {
 
   const aiTranslationFormat = normalizeAiTranslationFormat((ui.settingsAiTranslationFormatSelect as HTMLSelectElement)?.value);
   const contextLines = parseInt((ui.settingsContextLinesInput as HTMLInputElement)?.value) || 0;
+  const contextLinesAfter = Math.max(0, Math.min(50, parseInt((document.getElementById('settingsContextLinesAfterInput') as HTMLInputElement | null)?.value) || 0));
   const contextType = ui.settingsContextTypeSelect ? (ui.settingsContextTypeSelect as HTMLSelectElement).value : 'raw';
   const selectionBatchSize = normalizeSelectionBatchSize((ui.settingsSelectionBatchSizeInput as HTMLInputElement)?.value);
   const glossaryBatchSize = normalizeSelectionBatchSize((ui.settingsGlossaryBatchSizeInput as HTMLInputElement)?.value, DEFAULT_GLOSSARY_BATCH_SIZE);
@@ -420,9 +431,11 @@ export function onSavePromptSettings(): void {
   state.enableUncertainMarking = !!((ui.settingsEnableUncertainMarking as HTMLInputElement)?.checked);
   state.safeTagsForChatgpt = !!((ui.settingsSafeTagsForChatgpt as HTMLInputElement)?.checked);
   const amtRaw = parseInt((ui.settingsAgentMaxTurns as HTMLInputElement)?.value);
-  state.agentMaxTurns = (!isNaN(amtRaw) && amtRaw >= 3 && amtRaw <= 30) ? amtRaw : 10;
+  // 0 = unlimited; otherwise 3–999.
+  state.agentMaxTurns = (!isNaN(amtRaw) && (amtRaw === 0 || (amtRaw >= 3 && amtRaw <= 999))) ? amtRaw : 10;
   state.aiTranslationFormat = aiTranslationFormat;
   state.contextLines = contextLines;
+  state.contextLinesAfter = contextLinesAfter;
   state.contextType = contextType as any;
   state.selectionBatchSize = selectionBatchSize;
   state.glossaryBatchSize = glossaryBatchSize;
@@ -457,6 +470,14 @@ export function onSavePromptSettings(): void {
   if (aiChkStoryEl) state.enableAiCheckStoryContext = aiChkStoryEl.checked;
   const aiChkMemEl = document.getElementById('settingsEnableAiCheckAgentMemory') as HTMLInputElement | null;
   if (aiChkMemEl) state.enableAiCheckAgentMemory = aiChkMemEl.checked;
+  const aiChkReviewEl = document.getElementById('settingsAiCheckReviewMode') as HTMLInputElement | null;
+  if (aiChkReviewEl) state.aiCheckReviewMode = aiChkReviewEl.checked;
+  const aiChkAutoApplyEl = document.getElementById('settingsAiCheckAutoApplyHigh') as HTMLInputElement | null;
+  if (aiChkAutoApplyEl) state.aiCheckAutoApplyHigh = aiChkAutoApplyEl.checked;
+  const aiChkDeepEl = document.getElementById('settingsAiCheckDeepMode') as HTMLInputElement | null;
+  if (aiChkDeepEl) state.aiCheckDeepMode = aiChkDeepEl.checked;
+  const aiChkFmtEl = document.getElementById('settingsAiCheckOutputFormat') as HTMLSelectElement | null;
+  if (aiChkFmtEl) state.aiCheckOutputFormat = aiChkFmtEl.value === 'json' ? 'json' : 'text';
   const aiChkLocEl = document.getElementById('settingsAiCheckLocalizationNotes') as HTMLTextAreaElement | null;
   if (aiChkLocEl) state.aiCheckLocalizationNotes = aiChkLocEl.value.trim();
   const aiChkStoryCtxEl = document.getElementById('settingsAiCheckStoryContextInput') as HTMLTextAreaElement | null;

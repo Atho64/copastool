@@ -13,12 +13,11 @@ import { buildCopyForAiPrompt, onApplyTranslation, TranslationApplyError } from 
 import { onSaveGlossary } from '../glossary';
 import { DEFAULT_GLOSSARY_PROMPT } from '../constants';
 import { applyPromptVariables } from '../ai-format';
-import { buildAiCheckPrompt, onApplyAiCheckCorrections, renderAiCheckCorrections } from '../ai-check';
+import { buildAiCheckPrompt, onApplyAiCheckCorrections, renderAiCheckCorrections, recordAiCheckRejections } from '../ai-check';
 import { getDisplayOrderedLines } from '../selection';
 import { isTauri } from '../native-storage';
 import { isAndroidNativeApp } from '../android-files';
-import { CopasError, isFatalCopasCode, type CopasDriver, type CopasStatusSink, type CopasWorkflow } from './types';
-import { COPAS_TARGETS, normalizeCopasTarget, type CopasTargetConfig } from './targets';
+import { CopasError, isFatalCopasCode, type CopasDriver, type CopasStatusSink, type CopasWorkflow } from './types';import { COPAS_TARGETS, normalizeCopasTarget, type CopasTargetConfig } from './targets';
 import { runCopasBatch } from './engine';
 import { getCamofoxDriver } from './camofox-driver';
 import { getAndroidDriver } from './android-driver';
@@ -410,7 +409,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
   activeWorkflow = 'ai-check';
   isCopasAiCheck = true;
   pressCopasButton('btnAutoAiCheck', true);
-  const reviewMode = (document.getElementById('settingsAiCheckReviewMode') as HTMLInputElement)?.checked ?? false;
+  const reviewMode = state.aiCheckReviewMode === true;
   const originalSelection = new Set(state.selectedLines);
   let processed = 0;
   let totalApplied = 0;
@@ -434,38 +433,119 @@ export async function toggleCopasAiCheck(): Promise<void> {
       import('../render').then((m) => m.syncCheckboxUI());
       import('../selection').then((m) => m.scrollPreviewToLine(batch[0].line_num));
 
-      const { buildAiCheckPrompt: buildPrompt } = await import('../ai-check');
-      const prompt = buildPrompt(batch);
+      // One undo must cover every mutation of this batch — both Deep Check
+      // passes, the corrections and the checked flags — so the snapshot is
+      // taken before anything writes to these lines.
+      const { pushUndoSnapshot } = await import('../render');
+      pushUndoSnapshot(true, batch.map((l) => l.line_num));
 
-      setCopasStatus('ai-check', `Copas → ${targetForWorkflow().label}: batch ${Math.floor(processed / batchSize) + 1}${retryCount ? ` (retry ${retryCount})` : ''}…`);
-      let text: string;
-      try {
-        text = await fetchCopasResult(prompt, {
-          workflow: 'ai-check',
-          status: sinkFor('ai-check'),
-          shouldCancel,
-          newChat: await copasNewChatDue(batchNumber),
-          thinking,
-        });
-      } catch (err) {
-        if (!isCopasAiCheck) break;
-        if (err instanceof CopasError && isFatalCopasCode(err.code)) {
-          await stopWithError('ai-check', err);
-          break;
+      // Local lint pass (deterministic, no AI), mirroring the API engine:
+      // auto-fixable findings are applied directly, the rest become prompt
+      // hints for this batch.
+      const { lintTranslatedLines, buildLintHintBlock, normalizeForNoopCheck } = await import('../ai-check-linter');
+      const { escapeStoredNewlines } = await import('../string-utils');
+      const findings = lintTranslatedLines(batch);
+      let autoFixed = 0;
+      for (const f of findings) {
+        if (!f.autoFixable) continue;
+        const line = state.lineByNum.get(f.num);
+        if (!line) continue;
+        let changed = false;
+        if (f.fixedText !== undefined && normalizeForNoopCheck(f.fixedText) !== normalizeForNoopCheck(line.trans_message || '')) {
+          line.trans_message = escapeStoredNewlines(f.fixedText);
+          changed = true;
         }
-        if (retryCount >= 1) {
-          await stopWithError('ai-check', err);
-          break;
+        if (f.fixedName && (line.trans_name || '').trim() && line.trans_name !== f.fixedName) {
+          line.trans_name = f.fixedName;
+          changed = true;
         }
-        retryCount++;
-        const detail = err instanceof Error ? err.message : String(err);
-        setCopasStatus('ai-check', `Batch gagal (${detail}) — coba lagi (chat baru)…`);
-        await cancellableDelay(repeatDelayMs(), shouldCancel);
-        if (!isCopasAiCheck) break;
-        try {
-          await ensureDriver().navigateFresh(targetForWorkflow());
-        } catch { /* best effort */ }
-        continue;
+        if (changed) autoFixed++;
+      }
+      if (autoFixed) {
+        import('../render').then((m) => m.renderPreviewRows()).catch(() => {});
+      }
+      const lintBlock = buildLintHintBlock(findings);
+
+      // Transport for one pass, with the same retry semantics as before
+      // (1 retry + fresh chat, then stop with error). Returns null when the run
+      // was cancelled or stopped, so callers can just `break`.
+      const runPass = async (promptText: string, label: string): Promise<string | null> => {
+        for (;;) {
+          setCopasStatus('ai-check', `Copas → ${targetForWorkflow().label}: batch ${Math.floor(processed / batchSize) + 1}${label ? ` (${label})` : ''}${retryCount ? ` (retry ${retryCount})` : ''}…`);
+          try {
+            return await fetchCopasResult(promptText, {
+              workflow: 'ai-check',
+              status: sinkFor('ai-check'),
+              shouldCancel,
+              newChat: await copasNewChatDue(batchNumber),
+              thinking,
+            });
+          } catch (err) {
+            if (!isCopasAiCheck) return null;
+            if (err instanceof CopasError && isFatalCopasCode(err.code)) {
+              await stopWithError('ai-check', err);
+              return null;
+            }
+            if (retryCount >= 1) {
+              await stopWithError('ai-check', err);
+              return null;
+            }
+            retryCount++;
+            const detail = err instanceof Error ? err.message : String(err);
+            setCopasStatus('ai-check', `Batch gagal (${detail}) — coba lagi (chat baru)…`);
+            await cancellableDelay(repeatDelayMs(), shouldCancel);
+            if (!isCopasAiCheck) return null;
+            try { await ensureDriver().navigateFresh(targetForWorkflow()); } catch { /* best effort */ }
+          }
+        }
+      };
+
+      const { buildAiCheckPrompt: buildPrompt, onParseAiCheck: parseAiCheck } = await import('../ai-check');
+      const { DEFAULT_AI_CHECK_ACCURACY_PROMPT, DEFAULT_AI_CHECK_NATURALNESS_PROMPT } = await import('../constants');
+
+      // Deep Check: two specialized passes per batch (accuracy → naturalness),
+      // mirroring the API engine. Pass 1 auto-applies high-confidence accuracy
+      // fixes; the remainder merges into the pass-2 queue (pass 2 wins on
+      // duplicate line numbers because it reviewed the freshest text).
+      let deepQueue: typeof state.aiCheckCorrections = [];
+      let text: string | null;
+      if (state.aiCheckDeepMode) {
+        const accText = await runPass(buildPrompt(batch, { basePrompt: DEFAULT_AI_CHECK_ACCURACY_PROMPT, deepPassFormat: true, lintBlock }), 'akurasi');
+        if (accText === null) break;
+        if (accText.trim()) {
+          const areaP1 = ui.pasteAiCheckArea as HTMLTextAreaElement | undefined;
+          if (areaP1) {
+            areaP1.value = accText;
+            areaP1.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          if (parseAiCheck(new Set(batch.map((l) => l.line_num)), { silent: true })) {
+            // Keep the full pass-1 result: onApplyAiCheckCorrections filters
+            // state.aiCheckCorrections down to the applied subset, so the
+            // leftover queue must be derived from this snapshot instead.
+            const pass1All = state.aiCheckCorrections;
+            // Review mode is absolute: nothing auto-applies while it is on.
+            const applyableP1 = (state.aiCheckAutoApplyHigh !== false && !reviewMode)
+              ? pass1All.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
+              : [];
+            if (applyableP1.length) {
+              state.aiCheckCorrections = applyableP1;
+              const { applied } = onApplyAiCheckCorrections(false);
+              totalApplied += applied;
+            }
+            deepQueue = pass1All.filter(c => !applyableP1.includes(c));
+            state.aiCheckCorrections = [];
+          }
+        }
+        text = await runPass(buildPrompt(batch, { basePrompt: DEFAULT_AI_CHECK_NATURALNESS_PROMPT, deepPassFormat: true, lintBlock }), 'naturalness');
+      } else {
+        text = await runPass(buildPrompt(batch, { lintBlock }), '');
+      }
+
+      if (text === null) break;
+      if (!text.trim()) {
+        setCopasStatus('ai-check', 'Berhenti: respons kosong.');
+        flashHint('Auto Copas AI Check berhenti: respons kosong.');
+        break;
       }
 
       const area = ui.pasteAiCheckArea as HTMLTextAreaElement | undefined;
@@ -490,26 +570,54 @@ export async function toggleCopasAiCheck(): Promise<void> {
         continue;
       }
 
-      const { pushUndoSnapshot } = await import('../render');
-      pushUndoSnapshot(true, batch.map((l) => l.line_num));
+      // Deep Check: merge pass-1 leftovers (pass 2 wins on duplicate line nums).
+      if (deepQueue.length) {
+        const pass2Nums = new Set(state.aiCheckCorrections.map(c => c.num));
+        const pass1Leftover = deepQueue.filter(c => !pass2Nums.has(c.num));
+        state.aiCheckCorrections = [...state.aiCheckCorrections, ...pass1Leftover];
+        deepQueue = [];
+      }
 
       if (!isCopasAiCheck) break;
 
-      if (reviewMode && state.aiCheckCorrections.length > 0) {
+      // Tiered auto-apply (same contract as auto-translate's API loop):
+      // - aiCheckAutoApplyHigh ON: high-confidence, non-flagged corrections
+      //   apply immediately; the rest goes to review.
+      // - aiCheckAutoApplyHigh OFF ("high tetap manual"): NOTHING auto-applies.
+      // - reviewMode ON (or autoApplyHigh OFF): pause whenever corrections remain.
+      const autoApplyHigh = state.aiCheckAutoApplyHigh !== false && !reviewMode;
+      const autoApplyable = autoApplyHigh
+        ? state.aiCheckCorrections.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
+        : [];
+      const restCorrections = state.aiCheckCorrections.filter(c => !autoApplyable.includes(c));
+
+      if (autoApplyable.length) {
+        state.aiCheckCorrections = autoApplyable;
+        const { applied } = onApplyAiCheckCorrections(false);
+        totalApplied += applied;
+      }
+
+      const shouldReview = restCorrections.length > 0 && (reviewMode || !autoApplyHigh);
+      if (shouldReview) {
+        state.aiCheckCorrections = restCorrections;
         renderAiCheckCorrections();
         const reviewActions = document.getElementById('aiCheckReviewActions') as HTMLElement | null;
         if (reviewActions) reviewActions.style.display = 'flex';
-        setCopasStatus('ai-check', `Review ${state.aiCheckCorrections.length} koreksi… (Apply & Lanjut / Skip)`);
+        setCopasStatus('ai-check', `Review ${restCorrections.length} koreksi… (Apply & Lanjut / Skip)`);
         const reviewResult = await waitForCopasReview();
         if (reviewActions) reviewActions.style.display = 'none';
         if (!isCopasAiCheck) break;
         if (reviewResult === 'apply') {
           const { applied } = onApplyAiCheckCorrections(false);
           totalApplied += applied;
+        } else if (reviewResult === 'skip') {
+          const remaining = state.aiCheckCorrections.filter(c => !c.checked);
+          if (remaining.length) recordAiCheckRejections(remaining);
+          state.aiCheckCorrections = [];
         }
       } else {
-        const { applied } = onApplyAiCheckCorrections(false);
-        totalApplied += applied;
+        // No review pause: medium/low stay queued for manual inspection.
+        state.aiCheckCorrections = restCorrections;
       }
 
       for (const l of batch) l._ai_checked = true;

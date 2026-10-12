@@ -50,6 +50,27 @@ export interface ChatCompletionOptions {
    * Interactive callers (agent chat, dictionary popup) leave it off.
    */
   rateLimited?: boolean;
+  /**
+   * Native function calling: JSON tool schemas + prior conversation.
+   * When set, providers that support tools declare them and the returned
+   * ToolCalls (if any) are surfaced via the structured return value of
+   * `chatCompletionStructured`. Plain `chatCompletion` callers are unaffected.
+   */
+  tools?: { name: string; description: string; parameters: Record<string, any> }[];
+}
+
+/** A tool invocation requested by the model (native function calling). */
+export interface ToolCallRequest {
+  name: string;
+  arguments: Record<string, any>;
+  /** Provider-native call id when available (not needed for our loop). */
+  id?: string;
+}
+
+/** Structured result: text reply and/or requested tool calls. */
+export interface StructuredCompletionResult {
+  text: string;
+  toolCalls: ToolCallRequest[];
 }
 
 // ------------------------------------------------------------------
@@ -543,7 +564,7 @@ async function chatCompletionOpenAI(
   messages: ChatMessage[],
   config: ApiConfig,
   options: ChatCompletionOptions
-): Promise<string> {
+): Promise<string | StructuredCompletionResult> {
   const url = openAiUrl(config.url);
   const prepared = prepareMessagesForApi(messages);
 
@@ -557,6 +578,12 @@ async function chatCompletionOpenAI(
     stream: useStreaming(),
   };
   applyOpenAIOptions(body, config.model, config.url || '');
+  if (options.tools?.length) {
+    body.tools = options.tools.map(t => ({
+      type: 'function',
+      function: { name: t.name, description: t.description, parameters: t.parameters },
+    }));
+  }
 
   return withAiRequest(options, async (ctx) => {
     const res = await fetch(url, {
@@ -576,17 +603,22 @@ async function chatCompletionOpenAI(
     // A provider asked for non-streaming JSON (stream disabled or ignored).
     if (ct.includes('application/json') && !ct.includes('event-stream')) {
       const data = await res.json();
-      const rawText = data.choices?.[0]?.message?.content || '';
+      const msg = data.choices?.[0]?.message;
+      const rawText = msg?.content || '';
       const finish = data.choices?.[0]?.finish_reason ?? null;
       const text = state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
-      if (!text.trim()) throw makeEmptyResponseError();
+      const toolCalls = extractOpenAiToolCalls(msg);
+      if (!text.trim() && !toolCalls.length) throw makeEmptyResponseError();
       if (onDeltaSafe(options) && text) options.onDelta!(text, text);
       warnOnFinish(finish, options, config);
-      return text;
+      return options.tools?.length
+        ? { text, toolCalls }
+        : text;
     }
 
     let full = '';
     let finishReason: string | null = null;
+    const toolCallAcc = createOpenAiToolCallAccumulator();
     const onDelta = onDeltaSafe(options);
 
     await readSseDataLines(res, ctx, (data) => {
@@ -596,6 +628,7 @@ async function chatCompletionOpenAI(
       const choice = chunk.choices?.[0];
       const delta = choice?.delta?.content ?? choice?.message?.content ?? '';
       if (choice?.finish_reason) finishReason = String(choice.finish_reason);
+      toolCallAcc.add(choice?.delta?.tool_calls);
 
       if (typeof delta === 'string' && delta) {
         full += delta;
@@ -608,9 +641,55 @@ async function chatCompletionOpenAI(
 
     warnOnFinish(finishReason, options, config);
     const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
-    if (!finalText.trim()) throw makeEmptyResponseError();
-    return finalText;
+    const toolCalls = toolCallAcc.finish();
+    if (!finalText.trim() && !toolCalls.length) throw makeEmptyResponseError();
+    return options.tools?.length
+      ? { text: finalText, toolCalls }
+      : finalText;
   });
+}
+
+/** Extract native tool calls from a non-streaming OpenAI response message. */
+function extractOpenAiToolCalls(msg: any): ToolCallRequest[] {
+  const raw = msg?.tool_calls;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((tc: any) => ({
+    id: typeof tc?.id === 'string' ? tc.id : undefined,
+    name: String(tc?.function?.name || ''),
+    arguments: safeParseToolArgs(tc?.function?.arguments),
+  })).filter((tc: ToolCallRequest) => tc.name);
+}
+
+/** Accumulates streamed OpenAI tool_call deltas (name/arguments arrive in pieces). */
+function createOpenAiToolCallAccumulator() {
+  const parts = new Map<number, { id?: string; name: string; args: string }>();
+  return {
+    add(deltas: any) {
+      if (!Array.isArray(deltas)) return;
+      for (const d of deltas) {
+        const idx = Number(d?.index) || 0;
+        const cur = parts.get(idx) || { name: '', args: '' };
+        if (typeof d?.id === 'string') cur.id = d.id;
+        if (typeof d?.function?.name === 'string') cur.name += d.function.name;
+        if (typeof d?.function?.arguments === 'string') cur.args += d.function.arguments;
+        parts.set(idx, cur);
+      }
+    },
+    finish(): ToolCallRequest[] {
+      return [...parts.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, p]) => ({ id: p.id, name: p.name, arguments: safeParseToolArgs(p.args) }))
+        .filter(tc => tc.name);
+    },
+  };
+}
+
+/** Parse tool-call arguments JSON; tolerate empty/malformed payloads. */
+function safeParseToolArgs(raw: any): Record<string, any> {
+  if (raw && typeof raw === 'object') return raw;
+  const s = String(raw || '').trim();
+  if (!s) return {};
+  try { return JSON.parse(s); } catch { return { _raw: s }; }
 }
 
 function onDeltaSafe(options: ChatCompletionOptions): boolean {
@@ -689,7 +768,7 @@ async function chatCompletionAnthropic(
   messages: ChatMessage[],
   config: ApiConfig,
   options: ChatCompletionOptions
-): Promise<string> {
+): Promise<string | StructuredCompletionResult> {
   const url = anthropicMessagesUrl(config.url || '');
   const prepared = prepareMessagesForApi(messages);
 
@@ -712,6 +791,13 @@ async function chatCompletionAnthropic(
   };
   if (prepared.system) body.system = prepared.system;
   applyAnthropicOptions(body);
+  if (options.tools?.length) {
+    body.tools = options.tools.map(t => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.parameters,
+    }));
+  }
 
   return withAiRequest(options, async (ctx) => {
     const res = await fetch(url, {
@@ -737,14 +823,18 @@ async function chatCompletionAnthropic(
       const data = await res.json();
       const rawText = extractAnthropicText(data);
       const text = state.aiFilterThinkingOutput ? stripThinkingTags(rawText) : rawText;
-      if (!text.trim()) throw makeEmptyResponseError();
+      const toolCalls = extractAnthropicToolCalls(data);
+      if (!text.trim() && !toolCalls.length) throw makeEmptyResponseError();
       if (onDeltaSafe(options) && text) options.onDelta!(text, text);
       warnOnFinish(data?.stop_reason ?? null, options, config);
-      return text;
+      return options.tools?.length
+        ? { text, toolCalls }
+        : text;
     }
 
     let full = '';
     let finishReason: string | null = null;
+    const toolCallAcc = createAnthropicToolCallAccumulator();
     const onDelta = onDeltaSafe(options);
 
     await readSseDataLines(res, ctx, (data) => {
@@ -766,6 +856,14 @@ async function chatCompletionAnthropic(
         piece = extractAnthropicText(chunk);
       }
 
+      // input_json_delta streams tool_use arguments in pieces.
+      if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'input_json_delta') {
+        toolCallAcc.addJson(chunk.delta.partial_json || '');
+      }
+      if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'tool_use') {
+        toolCallAcc.start(Number(chunk.index) || 0, chunk.content_block.id, chunk.content_block.name);
+      }
+
       // message_delta carries stop_reason; some proxies use choices[].finish_reason.
       if (chunk.type === 'message_delta' && chunk.delta?.stop_reason) {
         finishReason = String(chunk.delta.stop_reason);
@@ -783,9 +881,51 @@ async function chatCompletionAnthropic(
 
     warnOnFinish(finishReason, options, config);
     const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
-    if (!finalText.trim()) throw makeEmptyResponseError();
-    return finalText;
+    const toolCalls = toolCallAcc.finish();
+    if (!finalText.trim() && !toolCalls.length) throw makeEmptyResponseError();
+    return options.tools?.length
+      ? { text: finalText, toolCalls }
+      : finalText;
   });
+}
+
+/** Extract tool_use blocks from a non-streaming Anthropic response. */
+function extractAnthropicToolCalls(data: any): ToolCallRequest[] {
+  if (!Array.isArray(data?.content)) return [];
+  return data.content
+    .filter((p: any) => p?.type === 'tool_use' && p?.name)
+    .map((p: any) => ({
+      id: typeof p.id === 'string' ? p.id : undefined,
+      name: String(p.name),
+      arguments: (p.input && typeof p.input === 'object') ? p.input : {},
+    }));
+}
+
+/** Accumulates streamed Anthropic tool_use blocks (input arrives as JSON fragments). */
+function createAnthropicToolCallAccumulator() {
+  const parts = new Map<number, { id?: string; name: string; json: string }>();
+  return {
+    start(index: number, id: string | undefined, name: string) {
+      parts.set(index, { id, name: String(name || ''), json: '' });
+    },
+    addJson(fragment: string) {
+      // Fragment belongs to the most recently started block.
+      const lastIdx = Math.max(-1, ...parts.keys());
+      if (lastIdx < 0) return;
+      const cur = parts.get(lastIdx)!;
+      cur.json += fragment;
+    },
+    finish(): ToolCallRequest[] {
+      return [...parts.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, p]) => ({
+          id: p.id,
+          name: p.name,
+          arguments: safeParseToolArgs(p.json),
+        }))
+        .filter(tc => tc.name);
+    },
+  };
 }
 
 // ------------------------------------------------------------------
@@ -833,7 +973,7 @@ async function chatCompletionGemini(
   messages: ChatMessage[],
   config: ApiConfig,
   options: ChatCompletionOptions
-): Promise<string> {
+): Promise<string | StructuredCompletionResult> {
   const model = config.model || 'gemini-1.5-flash';
   const stream = useStreaming();
   const url = geminiStreamUrl(config.url || '', model, stream);
@@ -849,6 +989,15 @@ async function chatCompletionGemini(
     applyGeminiOptions(genConfig, model, includeThinking);
     const body: any = { contents, generationConfig: genConfig };
     if (systemInstruction) body.systemInstruction = systemInstruction;
+    if (options.tools?.length) {
+      body.tools = [{
+        functionDeclarations: options.tools.map(t => ({
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        })),
+      }];
+    }
     return body;
   };
 
@@ -892,9 +1041,11 @@ async function chatCompletionGemini(
       const chunks = Array.isArray(data) ? data : [data];
       let full = '';
       let finishReason: string | null = null;
+      const toolCalls: ToolCallRequest[] = [];
       for (const item of chunks) {
         const piece = geminiParts(item);
         if (item?.candidates?.[0]?.finishReason) finishReason = String(item.candidates[0].finishReason);
+        toolCalls.push(...extractGeminiToolCalls(item));
         if (piece) {
           full += piece;
           if (onDeltaSafe(options)) {
@@ -905,12 +1056,15 @@ async function chatCompletionGemini(
       }
       warnOnFinish(finishReason, options, config);
       const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
-      if (!finalText.trim()) throw makeEmptyResponseError();
-      return finalText;
+      if (!finalText.trim() && !toolCalls.length) throw makeEmptyResponseError();
+      return options.tools?.length
+        ? { text: finalText, toolCalls }
+        : finalText;
     }
 
     let full = '';
     let finishReason: string | null = null;
+    const toolCalls: ToolCallRequest[] = [];
     const onDelta = onDeltaSafe(options);
 
     await readSseDataLines(res, ctx, (data) => {
@@ -920,6 +1074,7 @@ async function chatCompletionGemini(
       for (const chunk of chunks) {
         const piece = geminiParts(chunk);
         if (chunk?.candidates?.[0]?.finishReason) finishReason = String(chunk.candidates[0].finishReason);
+        toolCalls.push(...extractGeminiToolCalls(chunk));
         if (piece) {
           full += piece;
           if (onDelta) {
@@ -932,9 +1087,22 @@ async function chatCompletionGemini(
 
     warnOnFinish(finishReason, options, config);
     const finalText = state.aiFilterThinkingOutput ? stripThinkingTags(full) : full;
-    if (!finalText.trim()) throw makeEmptyResponseError();
-    return finalText;
+    if (!finalText.trim() && !toolCalls.length) throw makeEmptyResponseError();
+    return options.tools?.length
+      ? { text: finalText, toolCalls }
+      : finalText;
   });
+}
+
+/** Extract functionCall parts from a Gemini response chunk. */
+function extractGeminiToolCalls(item: any): ToolCallRequest[] {
+  const parts: any[] = item?.candidates?.[0]?.content?.parts || [];
+  return parts
+    .filter((p: any) => p?.functionCall?.name)
+    .map((p: any) => ({
+      name: String(p.functionCall.name),
+      arguments: (p.functionCall.args && typeof p.functionCall.args === 'object') ? p.functionCall.args : {},
+    }));
 }
 
 // ------------------------------------------------------------------
@@ -980,9 +1148,9 @@ export async function chatCompletion(
           `Mengirim request AI via ${state.aiApiType}`,
           `Model: ${config.model}${useStreaming() ? ' | streaming' : ''} | key ${i + 1}/${ordered.length}${attempt > 0 ? ` | percobaan ${attempt + 1}` : ''}`
         );
-        if (state.aiApiType === 'gemini') return await chatCompletionGemini(messages, config, options);
-        if (state.aiApiType === 'anthropic') return await chatCompletionAnthropic(messages, config, options);
-        return await chatCompletionOpenAI(messages, config, options);
+        if (state.aiApiType === 'gemini') return await chatCompletionGemini(messages, config, options) as any;
+        if (state.aiApiType === 'anthropic') return await chatCompletionAnthropic(messages, config, options) as any;
+        return await chatCompletionOpenAI(messages, config, options) as any;
       } catch (err: any) {
         lastError = err;
         options.log?.('Request AI gagal', err?.message || String(err));
@@ -1022,6 +1190,29 @@ export async function chatCompletionText(
   options: ChatCompletionOptions = {}
 ): Promise<string> {
   return chatCompletion([{ role: 'user', content: prompt }], options);
+}
+
+/**
+ * Structured completion: like chatCompletion, but when `options.tools` is set
+ * the providers' native tool calls are returned instead of being embedded in
+ * text. Falls back to plain text when tools are unsupported/unavailable —
+ * the caller is responsible for parsing text in that case.
+ */
+export async function chatCompletionStructured(
+  messages: ChatMessage[],
+  options: ChatCompletionOptions = {}
+): Promise<StructuredCompletionResult> {
+  if (!options.tools?.length) {
+    const text = await chatCompletion(messages, options);
+    return { text, toolCalls: [] };
+  }
+  const result = await (chatCompletion as any)(messages, options);
+  if (result && typeof result === 'object' && Array.isArray(result.toolCalls)) {
+    return result as StructuredCompletionResult;
+  }
+  // Provider returned a plain string (should not happen when tools are set,
+  // but be defensive) — treat it as a text-only result.
+  return { text: String(result ?? ''), toolCalls: [] };
 }
 
 export { THINKING_TAGS };

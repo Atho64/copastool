@@ -3401,6 +3401,33 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   z-index: 1050;
   overflow: hidden;
 }
+/* Compact agent header: smaller title + icon buttons so the header stays
+   slim on the 380px panel (and on mobile). */
+#aiAgentChatPanel .agent-header {
+  padding: 6px 10px;
+  gap: 5px;
+}
+#aiAgentChatPanel .agent-header > span:first-child {
+  font-size: 12px;
+  font-weight: 700;
+}
+#aiAgentChatPanel .agent-header .icon-btn {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+}
+#aiAgentChatPanel .agent-header .icon-btn .lucide-icon {
+  width: 13px;
+  height: 13px;
+}
+#aiAgentChatPanel .agent-token-meter {
+  font-size: 9.5px;
+  margin-left: auto;
+}
+
 .agent-header {
   padding: 10px 14px;
   background: var(--panel);
@@ -3467,6 +3494,195 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 }
 .agent-msg pre { background: var(--bg); padding: 8px; border-radius: var(--radius-xs); overflow-x: auto; margin: 8px 0 0 0; }
 .agent-msg code { font-family: var(--font-mono); font-size: 11px; }
+
+/* ─── Subagent question card ─── */
+.agent-question-card {
+  border-color: var(--primary);
+  border-width: 1.5px;
+}
+.agent-question-text { margin-bottom: 8px; }
+.agent-question-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.agent-question-option { max-width: 100%; text-align: left; }
+.agent-question-hint { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
+.agent-question-answered {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ─── Agent plan checklist ─── */
+.agent-plan-card {
+  border-color: var(--primary);
+}
+.agent-plan-title {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: var(--primary);
+}
+.agent-plan-step {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.agent-plan-step.done { color: var(--muted); text-decoration: line-through; }
+.agent-plan-step.active { color: var(--text); font-weight: 600; }
+.agent-plan-step.pending { color: var(--muted); }
+
+/* ─── Agent token meter ─── */
+.agent-token-meter {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  margin-left: auto;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+/* ─── Agent line-link (clickable [line N]) ─── */
+.agent-line-link {
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline dotted;
+}
+.agent-line-link:hover {
+  text-decoration-style: solid;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  border-radius: 3px;
+}
+
+/* ─── Agent sessions panel ─── */
+.agent-sessions-panel {
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.agent-sessions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.agent-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.agent-session-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+}
+.agent-session-row.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.agent-session-name {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 0;
+}
+.agent-session-name:hover { color: var(--primary); }
+.agent-session-rename { font-size: 12px; height: 24px; flex: 1; min-width: 0; }
+.agent-session-meta {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.agent-session-delete {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.agent-session-delete.agent-session-delete-armed {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  font-weight: 700;
+  animation: agent-del-pulse 1s ease-in-out infinite;
+}
+@keyframes agent-del-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.agent-session-empty {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 6px 2px;
+}
+
+/* ─── Steering message bubble ─── */
+.agent-msg.agent-steer {
+  border: 1.5px dashed var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+}
+
+/* ─── Agent mutation preview (diff gate) ─── */
+.agent-mutation-card {
+  border-color: var(--warning, #c98a12);
+  max-width: 95%;
+}
+.agent-mutation-title {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.agent-mutation-list {
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 11.5px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.agent-mutation-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.agent-mutation-num {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.agent-mutation-diff { word-break: break-word; }
+.agent-diff-del {
+  text-decoration: line-through;
+  opacity: 0.55;
+  color: var(--muted);
+}
+.agent-diff-add {
+  text-decoration: underline;
+  color: var(--primary);
+  font-weight: 600;
+}
+.agent-mutation-more {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 11px;
+}
 .agent-input-area { padding: 10px 14px; background: var(--panel); border-top: 1px solid var(--line); }
 .agent-msg p { margin: 0 0 8px 0; }
 .agent-msg p:last-child { margin: 0; }
