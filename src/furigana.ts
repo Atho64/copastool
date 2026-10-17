@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { state } from './state';
+import { kanaToRomaji } from './string-utils';
 
 let worker: Worker | null = null;
 let initPromise: Promise<void> | null = null;
@@ -144,5 +145,71 @@ export async function convertToFurigana(text: string): Promise<string> {
   } catch (error: any) {
     console.error('[CSTL] Furigana worker error:', error);
     return text;
+  }
+}
+
+const romajiCache = new Map<string, string>();
+const ROMAJI_CACHE_LIMIT = 3000;
+
+function cleanRomajiPunctuation(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\s+([,.:;!?])/g, '$1')
+    .replace(/([「"']) /g, '$1')
+    .replace(/ ([」"'])/g, '$1')
+    .replace(/ +/g, ' ')
+    .trim();
+}
+
+/**
+ * Returns cached or immediately convertible Romaji synchronously if possible.
+ */
+export function getCachedRomaji(text: string): string | null {
+  if (!text) return '';
+  const cached = romajiCache.get(text);
+  if (cached !== undefined) return cached;
+  if (!KANJI_REGEX.test(text)) {
+    const fast = cleanRomajiPunctuation(kanaToRomaji(text));
+    romajiCache.set(text, fast);
+    return fast;
+  }
+  return null;
+}
+
+/**
+ * Converts Japanese text (kanji + kana) to spaced Hepburn Romaji.
+ */
+export async function convertToRomaji(text: string): Promise<string> {
+  if (!text) return '';
+  const cached = romajiCache.get(text);
+  if (cached !== undefined) return cached;
+
+  // Fast path: if text contains no Kanji, use synchronous kanaToRomaji
+  if (!KANJI_REGEX.test(text)) {
+    const fast = cleanRomajiPunctuation(kanaToRomaji(text));
+    romajiCache.set(text, fast);
+    return fast;
+  }
+
+  try {
+    await initFurigana();
+    const result = await requestWorker('convert', {
+      text,
+      to: 'romaji',
+      mode: 'spaced',
+      dictPath: getDictUrl(),
+    }, 30_000) as string;
+
+    const cleaned = cleanRomajiPunctuation(result || '');
+    if (romajiCache.size >= ROMAJI_CACHE_LIMIT) {
+      const oldest = romajiCache.keys().next().value;
+      if (oldest !== undefined) romajiCache.delete(oldest);
+    }
+    romajiCache.set(text, cleaned);
+    return cleaned;
+  } catch (error: any) {
+    console.warn('[CSTL] Romaji conversion fallback:', error);
+    const fallback = cleanRomajiPunctuation(kanaToRomaji(text));
+    return fallback;
   }
 }

@@ -133,8 +133,9 @@ self.onmessage = async (e) => {
     } else if (type === 'convert') {
       await init(payload?.dictPath);
       const result = await kuroshiroInstance!.convert(payload.text, {
-        mode: 'furigana',
-        to: payload.to || 'hiragana'
+        mode: payload.mode || (payload.to === 'romaji' ? 'spaced' : 'furigana'),
+        to: payload.to || 'hiragana',
+        romajiSystem: payload.romajiSystem || 'hepburn'
       });
       self.postMessage({ id, type: 'convert_done', result });
     }

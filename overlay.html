@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CopasTool VN Overlay</title>
+  <link rel="stylesheet" href="./src/overlay.css">
+</head>
+<body class="overlay-body">
+  <div class="overlay-container" id="overlayContainer">
+    <!-- Header / Drag Bar -->
+    <header class="overlay-header" id="overlayHeader" data-tauri-drag-region>
+      <div class="header-left" data-tauri-drag-region>
+        <span class="status-indicator status-disconnected" id="statusDot" title="Status LunaTranslator"></span>
+        <span class="overlay-title" id="overlayTitle" data-tauri-drag-region>VN Testing Overlay</span>
+        <span class="line-badge" id="lineBadge" data-tauri-drag-region>[--/--]</span>
+        <span class="mode-badge mode-check" id="modeBadge" data-tauri-drag-region title="Mode Operasi (Dapat diubah di menu Tools > LunaHooker)">CHECK</span>
+      </div>
+
+      <div class="header-controls">
+        <!-- Opacity selector -->
+        <button type="button" class="ctrl-btn" id="btnOpacity" title="Atur Transparansi Latar (Siklus: 85%, 60%, 35%, 100%)">
+          <span class="icon-text">85%</span>
+        </button>
+
+        <!-- Close Button -->
+        <button type="button" class="ctrl-btn btn-close" id="btnClose" title="Tutup Overlay">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Dialogue Flow Area -->
+    <main class="overlay-content" id="overlayContent">
+      <!-- Previous Context Lines -->
+      <div class="context-group context-prev" id="prevLinesContainer"></div>
+
+      <!-- Current Active Line -->
+      <article class="active-line-card" id="activeLineCard">
+        <div class="active-line-header">
+          <span class="speaker-tag" id="activeSpeaker" style="display: none;"></span>
+          <span class="file-tag" id="activeFile"></span>
+          <button type="button" class="btn-bookmark" id="btnBookmark" title="Tandai baris ini (Bookmark)">
+            <svg class="star-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="translated-text" id="activeTranslated">
+          Mulai mainkan game visual novel untuk melihat sinkronisasi dialog.
+        </div>
+
+        <div class="original-text" id="activeOriginal">
+          Menunggu teks dari LunaTranslator... (ws://127.0.0.1:2333)
+        </div>
+
+        <div class="romaji-text" id="activeRomaji" style="display: none;"></div>
+      </article>
+
+      <!-- Next Context Lines -->
+      <div class="context-group context-next" id="nextLinesContainer"></div>
+    </main>
+
+    <!-- Footer Bar -->
+    <footer class="overlay-footer">
+      <span class="footer-msg" id="footerMsg">Luna: Menghubungkan...</span>
+      <span class="hint-text">Tarik header untuk menggeser</span>
+    </footer>
+  </div>
+
+  <script type="module" src="./src/overlay.ts"></script>
+</body>
+</html>

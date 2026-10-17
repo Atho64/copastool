@@ -54,6 +54,8 @@ import {
 } from './project';
 import { isFolderBackupSupported, backupAllToFolder, openFolderRestorePicker } from './folder-backup';
 import { getStandardPromptHeaderForFormat } from './ai-format';
+import { lunaModal } from './luna-modal';
+import { overlayController } from './overlay-controller';
 
 function standardPrompt(template: string, format: string): string {
   const english = template === 'english' || template === 'english-kagikakko';
@@ -144,7 +146,8 @@ export function cacheElements(): void {
     'btnShortcutsOpen', 'btnWorkspaceShortcutsOpen', 'shortcutModal', 'shortcutList', 'shortcutStatus', 'btnShortcutsResetAll', 'btnShortcutsClose',
     'settingsIncrementCheck', 'dsIncrementCheck',
     'opfsExplorerModal', 'btnOpfsExplorerOpen', 'btnWorkspaceOpfsExplorerOpen', 'btnOpfsExplorerClose', 'btnOpfsRefresh', 'opfsCrumbs', 'opfsList', 'opfsEmpty', 'opfsEmptyText', 'opfsLoading',
-    'btnTabSettingsGeneral', 'btnTabSettingsPrompts', 'btnTabSettingsGlossary', 'btnTabSettingsShortcuts', 'btnTabSettingsPlugins'
+    'btnTabSettingsGeneral', 'btnTabSettingsPrompts', 'btnTabSettingsGlossary', 'btnTabSettingsShortcuts', 'btnTabSettingsPlugins',
+    'btnLunaHookerOpen', 'lunaHookerModal'
   ];
   for (const id of ids) {
     ui[id] = document.getElementById(id);
@@ -1054,6 +1057,7 @@ if (ui.settingsCheckSimilarity) {
   // File List
   ui.btnFileList?.addEventListener('click', () => openFileListModal());
   ui.btnImmersiveOpen?.addEventListener('click', () => Immersive.open());
+  ui.btnLunaHookerOpen?.addEventListener('click', () => lunaModal.open());
   ui.btnFileListClose?.addEventListener('click', () => closeFileListModal());
   ui.btnFileListAdd?.addEventListener('click', () => onAddFile());
   ui.btnFileListDelete?.addEventListener('click', () => onDeleteSelectedFiles());
@@ -1764,6 +1768,14 @@ export async function init(): Promise<void> {
 
   // Initialize OPFS Explorer
   OpfsExplorer.init();
+
+  // Initialize LunaTranslator Hooker & VN Overlay
+  try {
+    lunaModal.init();
+    overlayController.init();
+  } catch (err) {
+    console.warn('[LunaHooker] Initialization error:', err);
+  }
 
   // Initialize Mobile View Switcher
   initMobileViewSwitcher();

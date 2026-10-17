@@ -1,6 +1,6 @@
 import { state, ui, isTranslated } from './state';
 import { scrollPreviewToLine } from './selection';
-import { getSessionData, deleteSessionData, deriveSessionName, legacyChatKey } from './agent-sessions';
+import { getSessionData, deleteSessionData, deriveSessionName, legacyChatKey, persistActiveSession, renderSessionList, renameSession } from './agent-sessions';
 import { applyAgentTranslations, clearAgentTranslations, onUndoLastApply, onRedoLastUndo } from './translate';
 import { queueAutoSave } from './project';
 import { refreshAll, pushUndoSnapshot } from './render';
@@ -149,12 +149,10 @@ function saveActiveSessionPointer(): void {
  */
 function persistCurrentSession(): void {
   if (!activeSessionId) return;
-  import('./agent-sessions').then(({ persistActiveSession }) => {
-    const toSave = chatHistory.filter(m => m.role !== 'system' && !m._internal);
-    if (!toSave.length) return;
-    const name = deriveSessionNameFromHistory(toSave);
-    persistActiveSession(activeSessionId, name, JSON.stringify(toSave), toSave.length);
-  }).catch(() => {});
+  const toSave = chatHistory.filter(m => m.role !== 'system' && !m._internal);
+  if (!toSave.length) return;
+  const name = deriveSessionNameFromHistory(toSave);
+  persistActiveSession(activeSessionId, name, JSON.stringify(toSave), toSave.length);
 }
 
 function deriveSessionNameFromHistory(msgs: { role: string; content: string }[]): string {
@@ -177,7 +175,7 @@ export function switchToSession(sessionId: string): { role: string; content: str
   const raw = getSessionData(sessionId);
   if (raw === null) return null;
   // Persist current first.
-  if (activeSessionId) persistCurrentSession();
+  if (activeSessionId && activeSessionId !== sessionId) persistCurrentSession();
   activeSessionId = sessionId;
   saveActiveSessionPointer();
   try {
@@ -202,6 +200,7 @@ export function saveChatHistory(): void {
 }
 
 export function loadChatHistory(): void {
+  try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
   chatHistory.length = 0;
   chatHistory.push({ role: 'system', content: buildSystemPrompt() });
   // Initialize the session pointer for this project (lazy first session).
@@ -217,9 +216,13 @@ export function loadChatHistory(): void {
       if (raw) {
         const msgs = JSON.parse(raw) as ChatMessage[];
         if (Array.isArray(msgs) && msgs.length) {
+          for (const m of msgs) {
+            if (m.role && m.content) chatHistory.push({ role: m.role, content: m.content });
+          }
           createNewSession();
           persistCurrentSession();
           localStorage.removeItem(legacyChatKey(state.currentProjectId)); // migrated
+          raw = null;
         } else {
           raw = null;
         }
@@ -238,10 +241,11 @@ export function loadChatHistory(): void {
   }
 }
 
-export function clearChatHistory(): void {
+/** Reset in-memory chat history, DOM view, and token meter without deleting stored sessions. */
+function resetChatView(): void {
+  try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
   chatHistory.length = 0;
   chatHistory.push({ role: 'system', content: buildSystemPrompt() });
-  try { localStorage.removeItem(legacyChatKey(state.currentProjectId)); } catch {}
   // Reset UI
   const historyEl = ui.agentChatHistory as HTMLElement;
   if (historyEl) {
@@ -251,6 +255,18 @@ export function clearChatHistory(): void {
     welcome.textContent = WELCOME_MSG;
     historyEl.appendChild(welcome);
   }
+  updateTokenMeter();
+}
+
+export function clearChatHistory(): void {
+  if (activeSessionId) {
+    deleteSessionData(activeSessionId);
+    activeSessionId = '';
+    saveActiveSessionPointer();
+  }
+  try { localStorage.removeItem(legacyChatKey(state.currentProjectId)); } catch {}
+  resetChatView();
+  renderSessionsPanel();
 }
 
 export function renderChatHistory(): void {
@@ -286,6 +302,7 @@ export function showSubagentQuestion(id: string, question: string, options: stri
   if (!historyEl) return;
   const card = document.createElement('div');
   card.className = 'agent-msg assistant agent-question-card';
+  card.style.cssText = 'width: 100%; max-width: 94%; box-sizing: border-box;';
   card.dataset.questionId = id;
 
   const qEl = document.createElement('div');
@@ -295,21 +312,54 @@ export function showSubagentQuestion(id: string, question: string, options: stri
 
   const optsEl = document.createElement('div');
   optsEl.className = 'agent-question-options';
-  for (const opt of options) {
+  optsEl.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin: 8px 0; width: 100%;';
+  options.forEach((opt, idx) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-outline btn-sm agent-question-option';
-    btn.textContent = opt;
+    btn.style.cssText = [
+      'display: flex',
+      'align-items: flex-start',
+      'justify-content: flex-start',
+      'gap: 8px',
+      'width: 100%',
+      'max-width: 100%',
+      'min-width: 0',
+      'height: auto',
+      'min-height: 36px',
+      'padding: 8px 12px',
+      'white-space: normal',
+      'word-break: break-word',
+      'overflow-wrap: anywhere',
+      'text-align: left',
+      'line-height: 1.4',
+      'font-weight: 500',
+      'box-sizing: border-box',
+    ].join('; ');
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'agent-question-option-num';
+    numSpan.style.cssText = 'flex-shrink: 0; font-weight: 700; color: var(--primary); font-family: var(--font-mono); font-size: 12px; line-height: 1.4;';
+    numSpan.textContent = `${idx + 1}.`;
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'agent-question-option-label';
+    textSpan.style.cssText = 'flex: 1; min-width: 0; white-space: normal; word-break: break-word; overflow-wrap: anywhere; text-align: left; line-height: 1.4;';
+    textSpan.textContent = opt.replace(/^\s*\d+[\.\)]\s*/, '');
+
+    btn.append(numSpan, textSpan);
     btn.addEventListener('click', () => {
       if (card.dataset.answered) return;
       card.dataset.answered = '1';
       optsEl.querySelectorAll('button').forEach(b => (b as HTMLButtonElement).disabled = true);
       btn.classList.remove('btn-outline');
       btn.classList.add('btn-primary');
+      btn.style.opacity = '0.95';
+      numSpan.style.color = '#fff';
       import('./agent-subagent').then(m => m.resolveSubagentQuestion(id, opt));
     });
     optsEl.appendChild(btn);
-  }
+  });
   card.appendChild(optsEl);
 
   // Free-text fallback: the main input forwards as the answer.
@@ -1006,6 +1056,9 @@ async function buildTranslatePrompt(lineNums: number[], instruction?: string): P
   const joinedText = buildSelectedTranslationExport(false, selectedLineNums);
   const glossaryBlock = getGlossaryPrompt(joinedText);
 
+  // Feed the header the actual number of lines in this delegated request so
+  // {{lineCount}} does not leak the last manual Copy for AI count.
+  state._lastExportedLineCount = selectedLineNums.size;
   const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
   const extra = instruction ? `\n\nInstruction: ${instruction}` : '';
   const sections: string[] = [baseHeader];
@@ -1671,37 +1724,35 @@ export function renderSessionsPanel(): void {
   const panel = ui.agentSessionsPanel as HTMLElement | null;
   const list = ui.agentSessionsList as HTMLElement | null;
   if (!panel || !list) return;
-  import('./agent-sessions').then(({ renderSessionList }) => {
-    renderSessionList(list, activeSessionId, {
-      onSwitch: (id) => {
-        const msgs = switchToSession(id);
-        if (msgs === null) return;
-        // Rebuild chat history from the loaded session.
-        chatHistory.length = 0;
-        chatHistory.push({ role: 'system', content: buildSystemPrompt() });
-        for (const m of msgs) {
-          if (m.role && m.content) chatHistory.push({ role: m.role as ChatRole, content: m.content });
-        }
-        renderChatHistory();
-        renderSessionsPanel();
-        updateTokenMeter();
-      },
-      onDelete: (id) => {
+  renderSessionList(list, activeSessionId, {
+    onSwitch: (id) => {
+      const msgs = switchToSession(id);
+      if (msgs === null) return;
+      try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
+      // Rebuild chat history from the loaded session.
+      chatHistory.length = 0;
+      chatHistory.push({ role: 'system', content: buildSystemPrompt() });
+      for (const m of msgs) {
+        if (m.role && m.content) chatHistory.push({ role: m.role as ChatRole, content: m.content });
+      }
+      renderChatHistory();
+      renderSessionsPanel();
+      updateTokenMeter();
+    },
+    onDelete: (id) => {
+      if (id === activeSessionId) {
+        // Active session deleted — start fresh and refresh token meter.
+        clearChatHistory();
+      } else {
         deleteSessionData(id);
-        if (id === activeSessionId) {
-          // Active session deleted — start fresh.
-          clearChatHistory();
-        }
         renderSessionsPanel();
-      },
-      onRename: (id, newName) => {
-        import('./agent-sessions').then(({ renameSession }) => {
-          renameSession(id, newName);
-          renderSessionsPanel();
-        }).catch(() => {});
-      },
-    });
-  }).catch(() => {});
+      }
+    },
+    onRename: (id, newName) => {
+      renameSession(id, newName);
+      renderSessionsPanel();
+    },
+  });
 }
 
 /** Toggle the sessions panel open/closed. */
@@ -1717,9 +1768,8 @@ export function toggleSessionsPanel(): void {
 export function startNewSession(): void {
   if (activeSessionId) persistCurrentSession();
   createNewSession();
-  clearChatHistory();
+  resetChatView();
   renderSessionsPanel();
-  updateTokenMeter();
 }
 
 /** Ensure an active session id exists (lazy — created on first message). */

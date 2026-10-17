@@ -465,6 +465,7 @@ export function onSaveApiSettings(): void {
   if (ui.aiTranslateModeSelect) state.aiTranslateMode = (ui.aiTranslateModeSelect as HTMLSelectElement).value as any;
   if (ui.tavilyKeyInput) state.tavilyApiKey = (ui.tavilyKeyInput as HTMLInputElement).value.trim();
   saveApiSettings();
+  import('./ai-agent').then(m => m.updateTokenMeter()).catch(() => {});
   if (ui.apiSettingsModal) closeModal(ui.apiSettingsModal as HTMLElement);
   flashHint('Pengaturan API disimpan.');
 }
@@ -625,6 +626,10 @@ export async function onAutoTranslate(): Promise<void> {
 
         const joinedText = buildSelectedTranslationExport(false);
         const glossaryBlock = getGlossaryPrompt(joinedText);
+        // The prompt header says "return exactly {{lineCount}} lines"; without this
+        // it interpolates the *last manual Copy for AI* count (or 0 in a fresh
+        // session), so the model was told the wrong batch size.
+        state._lastExportedLineCount = sel.length;
         const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
         const sections: string[] = [baseHeader];
@@ -687,11 +692,14 @@ export async function onAutoTranslate(): Promise<void> {
 
         btn.textContent = `Menerjemahkan ${sel.length} baris (${subBatches.length}x paralel)... (Klik untuk Stop)`;
 
-        const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
         const glossaryBlock = getGlossaryPrompt('');
 
         const buildSubPrompt = (subBatch: typeof sel): string => {
           const subText = buildSelectedTranslationExport(false, new Set(subBatch.map(l => l.line_num)));
+          // Each sub-batch is its own request, so the header must describe that
+          // sub-batch's line count rather than the whole run's.
+          state._lastExportedLineCount = subBatch.length;
+          const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
           let contextBlock = '';
           if (state.contextLines > 0) {

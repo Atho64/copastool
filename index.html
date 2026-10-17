@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="./styles.css?v=27" />
+  <link rel="stylesheet" href="./styles.css?v=28" />
   <link rel="stylesheet" href="./src/immersive.css" />
 
   <script type="module" src="./src/app.ts"></script>
@@ -202,6 +202,7 @@
             <button id="btnTextReplacer" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span>Text Replacer</span></button>
             <button id="btnWorkspaceOpfsExplorerOpen" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>File Explorer (OPFS)</span></button>
             <button id="btnImmersiveOpen" class="dropdown-item" disabled><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Mode Immersif</span></button>
+            <button id="btnLunaHookerOpen" class="dropdown-item"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="2"/><polyline points="8 20 12 20 16 20"/></svg><span>Luna Hooker &amp; VN Overlay</span></button>
           </div>
         </div>
         <div class="dropdown" id="pluginMenuGroup">
@@ -2202,6 +2203,99 @@
       <div class="modal-actions mt-3">
         <span class="grow"></span>
         <button id="btnShortcutsClose" class="btn btn-primary" type="button">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated LunaTranslator Hooker & VN Overlay Modal -->
+  <div id="lunaHookerModal" class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-head flex-between">
+        <div class="flex-center gap-2">
+          <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="2"/><polyline points="8 20 12 20 16 20"/></svg>
+          <h3 class="m-0">LunaTranslator Hooker &amp; VN Overlay</h3>
+        </div>
+        <span id="lunaModalStatusBadge" class="bubble-badge">Terputus</span>
+      </div>
+      <div class="modal-body">
+        <p class="hint m-0 mb-3">Hubungkan CopasTool dengan LunaTranslator untuk playtesting visual novel di Windows. Saat teks game di-hook, dialog akan otomatis dicocokkan dan ditampilkan pada floating overlay.</p>
+
+        <div class="settings-section mb-3">
+          <div class="settings-section-title">Koneksi Layanan Jaringan LunaTranslator</div>
+          <div class="flex gap-2 wrap mb-2">
+            <div style="flex: 2; min-width: 180px;">
+              <label class="form-label" for="lunaHostInput">Host / IP:</label>
+              <input type="text" id="lunaHostInput" class="text-input w-full" value="127.0.0.1" placeholder="127.0.0.1" />
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+              <label class="form-label" for="lunaPortInput">Port WebSocket:</label>
+              <input type="number" id="lunaPortInput" class="text-input w-full" value="2333" placeholder="2333" />
+            </div>
+          </div>
+          <div class="flex gap-2 wrap flex-center">
+            <button id="btnLunaConnect" class="btn btn-primary" type="button">Hubungkan</button>
+            <button id="btnLunaDisconnect" class="btn btn-outline" type="button" disabled>Putuskan</button>
+            <span id="lunaConnectionLog" class="hint" style="font-size: 12px; margin-left: 8px;"></span>
+          </div>
+        </div>
+
+        <div class="settings-section mb-3">
+          <div class="settings-section-title">Mode Operasi Hooker &amp; Overlay</div>
+          <div class="flex gap-4 wrap mb-2">
+            <label class="radio-label flex-center gap-1" style="cursor: pointer;">
+              <input type="radio" name="lunaOperatingMode" id="rbLunaModeCheck" value="check" checked />
+              <span><strong>Check Mode</strong> (Cek sinkronisasi/QA dialog yang sudah diterjemahkan)</span>
+            </label>
+            <label class="radio-label flex-center gap-1" style="cursor: pointer;">
+              <input type="radio" name="lunaOperatingMode" id="rbLunaModeTl" value="tl" />
+              <span><strong>TL Mode</strong> (Auto-translate baris mentah via API CopasTool saat bermain)</span>
+            </label>
+          </div>
+          <!-- Info box saat TL Mode dipilih -->
+          <div id="lunaTlModeInfo" class="sub-card p-2 mb-2" style="display: none; background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; border-radius: 4px; font-size: 12px; line-height: 1.45;">
+            <div class="flex-between">
+              <strong style="color: #38bdf8;">TL Mode Aktif:</strong>
+              <span id="lunaTlModelBadge" class="bubble-badge" style="font-size: 11px;">Model: -</span>
+            </div>
+            <div class="hint mt-1">Saat dialog game mentah tertangkap dan belum diterjemahkan di proyek, CopasTool akan menerjemahkannya otomatis via API dan langsung menyimpannya.</div>
+          </div>
+        </div>
+
+        <div class="settings-section mb-3">
+          <div class="settings-section-title">Pengaturan Playtesting &amp; Sinkronisasi</div>
+          <label class="checkbox-label mb-2">
+            <input type="checkbox" id="chkLunaAutoConnect" />
+            <span>Hubungkan otomatis ke LunaTranslator saat CopasTool dibuka</span>
+          </label>
+          <label class="checkbox-label mb-2">
+            <input type="checkbox" id="chkLunaAutoScroll" checked />
+            <span>Auto-scroll editor utama CopasTool mengikuti dialog game</span>
+          </label>
+        </div>
+
+        <div class="settings-section mb-2">
+          <div class="settings-section-title">Floating HUD Overlay (Khusus Windows)</div>
+          <p class="hint m-0 mb-2">Jendela transparan melayang (Always on top) yang menampilkan dialog aktif dan baris sebelum/sesudah langsung di atas layar game.</p>
+          <div class="flex gap-2 wrap">
+            <button id="btnToggleOverlay" class="btn btn-success" type="button">
+              <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="2"/><polyline points="8 20 12 20 16 20"/></svg>
+              <span>Buka / Toggle VN Overlay</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="info-box mt-3" style="font-size: 12px; line-height: 1.5; padding: 8px 12px; background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; border-radius: 4px;">
+          <strong>Panduan Singkat:</strong>
+          <ol style="margin-left: 18px; margin-top: 4px;">
+            <li>Di LunaTranslator: Buka <em>Pengaturan</em> &rarr; <em>Layanan Jaringan (Network Service)</em> &rarr; Aktifkan dengan Port <code>2333</code>.</li>
+            <li>Pasang Text Hooker di LunaTranslator ke game visual novel yang sedang dimainkan.</li>
+            <li>Klik tombol <strong>Hubungkan</strong> dan <strong>Buka VN Overlay</strong> di atas. Dialog game akan otomatis sinkron dengan baris proyek CopasTool!</li>
+          </ol>
+        </div>
+      </div>
+      <div class="modal-actions mt-3">
+        <span class="grow"></span>
+        <button id="btnLunaModalClose" class="btn btn-primary" type="button">Tutup</button>
       </div>
     </div>
   </div>

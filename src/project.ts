@@ -2079,10 +2079,12 @@ export async function openProject(id: string, data: any): Promise<void> {
     return;
   }
 
-  import('./ai-agent').then(({ loadChatHistory, renderChatHistory, loadAllAgentMemories }) => {
+  import('./ai-agent').then(({ loadChatHistory, renderChatHistory, loadAllAgentMemories, updateTokenMeter, renderSessionsPanel }) => {
     loadAllAgentMemories();
     loadChatHistory();
     renderChatHistory();
+    renderSessionsPanel();
+    updateTokenMeter();
   });
   (ui.projectNameDisplay as HTMLElement).textContent = state.translationMode === 'htl'
     ? `${state.projectName} [HTL]`

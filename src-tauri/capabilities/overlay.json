@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "vn-overlay",
+  "description": "Minimal permissions for the floating VN overlay window. It only receives state events, asks the main window for state, sends bookmark toggles, invokes the overlay window commands, and drags itself. It deliberately has NO clipboard, dialog, filesystem or opener access, because it renders local dialogue text and nothing else.",
+  "windows": ["vn-overlay"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-close",
+    "core:window:allow-hide"
+  ]
+}

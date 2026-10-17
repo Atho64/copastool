@@ -3,11 +3,15 @@
 //! Security model
 //! --------------
 //! Every command below is reachable only through the IPC bridge. That bridge is
-//! restricted to the trusted `main` window
-//! (`src-tauri/capabilities/default.json` -> `"windows": ["main"]`), and on top of
-//! that each command re-checks the calling window label here. A remote page loaded
-//! into the Web AI companion webview therefore can never reach the filesystem, no
-//! matter how the capabilities file is configured.
+//! restricted to the trusted windows
+//! (`src-tauri/capabilities/default.json` -> `"windows": ["main"]`, plus the
+//! deliberately minimal `capabilities/overlay.json` -> `"windows": ["vn-overlay"]`),
+//! and on top of that each command re-checks the calling window label here. A
+//! remote page loaded into the Web AI companion webview therefore can never reach
+//! the filesystem, no matter how the capabilities files are configured.
+//!
+//! The `vn-overlay` window is trusted for the overlay commands only; it gets no
+//! clipboard, dialog, filesystem or opener access.
 //!
 //! Extra guards:
 //!   * `open_ai_window` only accepts https URLs on an allow-listed AI host.
@@ -30,6 +34,9 @@ const MAIN_WINDOW_LABEL: &str = "main";
 
 /// Label of the embedded Web AI companion window (remote third-party content).
 const AI_WINDOW_LABEL: &str = "ai-companion";
+
+/// Label of the floating VN testing overlay window.
+const OVERLAY_WINDOW_LABEL: &str = "vn-overlay";
 
 /// Hosts the Web AI companion window may load - and receive injected scripts on.
 /// Keep in sync with `AI_TARGET_URLS` in `src/ai-webview-controller.ts`.
@@ -105,6 +112,18 @@ pub(crate) fn ensure_main_window(window: &tauri::WebviewWindow) -> Result<(), St
     } else {
         Err(format!(
             "Perintah ini hanya boleh dipanggil dari jendela utama CopasTool (dipanggil dari \"{}\").",
+            window.label()
+        ))
+    }
+}
+
+/// Rejects calls from untrusted windows (allows main and vn-overlay).
+pub(crate) fn ensure_trusted_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() == MAIN_WINDOW_LABEL || window.label() == OVERLAY_WINDOW_LABEL {
+        Ok(())
+    } else {
+        Err(format!(
+            "Perintah ini hanya boleh dipanggil dari jendela terpercaya CopasTool (dipanggil dari \"{}\").",
             window.label()
         ))
     }
@@ -455,6 +474,129 @@ fn is_ai_window_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Res
 }
 
 #[tauri::command]
+async fn open_vn_overlay_window(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
+    ensure_trusted_window(&window)?;
+
+    if let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        overlay_win.show().map_err(|e| format!("Gagal menampilkan overlay: {e}"))?;
+        #[cfg(desktop)]
+        {
+            let _ = overlay_win.set_always_on_top(true);
+            let _ = overlay_win.unminimize();
+            let _ = overlay_win.set_focus();
+        }
+        let _ = app.emit("cstl-overlay-req-state", ());
+        return Ok(());
+    }
+
+    #[cfg(desktop)]
+    {
+        tauri::WebviewWindowBuilder::new(
+            &app,
+            OVERLAY_WINDOW_LABEL,
+            tauri::WebviewUrl::App("overlay.html".into()),
+        )
+        .title("CopasTool VN Overlay")
+        .inner_size(840.0, 260.0)
+        .transparent(true)
+        .always_on_top(true)
+        .decorations(false)
+        .shadow(false)
+        .skip_taskbar(true)
+        .resizable(true)
+        .build()
+        .map_err(|e| format!("Gagal membuat jendela overlay: {e}"))?;
+
+        let _ = app.emit("cstl-overlay-req-state", ());
+    }
+
+    #[cfg(not(desktop))]
+    {
+        return Err("VN Overlay hanya didukung di Desktop (Windows)".to_string());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn close_vn_overlay_window(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    ensure_trusted_window(&window)?;
+    if let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        let _ = overlay_win.hide();
+    }
+    Ok(())
+}
+
+/// Toggles the overlay. Async because it may build a window: a sync command that
+/// creates a webview deadlocks on Windows, since the command runs on the main
+/// thread the window needs. Hidden-config-window creation used to mask this.
+#[tauri::command]
+async fn toggle_vn_overlay_window(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<bool, String> {
+    ensure_trusted_window(&window)?;
+    if let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        if overlay_win.is_visible().unwrap_or(false) {
+            let _ = overlay_win.hide();
+            Ok(false)
+        } else {
+            overlay_win.show().map_err(|e| format!("Gagal menampilkan overlay: {e}"))?;
+            #[cfg(desktop)]
+            {
+                let _ = overlay_win.set_always_on_top(true);
+                let _ = overlay_win.unminimize();
+                let _ = overlay_win.set_focus();
+            }
+            let _ = app.emit("cstl-overlay-req-state", ());
+            Ok(true)
+        }
+    } else {
+        #[cfg(desktop)]
+        {
+            tauri::WebviewWindowBuilder::new(
+                &app,
+                OVERLAY_WINDOW_LABEL,
+                tauri::WebviewUrl::App("overlay.html".into()),
+            )
+            .title("CopasTool VN Overlay")
+            .inner_size(840.0, 260.0)
+            .transparent(true)
+            .always_on_top(true)
+            .decorations(false)
+            .shadow(false)
+            .skip_taskbar(true)
+            .resizable(true)
+            .build()
+            .map_err(|e| format!("Gagal membuat jendela overlay: {e}"))?;
+
+            let _ = app.emit("cstl-overlay-req-state", ());
+            Ok(true)
+        }
+        #[cfg(not(desktop))]
+        {
+            Err("VN Overlay hanya didukung di Desktop (Windows)".to_string())
+        }
+    }
+}
+
+#[tauri::command]
+fn is_vn_overlay_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<bool, String> {
+    ensure_trusted_window(&window)?;
+    if let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        Ok(overlay_win.is_visible().unwrap_or(false))
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn drag_vn_overlay_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    ensure_trusted_window(&window)?;
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn eval_ai_script(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -602,6 +744,11 @@ pub fn run() {
             clear_webview_browsing_data,
             get_ai_window_title,
             set_ai_window_title,
+            open_vn_overlay_window,
+            close_vn_overlay_window,
+            toggle_vn_overlay_window,
+            is_vn_overlay_open,
+            drag_vn_overlay_window,
             camoufox::copas_camofox_ensure,
             camoufox::copas_camofox_request,
             camoufox::copas_camofox_stop

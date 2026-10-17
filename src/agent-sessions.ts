@@ -64,7 +64,9 @@ function upsertIndex(sessionId: string, name: string, messageCount: number): voi
   const list = loadIndex();
   const existing = list.find(s => s.id === sessionId);
   if (existing) {
-    existing.name = name;
+    if (!existing.name || existing.name === 'Sesi baru') {
+      existing.name = name;
+    }
     existing.updatedAt = Date.now();
     existing.messageCount = messageCount;
   } else {

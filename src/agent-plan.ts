@@ -8,6 +8,7 @@ import { ui } from './state';
 // Side-channel so ai-agent's buildSystemPrompt can include the plan section
 // without a circular static import (agent-plan ↔ ai-agent).
 (globalThis as any).__cstlAgentPlanPrompt = () => getPlanPromptSection();
+(globalThis as any).__cstlAgentPlanReset = () => resetPlanForNewRun();
 (globalThis as any).__cstlAgentSteer = {
   drain: () => drainSteerMessages(),
   hasQueued: () => hasQueuedSteerMessages(),

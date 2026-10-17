@@ -43,7 +43,10 @@ export default defineConfig(() => ({
     outDir: 'dist',
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'es2021',
     rollupOptions: {
-      input: 'index.html',
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        overlay: path.resolve(__dirname, 'overlay.html'),
+      },
     },
   },
   plugins: [
@@ -54,6 +57,8 @@ export default defineConfig(() => ({
       // used to regenerate launcher/desktop icons — it is not shipped to the web build.
       includeAssets: ['icon.jpg', 'icon.svg'],
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // The Kuromoji dictionaries (~17 MB in public/dict) are deliberately kept out
         // of the precache manifest so the first launch only pulls the ~1 MB app shell.
         // They are cached on demand the first time furigana is used (see runtimeCaching),
