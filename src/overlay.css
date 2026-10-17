@@ -1,17 +1,39 @@
-/* @module overlay.css — Visual Novel Testing Overlay HUD styles */
+/* @module overlay.css — Visual Novel floating HUD
+ *
+ * Design constraints, in priority order:
+ *   1. Never compete with the game underneath. Opaque chrome, no blur, no glow.
+ *   2. Translated text is the loudest thing on screen; everything else recedes.
+ *   3. Structure comes from hairline rules and spacing, not from boxes-in-boxes.
+ * The window is transparent, so the card itself carries the background.
+ */
 
 :root {
-  --overlay-bg-alpha: 0.88;
-  --overlay-bg: rgba(18, 18, 22, var(--overlay-bg-alpha));
-  --overlay-border: rgba(255, 255, 255, 0.12);
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --accent-color: #38bdf8;
-  --accent-glow: rgba(56, 189, 248, 0.2);
-  --star-active: #f59e0b;
-  --star-inactive: #64748b;
-  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Meiryo', sans-serif;
+  /* Background alpha is driven from JS via the opacity button. */
+  --ov-alpha: 0.88;
+  --ov-bg: rgb(14 16 20 / var(--ov-alpha));
+
+  --ov-line: rgb(255 255 255 / 0.09);
+  --ov-line-strong: rgb(255 255 255 / 0.16);
+
+  --ov-fg: #f1f5f9;
+  --ov-fg-2: #b6c2cf;
+  --ov-fg-3: #7d8b99;
+
+  --ov-accent: #58b6f0;
+  --ov-accent-dim: rgb(88 182 240 / 0.14);
+
+  --ov-ok: #3fb98a;
+  --ov-warn: #d9a441;
+  --ov-bad: #e0685f;
+
+  --ov-star: #d9a441;
+
+  --ov-font: 'Segoe UI', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
+  --ov-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Radii kept small on purpose — big rounding reads as a web widget, not a HUD. */
+  --ov-r: 6px;
+  --ov-r-sm: 3px;
 }
 
 * {
@@ -20,312 +42,357 @@
   padding: 0;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
-  background: transparent !important;
+  background: transparent;
   overflow: hidden;
-  font-family: var(--font-family);
+  font-family: var(--ov-font);
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.overlay-container {
+.overlay-shell {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--overlay-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--overlay-border);
-  border-radius: 8px;
+  background: var(--ov-bg);
+  border: 1px solid var(--ov-line-strong);
+  border-radius: var(--ov-r);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  transition: background-color 0.2s ease;
+  /* One soft edge so the card separates from bright VN art without a glow. */
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.42);
 }
 
-/* Header & Controls */
-.overlay-header {
+/* ── Drag bar ─────────────────────────────────────────────────────────── */
+
+.ov-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.35);
-  border-bottom: 1px solid var(--overlay-border);
-  cursor: move;
+  gap: 7px;
   flex-shrink: 0;
+  height: 27px;
+  padding: 0 6px 0 9px;
+  background: rgb(0 0 0 / 0.22);
+  border-bottom: 1px solid var(--ov-line);
+  cursor: grab;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.ov-bar:active {
+  cursor: grabbing;
 }
 
-.status-indicator {
-  width: 9px;
-  height: 9px;
+.ov-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  display: inline-block;
   flex-shrink: 0;
-  transition: background-color 0.3s ease;
+  background: var(--ov-bad);
+  transition: background-color 180ms ease;
 }
 
-.status-connected {
-  background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
+.ov-dot.is-connected {
+  background: var(--ov-ok);
 }
 
-.status-connecting {
-  background-color: #f59e0b;
-  box-shadow: 0 0 8px #f59e0b;
+.ov-dot.is-connecting {
+  background: var(--ov-warn);
 }
 
-.status-disconnected, .status-error {
-  background-color: #ef4444;
-}
-
-.overlay-title {
+.ov-file {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  color: var(--ov-fg-2);
+  max-width: 34ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
-.line-badge {
-  font-size: 11px;
-  font-family: monospace;
-  color: var(--accent-color);
-  background: rgba(56, 189, 248, 0.12);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.mode-badge {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  transition: all 0.2s ease;
-}
-
-.mode-badge.mode-check {
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.mode-badge.mode-tl {
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
-}
-
-@keyframes pulseTranslating {
-  0% { opacity: 0.55; }
-  50% { opacity: 1; color: #38bdf8; }
-  100% { opacity: 0.55; }
-}
-
-.pulse-translating {
-  animation: pulseTranslating 1.4s ease-in-out infinite;
-  font-style: italic;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: default;
-}
-
-.ctrl-btn {
+/* Counter + mode share one quiet line instead of competing badges. */
+.ov-meta {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 10.5px;
+  color: var(--ov-fg-3);
+}
+
+.ov-counter {
+  font-family: var(--ov-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+.ov-sep {
+  color: var(--ov-line-strong);
+}
+
+.ov-mode {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: var(--ov-r-sm);
+  color: var(--ov-fg-3);
+  background: rgb(255 255 255 / 0.07);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.ov-mode.is-tl {
+  color: var(--ov-accent);
+  background: var(--ov-accent-dim);
+}
+
+.ov-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.ov-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--ov-r-sm);
+  background: transparent;
+  color: var(--ov-fg-3);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 130ms ease, color 130ms ease;
 }
 
-.ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: var(--text-primary);
+.ov-btn:hover {
+  background: rgb(255 255 255 / 0.09);
+  color: var(--ov-fg);
 }
 
-.ctrl-btn:focus-visible {
-  outline: 2px solid var(--accent-color);
+.ov-btn:focus-visible {
+  outline: 1.5px solid var(--ov-accent);
   outline-offset: 1px;
 }
 
-.btn-close:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #fca5a5;
+.ov-btn-close:hover {
+  background: rgb(224 104 95 / 0.18);
+  color: #f0a49d;
 }
 
-/* Dialogue Content */
-.overlay-content {
-  flex: 1;
+/* Interaction toggle. Off = click-through (the default), on = the HUD accepts
+   mouse input. Kept visually quiet when off so it reads as a status, not a call
+   to action. */
+.ov-btn-pin.is-on {
+  background: var(--ov-accent-dim);
+  color: var(--ov-accent);
+}
+
+.ov-btn-pin.is-on:hover {
+  background: rgb(88 182 240 / 0.24);
+  color: var(--ov-accent);
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+
+.ov-body {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 11px 10px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   user-select: text;
 }
 
-/* Context lines */
-.context-group {
+.ov-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.ov-body::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.13);
+  border-radius: 99px;
+}
+
+/* Context lines: orientation only. One line each, ellipsized. */
+.ov-ctx {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.context-line {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-muted);
-  opacity: 0.65;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-  padding: 2px 4px;
-  border-left: 2px solid transparent;
-  transition: opacity 0.2s ease;
-}
-
-.context-line:hover {
-  opacity: 0.9;
-}
-
-.context-speaker {
-  font-weight: 600;
-  color: #93c5fd;
-  margin-right: 6px;
-}
-
-/* Active Line Card */
-.active-line-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 6px;
-  padding: 8px 10px;
-  box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.05);
-  transition: border-color 0.2s ease;
-}
-
-.active-line-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.speaker-tag {
-  font-size: 12px;
-  font-weight: 600;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-  padding: 1px 6px;
-  border-radius: 3px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-.file-tag {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-left: auto;
-  margin-right: 8px;
-}
-
-.btn-bookmark {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--star-inactive);
-  padding: 2px;
-  border-radius: 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease, color 0.15s ease;
-}
-
-.btn-bookmark:hover {
-  transform: scale(1.15);
-  color: var(--star-active);
-}
-
-.btn-bookmark.bookmarked {
-  color: var(--star-active);
-  fill: var(--star-active);
-}
-
-.btn-bookmark.bookmarked .star-icon {
-  fill: var(--star-active);
-}
-
-.translated-text {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: #ffffff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 0.8);
-  margin-bottom: 5px;
-}
-
-.original-text {
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: #94a3b8;
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
-  padding-top: 5px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
-  font-feature-settings: 'palt';
-}
-
-.romaji-text {
-  font-size: 11.5px;
-  font-style: italic;
-  line-height: 1.35;
-  color: #7dd3fc;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-  margin-top: 3px;
-  word-break: break-word;
-  font-feature-settings: 'palt';
-  opacity: 0.92;
-}
-
-/* Footer */
-.overlay-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 3px 10px;
-  background: rgba(0, 0, 0, 0.25);
-  border-top: 1px solid var(--overlay-border);
-  font-size: 10px;
-  color: var(--text-muted);
+  gap: 1px;
   flex-shrink: 0;
 }
 
-.footer-msg {
+.ov-ctx:empty {
+  display: none;
+}
+
+.ov-ctx-line {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ov-fg-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 70%;
+  padding-left: 7px;
+  border-left: 1px solid var(--ov-line);
 }
 
-.hint-text {
-  opacity: 0.75;
+.ov-ctx-next .ov-ctx-line {
+  opacity: 0.72;
+}
+
+.ov-ctx-name {
+  color: var(--ov-fg-2);
+  font-weight: 600;
+}
+
+/* ── Active line ──────────────────────────────────────────────────────── */
+
+.ov-active {
+  flex-shrink: 0;
+  padding: 7px 9px 9px;
+  background: rgb(255 255 255 / 0.035);
+  border: 1px solid var(--ov-line);
+  border-left: 2px solid var(--ov-accent);
+  border-radius: var(--ov-r-sm);
+}
+
+.ov-active-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.ov-speaker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--ov-accent);
+  flex-shrink: 0;
+  max-width: 45%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ov-tag {
+  font-family: var(--ov-mono);
+  font-size: 9.5px;
+  color: var(--ov-fg-3);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ov-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--ov-r-sm);
+  background: transparent;
+  color: #59636e;
+  cursor: pointer;
+  transition: color 130ms ease, background-color 130ms ease;
+}
+
+.ov-star:hover {
+  color: var(--ov-star);
+  background: rgb(217 164 65 / 0.12);
+}
+
+.ov-star:focus-visible {
+  outline: 1.5px solid var(--ov-star);
+  outline-offset: 1px;
+}
+
+.ov-star.is-on {
+  color: var(--ov-star);
+}
+
+.ov-star.is-on svg {
+  fill: var(--ov-star);
+}
+
+/* The translation is the reason the overlay exists — give it the weight. */
+.ov-trans {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.42;
+  color: var(--ov-fg);
+  letter-spacing: -0.1px;
+  overflow-wrap: anywhere;
+}
+
+.ov-trans.is-empty {
+  color: var(--ov-fg-3);
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Pending translation: a quiet ellipsis, not a flashing animation. */
+.ov-trans.is-pending {
+  color: var(--ov-fg-2);
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Source block, separated by a hairline rather than a dashed border. */
+.ov-source {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ov-line);
+}
+
+.ov-source:empty {
+  display: none;
+}
+
+.ov-orig {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ov-fg-3);
+  overflow-wrap: anywhere;
+  font-feature-settings: 'palt';
+}
+
+.ov-romaji {
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-style: italic;
+  color: #6ea8c9;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  font-feature-settings: 'palt';
+}
+
+/* Compact height: when the user shrinks the window, drop context first. */
+@media (max-height: 150px) {
+  .ov-ctx {
+    display: none;
+  }
+
+  .ov-body {
+    padding: 6px 9px 7px;
+  }
+
+  .ov-trans {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

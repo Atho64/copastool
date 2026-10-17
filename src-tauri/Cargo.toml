@@ -26,3 +26,14 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync", "n
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Win32 window management for the VN overlay: the overlay has to win the z-order
+# fight against a fullscreen game, which needs SetWindowPos + DWM info that the
+# cross-platform windowing layer does not expose.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+] }

@@ -14,6 +14,9 @@ export class LunaModalController {
   private btnConnect = q<HTMLButtonElement>('btnLunaConnect');
   private btnDisconnect = q<HTMLButtonElement>('btnLunaDisconnect');
   private btnToggleOverlay = q<HTMLButtonElement>('btnToggleOverlay');
+  private btnOverlayInteractive = q<HTMLButtonElement>('btnOverlayInteractive');
+  private btnOverlayDiagnose = q<HTMLButtonElement>('btnOverlayDiagnose');
+  private overlayDiagnosticOut = q<HTMLPreElement>('overlayDiagnosticOut');
   private btnClose = q<HTMLButtonElement>('btnLunaModalClose');
   private chkAutoConnect = q<HTMLInputElement>('chkLunaAutoConnect');
   private chkAutoScroll = q<HTMLInputElement>('chkLunaAutoScroll');
@@ -47,6 +50,9 @@ export class LunaModalController {
     this.btnConnect = q<HTMLButtonElement>('btnLunaConnect');
     this.btnDisconnect = q<HTMLButtonElement>('btnLunaDisconnect');
     this.btnToggleOverlay = q<HTMLButtonElement>('btnToggleOverlay');
+    this.btnOverlayInteractive = q<HTMLButtonElement>('btnOverlayInteractive');
+    this.btnOverlayDiagnose = q<HTMLButtonElement>('btnOverlayDiagnose');
+    this.overlayDiagnosticOut = q<HTMLPreElement>('overlayDiagnosticOut');
     this.btnClose = q<HTMLButtonElement>('btnLunaModalClose');
     this.chkAutoConnect = q<HTMLInputElement>('chkLunaAutoConnect');
     this.chkAutoScroll = q<HTMLInputElement>('chkLunaAutoScroll');
@@ -82,12 +88,54 @@ export class LunaModalController {
         if (this.btnToggleOverlay) {
           const span = this.btnToggleOverlay.querySelector('span');
           if (span) {
-            span.textContent = isOpen ? 'Sembunyikan VN Overlay' : 'Buka VN Overlay';
+            span.textContent = isOpen ? 'Sembunyikan Overlay' : 'Buka Overlay';
           }
         }
+        await this.refreshOverlayInteractiveUi();
       } catch (err) {
         console.error('[LunaModal] Error toggling overlay:', err);
       }
+    });
+
+    this.btnOverlayDiagnose?.addEventListener('click', async () => {
+      const out = this.overlayDiagnosticOut;
+      const diag = await overlayController.diagnose();
+      if (!out) return;
+      out.style.display = 'block';
+
+      if (!diag) {
+        out.textContent = 'Diagnosa hanya di aplikasi native Windows.';
+        return;
+      }
+      if (!diag.window_exists) {
+        out.textContent = 'Overlay belum dibuka.';
+        return;
+      }
+
+      const yn = (v: boolean) => (v ? 'ya' : 'TIDAK');
+      out.textContent = [
+        `Terlihat   : ${yn(diag.visible)}`,
+        `DWM        : ${yn(diag.dwm_composition)}`,
+        `Topmost    : ${yn(diag.topmost_style)}`,
+        `Layered    : ${yn(diag.layered_style)}`,
+        `NoActivate : ${yn(diag.noactivate_style)}`,
+        `Z-order    : ${yn(diag.raise_ok)}`,
+        `Depan      : ${diag.foreground}`,
+        '',
+        diag.note,
+      ].join('\n');
+    });
+
+    this.btnOverlayInteractive?.addEventListener('click', async () => {
+      try {
+        // A click-through overlay cannot receive the click that would re-enable
+        // it, so this toggle lives here in the main window by necessity.
+        const current = await overlayController.isInteractive();
+        await overlayController.setInteractive(!current);
+      } catch (err) {
+        console.error('[LunaModal] Error toggling overlay interactivity:', err);
+      }
+      await this.refreshOverlayInteractiveUi();
     });
 
     this.chkAutoConnect?.addEventListener('change', () => {
@@ -127,6 +175,37 @@ export class LunaModalController {
     this.updateModeUi(config.mode);
   }
 
+  /**
+   * Reflects the overlay's live interaction mode on the main-window button.
+   * Reads the authoritative value from Rust rather than tracking a local copy,
+   * because the overlay can be closed and recreated between renders.
+   */
+  private async refreshOverlayInteractiveUi(): Promise<void> {
+    const btn = this.btnOverlayInteractive;
+    if (!btn) return;
+
+    const span = btn.querySelector('span');
+    const isOpen = await overlayController.isOverlayOpen();
+
+    if (!isOpen) {
+      btn.disabled = true;
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+      if (span) span.textContent = 'Interaktif: overlay tutup';
+      btn.title = 'Buka overlay dulu';
+      return;
+    }
+
+    const isOn = await overlayController.isInteractive();
+    btn.disabled = false;
+    btn.classList.toggle('btn-primary', isOn);
+    btn.classList.toggle('btn-outline', !isOn);
+    if (span) span.textContent = `Interaktif: ${isOn ? 'aktif' : 'nonaktif'}`;
+    btn.title = isOn
+      ? 'Overlay menerima klik — matikan agar klik masuk ke game'
+      : 'Klik-tembus — nyalakan untuk menggeser / tekan tombol';
+  }
+
   private updateModeUi(mode: LunaOperatingMode): void {
     if (mode === 'tl') {
       if (this.lunaTlModeInfo) this.lunaTlModeInfo.style.display = 'block';
@@ -134,10 +213,12 @@ export class LunaModalController {
         const modelName = state.aiModel || state.aiApiType || 'API';
         if (state.aiApiKey) {
           this.lunaTlModelBadge.textContent = `Model: ${modelName}`;
-          this.lunaTlModelBadge.style.color = '#38bdf8';
+          this.lunaTlModelBadge.classList.remove('is-error');
+          this.lunaTlModelBadge.title = `${modelName} — dipakai untuk menerjemahkan dialog mentah`;
         } else {
           this.lunaTlModelBadge.textContent = 'API Key Belum Diisi!';
-          this.lunaTlModelBadge.style.color = '#ef4444';
+          this.lunaTlModelBadge.classList.add('is-error');
+          this.lunaTlModelBadge.title = 'Isi API Key di Setting → API Global untuk memakai TL Mode';
         }
       }
     } else {
@@ -199,10 +280,12 @@ export class LunaModalController {
       if (this.btnToggleOverlay) {
         const span = this.btnToggleOverlay.querySelector('span');
         if (span) {
-          span.textContent = isOpen ? 'Sembunyikan VN Overlay' : 'Buka / Toggle VN Overlay';
+          span.textContent = isOpen ? 'Sembunyikan Overlay' : 'Buka / Toggle Overlay';
         }
       }
     } catch {}
+
+    await this.refreshOverlayInteractiveUi();
     if (this.modal) {
       openModal(this.modal);
     }

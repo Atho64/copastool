@@ -18,21 +18,40 @@ const modeBadge = q<HTMLSpanElement>('modeBadge');
 const activeSpeaker = q<HTMLSpanElement>('activeSpeaker');
 const activeFile = q<HTMLSpanElement>('activeFile');
 const btnBookmark = q<HTMLButtonElement>('btnBookmark');
-const activeOriginal = q<HTMLDivElement>('activeOriginal');
-const activeRomaji = q<HTMLDivElement>('activeRomaji');
-const activeTranslated = q<HTMLDivElement>('activeTranslated');
+const activeOriginal = q<HTMLParagraphElement>('activeOriginal');
+const activeRomaji = q<HTMLParagraphElement>('activeRomaji');
+const activeTranslated = q<HTMLParagraphElement>('activeTranslated');
 const prevLinesContainer = q<HTMLDivElement>('prevLinesContainer');
 const nextLinesContainer = q<HTMLDivElement>('nextLinesContainer');
-const footerMsg = q<HTMLSpanElement>('footerMsg');
 const btnOpacity = q<HTMLButtonElement>('btnOpacity');
 const btnClose = q<HTMLButtonElement>('btnClose');
+const btnInteractive = q<HTMLButtonElement>('btnInteractive');
 const overlayHeader = q<HTMLElement>('overlayHeader');
-const overlayContainer = q<HTMLDivElement>('overlayContainer');
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let currentPayload: OverlayPayload | null = null;
 const opacityLevels = [0.88, 0.60, 0.35, 1.0];
 let opacityIndex = 0;
+
+/**
+ * Whether the overlay is currently accepting mouse input.
+ *
+ * Ships click-through (false) so the HUD never blocks the game's own clicks.
+ * While click-through the whole window ignores the cursor, so the only way back
+ * in is the main window's toggle or the keyboard shortcut it registers — a
+ * in-window button cannot be clicked in that mode by definition.
+ */
+let interactive = false;
+
+/** Sets text only when it changed, so the DOM is not touched on every broadcast. */
+function setText(el: HTMLElement | null, value: string): void {
+  if (el && el.textContent !== value) el.textContent = value;
+}
+
+/** Toggles a class only when needed. */
+function setClass(el: Element | null, name: string, on: boolean): void {
+  if (el && el.classList.contains(name) !== on) el.classList.toggle(name, on);
+}
 
 // ─── Tauri & Channel Setup ───────────────────────────────────────────────────
 function isTauriEnv(): boolean {
@@ -78,158 +97,145 @@ if (isTauri) {
 // ─── Render Functions ────────────────────────────────────────────────────────
 function render(payload: OverlayPayload): void {
   currentPayload = payload;
+  const status = payload.lunaStatus || 'disconnected';
 
-  // Status indicator
+  // Status dot: the only place connection state is shown (the footer is gone).
   if (statusDot) {
-    statusDot.className = `status-indicator status-${payload.lunaStatus || 'disconnected'}`;
-    statusDot.title = `LunaTranslator: ${payload.lunaStatus || 'disconnected'}`;
+    setClass(statusDot, 'is-connected', status === 'connected');
+    setClass(statusDot, 'is-connecting', status === 'connecting');
+    const label = status === 'connected'
+      ? 'Luna: terhubung'
+      : status === 'connecting'
+        ? 'Luna: menghubungkan…'
+        : status === 'error'
+          ? 'Luna: error'
+          : 'Luna: terputus';
+    // Surface the verbose status text as a tooltip instead of a footer row.
+    statusDot.title = payload.lunaMessage ? `${label}\n${payload.lunaMessage}` : label;
   }
 
-  // Header Title & Badge
-  if (overlayTitle) {
-    overlayTitle.textContent = payload.fileName || 'CopasTool VN Overlay';
-  }
+  setText(overlayTitle, payload.fileName || 'VN Overlay');
 
-  if (lineBadge) {
-    if (payload.currentLine && payload.currentLine.line_num) {
-      lineBadge.textContent = `[#${payload.currentLine.line_num} / ${payload.totalLines || '-'}]`;
-    } else {
-      lineBadge.textContent = `[-- / ${payload.totalLines || '-'}]`;
-    }
-  }
+  const cur = payload.currentLine;
+  setText(
+    lineBadge,
+    cur && cur.line_num ? `${cur.line_num}/${payload.totalLines || '?'}` : `--/${payload.totalLines || '?'}`,
+  );
 
-  // Operating Mode Badge
+  const isTl = payload.mode === 'tl';
+  setText(modeBadge, isTl ? 'TL' : 'CHECK');
+  setClass(modeBadge, 'is-tl', isTl);
   if (modeBadge) {
-    const isTl = payload.mode === 'tl';
-    modeBadge.textContent = isTl ? 'TL MODE' : 'CHECK';
-    modeBadge.className = `mode-badge mode-${isTl ? 'tl' : 'check'}`;
     modeBadge.title = isTl
-      ? 'Mode: TL Mode (Auto-Translate API aktif)'
-      : 'Mode: Check Mode (QA & Cek sinkronisasi)';
+      ? 'TL Mode — baris mentah diterjemahkan otomatis via API'
+      : 'Check Mode — cek sinkronisasi/QA dialog';
   }
 
-  // Active Line
-  if (payload.currentLine) {
-    const cur = payload.currentLine;
-
+  // ── Active line ──────────────────────────────────────────────────────────
+  if (cur) {
     if (activeSpeaker) {
-      if (cur.trans_name && cur.name && cur.trans_name !== cur.name) {
-        activeSpeaker.textContent = `${cur.trans_name} (${cur.name})`;
-        activeSpeaker.style.display = 'inline-block';
-      } else if (cur.trans_name || cur.name) {
-        activeSpeaker.textContent = cur.trans_name || cur.name || '';
-        activeSpeaker.style.display = 'inline-block';
-      } else {
-        activeSpeaker.style.display = 'none';
-      }
+      const speaker = cur.trans_name && cur.name && cur.trans_name !== cur.name
+        ? `${cur.trans_name} · ${cur.name}`
+        : cur.trans_name || cur.name || '';
+      setText(activeSpeaker, speaker);
+      activeSpeaker.style.display = speaker ? 'inline-block' : 'none';
+      activeSpeaker.title = speaker;
     }
 
     if (activeFile) {
       const fileName = cur.file ? cur.file.replace(/^.*[\\/]/, '') : '';
-      const matchBadge = payload.matchedField === 'trans_message' ? ' [TL]' : payload.matchedField === 'message' ? ' [JP]' : '';
-      activeFile.textContent = `${fileName}${matchBadge}`;
+      // Was a suffix like "[TL]"; the matched-field detail now lives in the
+      // tooltip so the tag stays a plain filename.
+      setText(activeFile, fileName);
+      activeFile.title = payload.matchedField === 'trans_message'
+        ? 'Cocok lewat teks terjemahan'
+        : payload.matchedField === 'message'
+          ? 'Cocok lewat teks asli'
+          : '';
     }
 
-    if (activeOriginal) {
-      activeOriginal.textContent = cur.message || payload.hookedRawText || '(Asli Kosong)';
-    }
+    setText(activeOriginal, cur.message || payload.hookedRawText || '');
 
-    if (activeRomaji) {
-      if (cur.romaji) {
-        activeRomaji.textContent = cur.romaji;
-        activeRomaji.style.display = 'block';
-      } else {
-        activeRomaji.textContent = '';
-        activeRomaji.style.display = 'none';
-      }
-    }
+    const romaji = cur.romaji || '';
+    setText(activeRomaji, romaji);
+    if (activeRomaji) activeRomaji.style.display = romaji ? 'block' : 'none';
 
     if (activeTranslated) {
       if (payload.isTranslating) {
-        activeTranslated.textContent = 'Menerjemahkan via AI...';
-        activeTranslated.classList.add('pulse-translating');
-        activeTranslated.style.opacity = '0.9';
+        setText(activeTranslated, 'Menerjemahkan…');
+        setClass(activeTranslated, 'is-pending', true);
+        setClass(activeTranslated, 'is-empty', false);
+      } else if (cur.trans_message) {
+        setText(activeTranslated, cur.trans_message);
+        setClass(activeTranslated, 'is-pending', false);
+        setClass(activeTranslated, 'is-empty', false);
       } else {
-        activeTranslated.classList.remove('pulse-translating');
-        if (cur.trans_message) {
-          activeTranslated.textContent = cur.trans_message;
-          activeTranslated.style.opacity = '1';
-        } else {
-          activeTranslated.textContent = '(Belum diterjemahkan di CopasTool)';
-          activeTranslated.style.opacity = '0.7';
-        }
+        setText(activeTranslated, 'Belum diterjemahkan');
+        setClass(activeTranslated, 'is-pending', false);
+        setClass(activeTranslated, 'is-empty', true);
       }
     }
 
+    setClass(btnBookmark, 'is-on', Boolean(cur.bookmarked));
     if (btnBookmark) {
-      if (cur.bookmarked) {
-        btnBookmark.classList.add('bookmarked');
-        btnBookmark.title = 'Hapus tanda (Bookmarked)';
-      } else {
-        btnBookmark.classList.remove('bookmarked');
-        btnBookmark.title = 'Tandai baris ini (Bookmark)';
-      }
+      btnBookmark.title = cur.bookmarked ? 'Hapus tanda' : 'Tandai baris ini';
     }
   } else {
     if (activeSpeaker) activeSpeaker.style.display = 'none';
-    if (activeFile) activeFile.textContent = '';
-    if (activeOriginal) {
-      activeOriginal.textContent = payload.hookedRawText || 'Menunggu teks dialog dari LunaTranslator (ws://127.0.0.1:2333)...';
-    }
-    if (activeRomaji) {
-      activeRomaji.textContent = '';
-      activeRomaji.style.display = 'none';
-    }
+    setText(activeFile, '');
+    if (activeFile) activeFile.title = '';
+    setText(activeOriginal, payload.hookedRawText || '');
+    setText(activeRomaji, '');
+    if (activeRomaji) activeRomaji.style.display = 'none';
+
     if (activeTranslated) {
-      activeTranslated.textContent = 'Mainkan visual novel — baris terjemahan akan otomatis tersinkron.';
-      activeTranslated.style.opacity = '0.7';
+      setText(activeTranslated, 'Menunggu dialog…');
+      setClass(activeTranslated, 'is-pending', false);
+      setClass(activeTranslated, 'is-empty', true);
     }
-    if (btnBookmark) btnBookmark.classList.remove('bookmarked');
+
+    setClass(btnBookmark, 'is-on', false);
+    if (btnBookmark) btnBookmark.title = 'Tandai baris ini';
   }
 
-  // Context: Previous lines
-  if (prevLinesContainer) {
-    prevLinesContainer.innerHTML = '';
-    if (payload.prevLines && payload.prevLines.length > 0) {
-      for (const line of payload.prevLines) {
-        prevLinesContainer.appendChild(createContextLineElement(line));
-      }
-    }
-  }
-
-  // Context: Next lines
-  if (nextLinesContainer) {
-    nextLinesContainer.innerHTML = '';
-    if (payload.nextLines && payload.nextLines.length > 0) {
-      for (const line of payload.nextLines) {
-        nextLinesContainer.appendChild(createContextLineElement(line));
-      }
-    }
-  }
-
-  // Footer message
-  if (footerMsg) {
-    footerMsg.textContent = payload.lunaMessage || `Luna: ${payload.lunaStatus}`;
-  }
+  renderContext(prevLinesContainer, payload.prevLines);
+  renderContext(nextLinesContainer, payload.nextLines);
 }
 
-function createContextLineElement(line: OverlayLineData): HTMLElement {
-  const el = document.createElement('div');
-  el.className = 'context-line';
+/**
+ * Renders a context block, reusing existing rows instead of rebuilding
+ * `innerHTML` on every broadcast (the hook fires continuously while playing).
+ */
+function renderContext(container: HTMLDivElement | null, lines: OverlayLineData[] | undefined): void {
+  if (!container) return;
+  const list = lines || [];
 
-  const speaker = line.trans_name || line.name;
-  if (speaker) {
-    const sp = document.createElement('span');
-    sp.className = 'context-speaker';
-    sp.textContent = `${speaker}:`;
-    el.appendChild(sp);
+  // Drop surplus rows.
+  while (container.childElementCount > list.length) {
+    container.lastElementChild?.remove();
   }
 
-  const text = document.createElement('span');
-  text.textContent = line.trans_message || line.message || '';
-  el.appendChild(text);
+  for (let i = 0; i < list.length; i++) {
+    const line = list[i];
+    let row = container.children[i] as HTMLElement | undefined;
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'ov-ctx-line';
+      const name = document.createElement('span');
+      name.className = 'ov-ctx-name';
+      const text = document.createElement('span');
+      row.append(name, text);
+      container.appendChild(row);
+    }
 
-  return el;
+    const nameEl = row.children[0] as HTMLElement;
+    const textEl = row.children[1] as HTMLElement;
+    const speaker = line.trans_name || line.name || '';
+
+    setText(nameEl, speaker ? `${speaker}: ` : '');
+    setText(textEl, line.trans_message || line.message || '');
+    row.title = `${speaker ? `${speaker}: ` : ''}${line.trans_message || line.message || ''}`;
+  }
 }
 
 // ─── Interactive Events ──────────────────────────────────────────────────────
@@ -265,36 +271,91 @@ if (overlayHeader) {
   });
 }
 
-// Opacity toggle
+// Opacity toggle — drives the --ov-alpha token consumed by --ov-bg.
 btnOpacity?.addEventListener('click', () => {
   opacityIndex = (opacityIndex + 1) % opacityLevels.length;
   const level = opacityLevels[opacityIndex];
-  document.documentElement.style.setProperty('--overlay-bg-alpha', String(level));
-  const span = btnOpacity.querySelector('.icon-text');
-  if (span) span.textContent = `${Math.round(level * 100)}%`;
+  document.documentElement.style.setProperty('--ov-alpha', String(level));
+  btnOpacity.title = `Latar ${Math.round(level * 100)}%`;
+  btnOpacity.setAttribute('aria-label', `Latar ${Math.round(level * 100)}%`);
 });
 
 // Bookmark toggle button
+//
+// Sends the *desired* state rather than a "please toggle" request. Toggling on
+// both sides would be two independent flips of one boolean: any bookmark update
+// arriving from the main window in between would desync them, and a redundant
+// click would still push an undo snapshot. With explicit intent the two sides
+// agree by construction and the controller can no-op a stale click.
 btnBookmark?.addEventListener('click', async () => {
   if (!currentPayload || !currentPayload.currentLine) return;
   const lineNum = currentPayload.currentLine.line_num;
+  const bookmarked = !currentPayload.currentLine.bookmarked;
 
-  // Toggle local optimistic state
-  currentPayload.currentLine.bookmarked = !currentPayload.currentLine.bookmarked;
+  // Optimistic paint; the authoritative value comes back in the next update.
+  currentPayload.currentLine.bookmarked = bookmarked;
   render(currentPayload);
 
   // Notify main window (single transport — see the Tauri/channel setup above)
   if (isTauri) {
     try {
       const { emit } = await import('@tauri-apps/api/event');
-      await emit(OVERLAY_EVENT_BOOKMARK, { lineNum });
+      await emit(OVERLAY_EVENT_BOOKMARK, { lineNum, bookmarked });
     } catch {}
   } else if (channel) {
     try {
-      channel.postMessage({ type: OVERLAY_EVENT_BOOKMARK, lineNum });
+      channel.postMessage({ type: OVERLAY_EVENT_BOOKMARK, lineNum, bookmarked });
     } catch {}
   }
 });
+
+// ─── Interaction mode ────────────────────────────────────────────────────────
+//
+// The overlay ships click-through: every mouse event passes to the game, so it
+// can sit over a VN's dialogue box without stealing the clicks that advance
+// text. Interaction mode is opt-in and is normally switched from the main
+// window, because while click-through this window cannot receive the click that
+// would turn it back on.
+
+function paintInteractionMode(): void {
+  if (!btnInteractive) return;
+  btnInteractive.classList.toggle('is-on', interactive);
+  btnInteractive.setAttribute('aria-pressed', String(interactive));
+  btnInteractive.title = interactive
+    ? 'Interaktif: klik & geser aktif'
+    : 'Klik-tembus: klik masuk ke game';
+  document.body.classList.toggle('is-interactive', interactive);
+}
+
+async function setInteractive(next: boolean): Promise<void> {
+  interactive = next;
+  paintInteractionMode();
+  if (!isTauri) return;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    interactive = await invoke<boolean>('set_vn_overlay_interactive', { interactive: next });
+    paintInteractionMode();
+  } catch (err) {
+    console.warn('[Overlay] set_vn_overlay_interactive failed:', err);
+  }
+}
+
+btnInteractive?.addEventListener('click', () => {
+  void setInteractive(!interactive);
+});
+
+// Ask the backend for the real mode on load: the window may have been created
+// before this listener existed, or re-shown after being built.
+if (isTauri) {
+  import('@tauri-apps/api/core').then(({ invoke }) => {
+    invoke<boolean>('is_vn_overlay_interactive')
+      .then((value) => {
+        interactive = Boolean(value);
+        paintInteractionMode();
+      })
+      .catch(() => {});
+  }).catch(() => {});
+}
 
 // Close button
 btnClose?.addEventListener('click', async () => {

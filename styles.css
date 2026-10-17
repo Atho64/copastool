@@ -3936,6 +3936,47 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   100% { opacity: 1; transform: scale(1); }
 }
 
+/* ═══ LUNA / VN OVERLAY SETTINGS ═══ */
+
+/* Header row of the "TL Mode Aktif" info box. The badge can carry a long
+   model name (e.g. deepseek-v4.1-flash), so it must be able to wrap onto its
+   own line instead of being clipped by a fixed-height pill. */
+.luna-tl-info-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.luna-tl-model-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+}
+
+/* Error state (no API key): the JS only sets color, so the palette lives here. */
+.luna-tl-model-badge.is-error {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
 /* ═══ BOOKMARK FEATURE STYLES ═══ */
 
 /* Bubble Badge */

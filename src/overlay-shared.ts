@@ -41,6 +41,18 @@ export interface OverlayPayload {
   isTranslating?: boolean;
 }
 
+/**
+ * Bookmark message sent from the overlay to the main window.
+ *
+ * Carries the desired end state, not a toggle request: the overlay paints its
+ * own copy optimistically, so a toggle would be a second independent flip and
+ * the two views could drift apart.
+ */
+export interface OverlayBookmarkMessage {
+  lineNum: number;
+  bookmarked: boolean;
+}
+
 export const OVERLAY_EVENT_UPDATE = 'cstl-overlay-update';
 export const OVERLAY_EVENT_BOOKMARK = 'cstl-overlay-bookmark';
 export const OVERLAY_EVENT_REQ_STATE = 'cstl-overlay-req-state';

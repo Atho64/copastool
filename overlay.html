@@ -7,66 +7,70 @@
   <link rel="stylesheet" href="./src/overlay.css">
 </head>
 <body class="overlay-body">
-  <div class="overlay-container" id="overlayContainer">
-    <!-- Header / Drag Bar -->
-    <header class="overlay-header" id="overlayHeader" data-tauri-drag-region>
-      <div class="header-left" data-tauri-drag-region>
-        <span class="status-indicator status-disconnected" id="statusDot" title="Status LunaTranslator"></span>
-        <span class="overlay-title" id="overlayTitle" data-tauri-drag-region>VN Testing Overlay</span>
-        <span class="line-badge" id="lineBadge" data-tauri-drag-region>[--/--]</span>
-        <span class="mode-badge mode-check" id="modeBadge" data-tauri-drag-region title="Mode Operasi (Dapat diubah di menu Tools > LunaHooker)">CHECK</span>
-      </div>
+  <div class="overlay-shell" id="overlayShell">
+    <!-- Drag region. Kept deliberately thin: the overlay exists to show
+         dialogue, so chrome gets the smallest possible footprint. -->
+    <header class="ov-bar" id="overlayHeader" data-tauri-drag-region>
+      <span class="ov-dot" id="statusDot" data-tauri-drag-region title="LunaTranslator: terputus"></span>
 
-      <div class="header-controls">
-        <!-- Opacity selector -->
-        <button type="button" class="ctrl-btn" id="btnOpacity" title="Atur Transparansi Latar (Siklus: 85%, 60%, 35%, 100%)">
-          <span class="icon-text">85%</span>
-        </button>
+      <span class="ov-file" id="overlayTitle" data-tauri-drag-region>VN Overlay</span>
 
-        <!-- Close Button -->
-        <button type="button" class="ctrl-btn btn-close" id="btnClose" title="Tutup Overlay">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
+      <span class="ov-meta" id="overlayMeta" data-tauri-drag-region>
+        <span class="ov-counter" id="lineBadge">--/--</span>
+        <span class="ov-sep" aria-hidden="true">·</span>
+        <span class="ov-mode" id="modeBadge">CHECK</span>
+      </span>
+
+      <span class="ov-spacer" data-tauri-drag-region></span>
+
+      <button type="button" class="ov-btn ov-btn-pin" id="btnInteractive" title="Mode interaktif: klik, geser, dan tombol aktif" aria-label="Ubah mode interaktif" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 17v5"/>
+          <path d="M9 10.76a4 4 0 0 1 6 0"/>
+          <path d="M5 10.76a8 8 0 0 1 14 0"/>
+        </svg>
+      </button>
+
+      <button type="button" class="ov-btn" id="btnOpacity" title="Transparansi latar (85% → 60% → 35% → 100%)" aria-label="Ubah transparansi">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+
+      <button type="button" class="ov-btn ov-btn-close" id="btnClose" title="Tutup overlay" aria-label="Tutup overlay">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </header>
 
-    <!-- Dialogue Flow Area -->
-    <main class="overlay-content" id="overlayContent">
-      <!-- Previous Context Lines -->
-      <div class="context-group context-prev" id="prevLinesContainer"></div>
+    <main class="ov-body" id="overlayContent">
+      <!-- Previous lines: dim, single-line, purely for orientation -->
+      <div class="ov-ctx ov-ctx-prev" id="prevLinesContainer"></div>
 
-      <!-- Current Active Line -->
-      <article class="active-line-card" id="activeLineCard">
-        <div class="active-line-header">
-          <span class="speaker-tag" id="activeSpeaker" style="display: none;"></span>
-          <span class="file-tag" id="activeFile"></span>
-          <button type="button" class="btn-bookmark" id="btnBookmark" title="Tandai baris ini (Bookmark)">
-            <svg class="star-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      <article class="ov-active" id="activeLineCard">
+        <div class="ov-active-head">
+          <span class="ov-speaker" id="activeSpeaker" style="display: none;"></span>
+          <span class="ov-tag" id="activeFile"></span>
+          <button type="button" class="ov-star" id="btnBookmark" title="Tandai baris ini" aria-label="Bookmark baris">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+              <polygon points="12 3 15 9.2 22 10.2 17 15 18.2 22 12 18.6 5.8 22 7 15 2 10.2 9 9.2 12 3"/>
             </svg>
           </button>
         </div>
 
-        <div class="translated-text" id="activeTranslated">
-          Mulai mainkan game visual novel untuk melihat sinkronisasi dialog.
-        </div>
+        <p class="ov-trans" id="activeTranslated">Menunggu dialog…</p>
 
-        <div class="original-text" id="activeOriginal">
-          Menunggu teks dari LunaTranslator... (ws://127.0.0.1:2333)
+        <div class="ov-source">
+          <p class="ov-orig" id="activeOriginal"></p>
+          <p class="ov-romaji" id="activeRomaji" style="display: none;"></p>
         </div>
-
-        <div class="romaji-text" id="activeRomaji" style="display: none;"></div>
       </article>
 
-      <!-- Next Context Lines -->
-      <div class="context-group context-next" id="nextLinesContainer"></div>
+      <!-- Next lines -->
+      <div class="ov-ctx ov-ctx-next" id="nextLinesContainer"></div>
     </main>
-
-    <!-- Footer Bar -->
-    <footer class="overlay-footer">
-      <span class="footer-msg" id="footerMsg">Luna: Menghubungkan...</span>
-      <span class="hint-text">Tarik header untuk menggeser</span>
-    </footer>
   </div>
 
   <script type="module" src="./src/overlay.ts"></script>

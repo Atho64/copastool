@@ -16,11 +16,25 @@ import {
   OVERLAY_EVENT_REQ_STATE,
   type OverlayLineData,
   type OverlayPayload,
+  type OverlayBookmarkMessage,
 } from './overlay-shared';
 
 // Re-exported for existing importers; the canonical definitions live in
 // overlay-shared.ts so the overlay window does not pull in this module's graph.
 export type { OverlayLineData, OverlayPayload } from './overlay-shared';
+
+/** Snapshot returned by the Rust `diagnose_vn_overlay` command. */
+export interface OverlayDiagnostic {
+  window_exists: boolean;
+  visible: boolean;
+  topmost_style: boolean;
+  layered_style: boolean;
+  noactivate_style: boolean;
+  dwm_composition: boolean;
+  foreground: string;
+  raise_ok: boolean;
+  note: string;
+}
 export {
   OVERLAY_EVENT_UPDATE,
   OVERLAY_EVENT_BOOKMARK,
@@ -48,7 +62,7 @@ class OverlayController {
         if (e.data?.type === OVERLAY_EVENT_REQ_STATE) {
           this.broadcastLatest();
         } else if (!this.usesNativeEvents && e.data?.type === OVERLAY_EVENT_BOOKMARK) {
-          this.handleBookmarkToggle(e.data?.lineNum);
+          this.handleBookmarkToggle(e.data?.lineNum, e.data?.bookmarked);
         }
       };
     } catch {
@@ -101,8 +115,8 @@ class OverlayController {
     // running outside Tauri (see the constructor).
     if (this.usesNativeEvents) {
       import('@tauri-apps/api/event').then(({ listen }) => {
-        listen<{ lineNum: number }>(OVERLAY_EVENT_BOOKMARK, (event) => {
-          this.handleBookmarkToggle(event.payload.lineNum);
+        listen<OverlayBookmarkMessage>(OVERLAY_EVENT_BOOKMARK, (event) => {
+          this.handleBookmarkToggle(event.payload?.lineNum, event.payload?.bookmarked);
         });
 
         listen(OVERLAY_EVENT_REQ_STATE, () => {
@@ -272,16 +286,26 @@ class OverlayController {
     };
   }
 
-  private handleBookmarkToggle(lineNum?: number): void {
+  private handleBookmarkToggle(lineNum?: number, bookmarked?: boolean): void {
     if (typeof lineNum !== 'number') return;
-    const target = state.lines.find((l) => l.line_num === lineNum);
-    if (target) {
+
+    // lineByNum is the O(1) index kept in sync by rebuildDisplayState().
+    // Searching state.lines here would scan every line in the project per click.
+    const target = state.lineByNum.get(lineNum) || state.lines.find((l) => l.line_num === lineNum);
+    if (!target) return;
+
+    // Apply the requested state idempotently. toggleBookmark() flips the value
+    // and pushes an undo snapshot, so a redundant or stale click must not reach
+    // it — otherwise repeated clicks pile up undo entries that toggle each other.
+    const desired = typeof bookmarked === 'boolean' ? bookmarked : !target.bookmarked;
+    if (target.bookmarked !== desired) {
       toggleBookmark(lineNum);
-      if (this.latestPayload && this.latestPayload.currentLine?.line_num === lineNum) {
-        this.latestPayload.currentLine.bookmarked = target.bookmarked;
-      }
-      this.broadcastLatest();
     }
+
+    if (this.latestPayload && this.latestPayload.currentLine?.line_num === lineNum) {
+      this.latestPayload.currentLine.bookmarked = target.bookmarked;
+    }
+    this.broadcastLatest();
   }
 
   private broadcastLatest(): void {
@@ -359,6 +383,51 @@ class OverlayController {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       return await invoke<boolean>('is_vn_overlay_open');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Switches the overlay between click-through and interactive.
+   *
+   * The overlay ships click-through so it can sit over a game without eating
+   * clicks. Because a click-through window cannot receive the click that would
+   * re-enable it, this has to be driven from the main window.
+   */
+  async setInteractive(interactive: boolean): Promise<boolean> {
+    if (!isTauri()) return false;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<boolean>('set_vn_overlay_interactive', { interactive });
+    } catch (err) {
+      console.warn('[OverlayController] set_vn_overlay_interactive failed:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Collects overlay window state and re-asserts topmost.
+   *
+   * The re-assert is the fix for "overlay invisible over a fullscreen game";
+   * the report tells us *why* when it still fails, instead of guessing.
+   */
+  async diagnose(): Promise<OverlayDiagnostic | null> {
+    if (!isTauri()) return null;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<OverlayDiagnostic>('diagnose_vn_overlay');
+    } catch (err) {
+      console.warn('[OverlayController] diagnose_vn_overlay failed:', err);
+      return null;
+    }
+  }
+
+  async isInteractive(): Promise<boolean> {
+    if (!isTauri()) return false;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<boolean>('is_vn_overlay_interactive');
     } catch {
       return false;
     }

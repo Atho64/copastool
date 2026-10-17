@@ -38,6 +38,10 @@ const AI_WINDOW_LABEL: &str = "ai-companion";
 /// Label of the floating VN testing overlay window.
 const OVERLAY_WINDOW_LABEL: &str = "vn-overlay";
 
+/// Event asking the overlay to re-read state from the main window.
+/// Keep in sync with `OVERLAY_EVENT_REQ_STATE` in `src/overlay-shared.ts`.
+const OVERLAY_REQ_STATE_EVENT: &str = "cstl-overlay-req-state";
+
 /// Hosts the Web AI companion window may load - and receive injected scripts on.
 /// Keep in sync with `AI_TARGET_URLS` in `src/ai-webview-controller.ts`.
 const ALLOWED_AI_HOSTS: &[&str] = &[
@@ -473,6 +477,288 @@ fn is_ai_window_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Res
     Ok(app.get_webview_window(AI_WINDOW_LABEL).is_some())
 }
 
+/// Win32 helpers that keep the overlay above a fullscreen game.
+///
+/// `set_always_on_top(true)` only sets the TOPMOST flag. That is not enough against
+/// a game that is itself topmost or is presenting through DWM: when the game
+/// recreates its swapchain or regains the foreground it can end up above us.
+/// The fix is to explicitly re-place the overlay at the top of the z-order with
+/// `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)`, which is also how tools like
+/// Magpie and Borderless Gaming hold their position.
+///
+/// `SWP_NOACTIVATE` is essential: without it this call would steal focus from the
+/// game, which is exactly what we must never do to a running VN.
+#[cfg(windows)]
+fn raise_overlay_topmost(hwnd: isize) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+
+    if hwnd == 0 {
+        return false;
+    }
+
+    // SAFETY: `hwnd` comes from Tauri's own `hwnd()` for a window we created and
+    // still own. No pointers are dereferenced here.
+    unsafe {
+        SetWindowPos(
+            hwnd as _,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        ) != 0
+    }
+}
+
+/// Reports whether Desktop Window Manager composition is active.
+///
+/// This is the single fact that decides whether an overlay *can* be composited
+/// over the game at all. Composition off means the game owns the display output
+/// (true exclusive fullscreen) and no topmost window will ever appear.
+#[cfg(windows)]
+fn is_dwm_composition_enabled() -> bool {
+    use windows_sys::Win32::Graphics::Dwm::{DwmIsCompositionEnabled, DWM_EC_DISABLECOMPOSITION};
+
+    // DWM_EC_DISABLECOMPOSITION == 0; referenced so the import is meaningful.
+    let _ = DWM_EC_DISABLECOMPOSITION;
+
+    let mut enabled = 0i32;
+    // SAFETY: writes a single BOOL into a stack local we own.
+    unsafe {
+        if DwmIsCompositionEnabled(&mut enabled) == 0 {
+            return false;
+        }
+    }
+    enabled != 0
+}
+
+/// Returns the foreground window's title, used to tell the user *which* app the
+/// overlay is fighting for z-order.
+#[cfg(windows)]
+fn foreground_process_name() -> String {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
+    };
+
+    // SAFETY: read-only queries against the current foreground window. Buffers are
+    // fixed-size stack arrays and lengths are clamped to their capacity.
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return String::from("(none)");
+        }
+
+        let mut buf = [0u16; 260];
+        let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+        let title = if len > 0 {
+            String::from_utf16_lossy(&buf[..len as usize])
+        } else {
+            String::new()
+        };
+
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+
+        if title.is_empty() {
+            format!("pid {pid}")
+        } else {
+            format!("{title} (pid {pid})")
+        }
+    }
+}
+
+/// Snapshot of the overlay's live window state, for diagnosing "it does not show".
+#[derive(serde::Serialize)]
+struct OverlayDiagnostics {
+    window_exists: bool,
+    visible: bool,
+    /// True when the WS_EX_TOPMOST extended style is set on the window.
+    topmost_style: bool,
+    /// True when WS_EX_LAYERED is set (transparent windows become layered).
+    layered_style: bool,
+    /// True when WS_EX_NOACTIVATE is set (set by `set_focusable(false)`).
+    noactivate_style: bool,
+    /// True when DWM is compositing. False means true exclusive fullscreen.
+    dwm_composition: bool,
+    /// Current foreground window, i.e. whatever the overlay has to beat.
+    foreground: String,
+    /// True when the z-order re-assert actually succeeded.
+    raise_ok: bool,
+    note: String,
+}
+
+/// Collects overlay window state and re-asserts topmost in one call.
+///
+/// The re-assert is the actual fix; the report exists so a failure is actionable
+/// instead of another round of guessing.
+#[tauri::command]
+fn diagnose_vn_overlay(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<OverlayDiagnostics, String> {
+    ensure_trusted_window(&window)?;
+
+    let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) else {
+        return Ok(OverlayDiagnostics {
+            window_exists: false,
+            visible: false,
+            topmost_style: false,
+            layered_style: false,
+            noactivate_style: false,
+            #[cfg(windows)]
+            dwm_composition: is_dwm_composition_enabled(),
+            #[cfg(not(windows))]
+            dwm_composition: true,
+            #[cfg(windows)]
+            foreground: foreground_process_name(),
+            #[cfg(not(windows))]
+            foreground: String::new(),
+            raise_ok: false,
+            note: "Overlay belum dibuka.".to_string(),
+        });
+    };
+
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetWindowLongW, GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOPMOST,
+        };
+
+        let hwnd = overlay_win.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+        let raise_ok = raise_overlay_topmost(hwnd);
+
+        // SAFETY: reading the extended style of our own window; no memory is written.
+        let ex_style = unsafe {
+            if hwnd == 0 {
+                0
+            } else {
+                GetWindowLongW(hwnd as _, GWL_EXSTYLE) as u32
+            }
+        };
+
+        let dwm = is_dwm_composition_enabled();
+        let visible = overlay_win.is_visible().unwrap_or(false);
+
+        let note = if !visible {
+            "Overlay belum terlihat — buka lewat Toggle Overlay.".to_string()
+        } else if !dwm {
+            "DWM nonaktif — game pakai exclusive fullscreen. Overlay tidak akan muncul. Ubah game ke Borderless, atau aktifkan Fullscreen Optimizations di exe-nya."
+                .to_string()
+        } else if !raise_ok {
+            "DWM aktif, tapi z-order gagal dinaikkan. Coba Mode Interaktif."
+                .to_string()
+        } else {
+            "DWM aktif dan topmost sudah dinaikkan. Kalau masih tak terlihat, game hook present sendiri.".to_string()
+        };
+
+        Ok(OverlayDiagnostics {
+            window_exists: true,
+            visible,
+            topmost_style: ex_style & WS_EX_TOPMOST != 0,
+            layered_style: ex_style & WS_EX_LAYERED != 0,
+            noactivate_style: ex_style & WS_EX_NOACTIVATE != 0,
+            dwm_composition: dwm,
+            foreground: foreground_process_name(),
+            raise_ok,
+            note,
+        })
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = &overlay_win;
+        Ok(OverlayDiagnostics {
+            window_exists: true,
+            visible: overlay_win.is_visible().unwrap_or(false),
+            topmost_style: false,
+            layered_style: false,
+            noactivate_style: false,
+            dwm_composition: true,
+            foreground: String::new(),
+            raise_ok: false,
+            note: "Hanya tersedia di Windows.".to_string(),
+        })
+    }
+}
+
+/// Applies the "game overlay" window traits: painted above the VN, never taking
+/// focus, and click-through so it cannot swallow the clicks that advance text.
+///
+/// Focus matters here for a reason beyond politeness: many VN engines pause or
+/// drop input focus the moment another window activates, so a focus-stealing
+/// overlay would interrupt play. `set_focusable(false)` keeps it out of the
+/// Alt+Tab ring and prevents activation; `set_ignore_cursor_events(true)` makes
+/// every mouse event pass to the window underneath.
+#[cfg(desktop)]
+fn apply_overlay_window_mode(overlay_win: &tauri::WebviewWindow, interactive: bool) -> Result<(), String> {
+    overlay_win
+        .set_always_on_top(true)
+        .map_err(|e| format!("Gagal menaruh overlay di atas: {e}"))?;
+
+    // NOTE: `set_focusable(false)` is deliberately NOT used here. On Windows it
+    // sets WS_EX_NOACTIVATE, and combining that with WS_EX_LAYERED (which a
+    // transparent window always has) on a topmost window can stop the window
+    // from being composited over another fullscreen presenter. Staying click-through
+    // already prevents the overlay from taking focus, which is the behaviour we want.
+
+    if interactive {
+        let _ = overlay_win.set_ignore_cursor_events(false);
+    } else {
+        let _ = overlay_win.set_ignore_cursor_events(true);
+    }
+
+    // The TOPMOST flag alone loses against a game that reclaims the foreground;
+    // push the window back to the top of the z-order without activating it.
+    #[cfg(windows)]
+    {
+        if let Ok(hwnd) = overlay_win.hwnd() {
+            let _ = raise_overlay_topmost(hwnd.0 as isize);
+        }
+    }
+
+    Ok(())
+}
+
+/// Builds the overlay window with every game-overlay trait already applied.
+#[cfg(desktop)]
+fn build_overlay_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    let overlay_win = tauri::WebviewWindowBuilder::new(
+        app,
+        OVERLAY_WINDOW_LABEL,
+        tauri::WebviewUrl::App("overlay.html".into()),
+    )
+    .title("CopasTool VN Overlay")
+    .inner_size(820.0, 210.0)
+    .min_inner_size(420.0, 96.0)
+    .transparent(true)
+    .always_on_top(true)
+    .decorations(false)
+    .shadow(false)
+    .skip_taskbar(true)
+    .resizable(true)
+    .build()
+    .map_err(|e| format!("Gagal membuat jendela overlay: {e}"))?;
+
+    apply_overlay_window_mode(&overlay_win, false)?;
+    Ok(overlay_win)
+}
+
+/// Shows an existing overlay without activating it.
+#[cfg(desktop)]
+fn show_overlay_passive(overlay_win: &tauri::WebviewWindow) -> Result<(), String> {
+    overlay_win
+        .show()
+        .map_err(|e| format!("Gagal menampilkan overlay: {e}"))?;
+    let _ = overlay_win.unminimize();
+    // Re-applied on every show: Windows can drop topmost/z-order when the game
+    // recreates its swapchain or regains foreground.
+    apply_overlay_window_mode(overlay_win, false)?;
+    Ok(())
+}
+
 #[tauri::command]
 async fn open_vn_overlay_window(
     app: tauri::AppHandle,
@@ -481,36 +767,16 @@ async fn open_vn_overlay_window(
     ensure_trusted_window(&window)?;
 
     if let Some(overlay_win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-        overlay_win.show().map_err(|e| format!("Gagal menampilkan overlay: {e}"))?;
         #[cfg(desktop)]
-        {
-            let _ = overlay_win.set_always_on_top(true);
-            let _ = overlay_win.unminimize();
-            let _ = overlay_win.set_focus();
-        }
-        let _ = app.emit("cstl-overlay-req-state", ());
+        show_overlay_passive(&overlay_win)?;
+        let _ = app.emit(OVERLAY_REQ_STATE_EVENT, ());
         return Ok(());
     }
 
     #[cfg(desktop)]
     {
-        tauri::WebviewWindowBuilder::new(
-            &app,
-            OVERLAY_WINDOW_LABEL,
-            tauri::WebviewUrl::App("overlay.html".into()),
-        )
-        .title("CopasTool VN Overlay")
-        .inner_size(840.0, 260.0)
-        .transparent(true)
-        .always_on_top(true)
-        .decorations(false)
-        .shadow(false)
-        .skip_taskbar(true)
-        .resizable(true)
-        .build()
-        .map_err(|e| format!("Gagal membuat jendela overlay: {e}"))?;
-
-        let _ = app.emit("cstl-overlay-req-state", ());
+        build_overlay_window(&app)?;
+        let _ = app.emit(OVERLAY_REQ_STATE_EVENT, ());
     }
 
     #[cfg(not(desktop))]
@@ -541,36 +807,16 @@ async fn toggle_vn_overlay_window(app: tauri::AppHandle, window: tauri::WebviewW
             let _ = overlay_win.hide();
             Ok(false)
         } else {
-            overlay_win.show().map_err(|e| format!("Gagal menampilkan overlay: {e}"))?;
             #[cfg(desktop)]
-            {
-                let _ = overlay_win.set_always_on_top(true);
-                let _ = overlay_win.unminimize();
-                let _ = overlay_win.set_focus();
-            }
-            let _ = app.emit("cstl-overlay-req-state", ());
+            show_overlay_passive(&overlay_win)?;
+            let _ = app.emit(OVERLAY_REQ_STATE_EVENT, ());
             Ok(true)
         }
     } else {
         #[cfg(desktop)]
         {
-            tauri::WebviewWindowBuilder::new(
-                &app,
-                OVERLAY_WINDOW_LABEL,
-                tauri::WebviewUrl::App("overlay.html".into()),
-            )
-            .title("CopasTool VN Overlay")
-            .inner_size(840.0, 260.0)
-            .transparent(true)
-            .always_on_top(true)
-            .decorations(false)
-            .shadow(false)
-            .skip_taskbar(true)
-            .resizable(true)
-            .build()
-            .map_err(|e| format!("Gagal membuat jendela overlay: {e}"))?;
-
-            let _ = app.emit("cstl-overlay-req-state", ());
+            build_overlay_window(&app)?;
+            let _ = app.emit(OVERLAY_REQ_STATE_EVENT, ());
             Ok(true)
         }
         #[cfg(not(desktop))]
@@ -588,6 +834,57 @@ fn is_vn_overlay_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Re
     } else {
         Ok(false)
     }
+}
+
+/// Overlay interaction mode, tracked in Rust rather than read back from the OS.
+///
+/// Tauri exposes `set_ignore_cursor_events` but no getter, and the OS value can
+/// disagree with what the HUD believes after a recreate. Keeping the authoritative
+/// flag here means `is_vn_overlay_interactive` always answers for the live window.
+#[derive(Default)]
+struct OverlayInteractionState(std::sync::atomic::AtomicBool);
+
+impl OverlayInteractionState {
+    fn get(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    fn set(&self, interactive: bool) {
+        self.0.store(interactive, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Switches the overlay between click-through (safe over a game) and
+/// interactive (the user wants to drag it, press the star, or close it).
+///
+/// Returns the new interactive state so the HUD can reflect it without guessing.
+#[tauri::command]
+fn set_vn_overlay_interactive(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, OverlayInteractionState>,
+    interactive: bool,
+) -> Result<bool, String> {
+    ensure_trusted_window(&window)?;
+    let overlay_win = app
+        .get_webview_window(OVERLAY_WINDOW_LABEL)
+        .ok_or_else(|| "Jendela overlay belum dibuka.".to_string())?;
+
+    #[cfg(desktop)]
+    apply_overlay_window_mode(&overlay_win, interactive)?;
+
+    state.set(interactive);
+    Ok(interactive)
+}
+
+/// Reports whether the overlay is currently accepting mouse input.
+#[tauri::command]
+fn is_vn_overlay_interactive(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, OverlayInteractionState>,
+) -> Result<bool, String> {
+    ensure_trusted_window(&window)?;
+    Ok(state.get())
 }
 
 #[tauri::command]
@@ -725,6 +1022,7 @@ pub fn run() {
                 }
             }
         })
+        .manage(OverlayInteractionState::default())
         .invoke_handler(tauri::generate_handler![
             native_save_file,
             native_save_file_text,
@@ -748,6 +1046,9 @@ pub fn run() {
             close_vn_overlay_window,
             toggle_vn_overlay_window,
             is_vn_overlay_open,
+            set_vn_overlay_interactive,
+            is_vn_overlay_interactive,
+            diagnose_vn_overlay,
             drag_vn_overlay_window,
             camoufox::copas_camofox_ensure,
             camoufox::copas_camofox_request,
