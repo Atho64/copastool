@@ -108,6 +108,10 @@ jobs:
           tagName: ''
           releaseDraft: false
           prerelease: ${{ steps.channel.outputs.prerelease }}
+          # WiX rejects a non-numeric prerelease identifier for the MSI target
+          # (0.1.14-beta.1), while NSIS handles it fine. Pre-releases therefore
+          # ship the NSIS installer only; stable releases keep both.
+          args: ${{ steps.channel.outputs.prerelease == 'true' && '--bundles nsis' || '' }}
 
       - name: Upload Windows Installer Artifacts
         uses: actions/upload-artifact@v4

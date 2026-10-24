@@ -890,7 +890,17 @@ fn is_vn_overlay_interactive(
 #[tauri::command]
 fn drag_vn_overlay_window(window: tauri::WebviewWindow) -> Result<(), String> {
     ensure_trusted_window(&window)?;
-    window.start_dragging().map_err(|e| e.to_string())
+    // start_dragging is desktop-only in Tauri v2; the overlay window does not
+    // exist on Android anyway (open_vn_overlay_window refuses there), but this
+    // command still has to compile for every target.
+    #[cfg(desktop)]
+    {
+        return window.start_dragging().map_err(|e| e.to_string());
+    }
+    #[cfg(not(desktop))]
+    {
+        Err("VN Overlay hanya didukung di Desktop (Windows)".to_string())
+    }
 }
 
 #[tauri::command]
