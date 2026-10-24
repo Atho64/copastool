@@ -86,6 +86,9 @@ jobs:
 
       - name: Resolve release channel
         id: channel
+        # Windows runners default to PowerShell, where `[[ ]]` and "$GITHUB_OUTPUT"
+        # are not bash. Pin bash so this step behaves identically on every runner.
+        shell: bash
         run: |
           # A semver prerelease version (0.1.14-beta.1) must publish as a GitHub
           # prerelease so it is never handed out as "latest". Derive it from
@@ -292,4 +295,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
+          # A "-suffix" version must stay a prerelease here too, otherwise this
+          # second uploader would flip the release the tauri-action step just
+          # marked as a prerelease back to a stable one.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: release-files/*
