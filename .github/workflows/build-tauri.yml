@@ -100,6 +100,14 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+          # WiX needs a 4-field numeric version and rejects a text prerelease
+          # outright, so the MSI could not be built for 0.1.14-beta.1.
+          # bundle.windows.wix.version is the supported per-bundler override;
+          # overriding the global version instead fails Tauri's semver check.
+          # scripts/msi-version.mjs maps 0.1.14-beta.1 -> 0.1.14.1 and returns
+          # the plain version when stable, so this is safe unconditionally.
+          echo "msi_version=$(node scripts/msi-version.mjs)" >> "$GITHUB_OUTPUT"
+
       - name: Build Tauri Windows App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -108,10 +116,10 @@ jobs:
           tagName: ''
           releaseDraft: false
           prerelease: ${{ steps.channel.outputs.prerelease }}
-          # WiX rejects a non-numeric prerelease identifier for the MSI target
-          # (0.1.14-beta.1), while NSIS handles it fine. Pre-releases therefore
-          # ship the NSIS installer only; stable releases keep both.
-          args: ${{ steps.channel.outputs.prerelease == 'true' && '--bundles nsis' || '' }}
+          # package.json stays the single source of truth for every version
+          # marker; only the MSI's internal ProductVersion is overridden, and
+          # installer filenames keep showing the real semver.
+          args: --config '{"bundle":{"windows":{"wix":{"version":"${{ steps.channel.outputs.msi_version }}"}}}}'
 
       - name: Upload Windows Installer Artifacts
         uses: actions/upload-artifact@v4
