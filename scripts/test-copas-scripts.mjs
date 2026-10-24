@@ -5,6 +5,10 @@
 // renames a control: a missed stop-button label turns completion detection off
 // without any error, so the failure mode is "Auto Copas hangs / copies the
 // previous answer" rather than a visible exception.
+//
+// Requires Node >= 22.6: the imports below are .ts and rely on native type
+// stripping. On older Node this fails with ERR_UNKNOWN_FILE_EXTENSION, which is
+// why CI's version-check job pins Node 24 for this step.
 
 import { COPAS_TARGETS } from '../src/auto-copas/targets.ts';
 import { jsReadPageState, jsClickCopyButton, jsComposerTextLength } from '../src/auto-copas/page-scripts.ts';

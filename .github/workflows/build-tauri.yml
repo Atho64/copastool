@@ -32,7 +32,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          # Node >=22.6 can execute TypeScript directly (type stripping), which
+          # test-copas-scripts.mjs relies on: it imports src/*.ts to assert on
+          # the real selector tables instead of a copy that silently drifts.
+          # Pinned per-job so the Tauri build jobs keep their tested Node 20.
+          node-version: '24'
 
       - name: Check version markers
         run: npm run version:check
