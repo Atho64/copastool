@@ -48,6 +48,8 @@ export const state: AppState = {
   aiTranslateMode: 'auto',
   glossaryEngine: 'api',
   aiCheckEngine: 'api',
+  liveTranslateEngine: 'api',
+  liveBatchSize: 1,
   copasTarget: 'gemini',
   tavilyApiKey: '',
   agentMaxTurns: 10,

@@ -20,7 +20,9 @@ const expected = pkg.version;
 const problems = [];
 
 // package.json
-if (typeof expected !== 'string' || !/^\d+\.\d+\.\d+/.test(expected)) {
+// Semver with optional prerelease/build suffix (e.g. 0.1.14-beta.1), so a
+// pre-release tag can be cut without editing this script.
+if (typeof expected !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(expected)) {
   problems.push(`package.json: "version" is not a valid semver: ${JSON.stringify(expected)}`);
 }
 
@@ -57,7 +59,11 @@ if (pkgLockRoot !== expected) {
 }
 
 // README.md version badge
-const readmeBadge = /Version-v(\d+\.\d+\.\d+)/.exec(read('README.md'))?.[1];
+// shields.io renders a literal '-' as '--' inside a static badge path, so
+// "v0.1.14-beta.1" is written as "Version-v0.1.14--beta.1" in the URL. Decode
+// that before comparing, otherwise every pre-release fails this gate.
+const readmeBadgeRaw = /Version-v([0-9][0-9A-Za-z.-]*?)-(?:purple|blue|green|red|orange|grey|gray|yellow|brightgreen|black)(?:\?|\b)/.exec(read('README.md'))?.[1];
+const readmeBadge = readmeBadgeRaw?.replace(/--/g, '-');
 if (readmeBadge !== expected) {
   problems.push(`README.md: version badge "v${readmeBadge}" != "v${expected}"`);
 }

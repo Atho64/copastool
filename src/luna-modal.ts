@@ -4,8 +4,53 @@ import { lunaHooker, type LunaConnectionStatus, type LunaOperatingMode } from '.
 import { overlayController } from './overlay-controller';
 import { openModal, closeModal } from './project';
 import { state } from './state';
+import { COPAS_TARGETS, normalizeCopasTarget } from './auto-copas/targets';
 
 const q = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+/**
+ * The floating VN overlay is desktop-Windows only: raising a window above a
+ * fullscreen game needs Win32 SetWindowPos + DWM info, and the Rust
+ * `open_vn_overlay_window` command returns an error on any non-desktop target.
+ * Detect that here so the UI hides the controls instead of offering a button
+ * whose only outcome is an error. User-agent based (not `isAndroidNativeApp`)
+ * so an Android/PWA browser build is covered too, and so desktop browsers
+ * keep the feature: outside Tauri the overlay opens as a popped-out window.
+ */
+function isOverlaySupported(): boolean {
+  return !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+/**
+ * Renders the TL Mode engine badge. In Copas mode the API key is irrelevant,
+ * so the badge reports the target site instead of demanding a key. In API mode
+ * a missing key is a hard stop, which the badge makes visible before gameplay.
+ */
+function updateLunaTlBadge(badge: HTMLSpanElement | null): void {
+  if (!badge) return;
+  if (state.liveTranslateEngine === 'copas') {
+    const target = COPAS_TARGETS[normalizeCopasTarget(state.copasTarget)];
+    badge.textContent = `Copas: ${target.label}`;
+    badge.classList.remove('is-error');
+    badge.title = `Menerjemahkan dialog lewat ${target.label} di browser otomatis (login sekali via Buka Browser)`;
+    return;
+  }
+  const modelName = state.aiModel || state.aiApiType || 'API';
+  if (state.aiApiKey) {
+    badge.textContent = `Model: ${modelName}`;
+    badge.classList.remove('is-error');
+    badge.title = `${modelName}: dipakai untuk menerjemahkan dialog mentah`;
+  } else {
+    badge.textContent = 'API Key Belum Diisi!';
+    badge.classList.add('is-error');
+    badge.title = 'Isi API Key di Setting → API Global, atau pilih mesin Copas di TL Mode';
+  }
+}
+
+/** Re-renders the TL badge after the engine or target changed elsewhere. */
+export function refreshLunaTlBadge(): void {
+  updateLunaTlBadge(q<HTMLSpanElement>('lunaTlModelBadge'));
+}
 
 export class LunaModalController {
   private modal = q<HTMLDivElement>('lunaHookerModal');
@@ -26,6 +71,10 @@ export class LunaModalController {
   private lunaTlModelBadge = q<HTMLSpanElement>('lunaTlModelBadge');
   private statusBadge = q<HTMLSpanElement>('lunaModalStatusBadge');
   private logText = q<HTMLSpanElement>('lunaConnectionLog');
+  private overlaySection = q<HTMLDivElement>('vnOverlaySection');
+  private overlayUnsupportedNote = q<HTMLParagraphElement>('vnOverlayUnsupportedNote');
+  private liveBatchInput = q<HTMLInputElement>('liveBatchSizeInput');
+  private liveBatchHint = q<HTMLDivElement>('liveBatchHint');
   private initialized = false;
 
   init(): void {
@@ -62,6 +111,27 @@ export class LunaModalController {
     this.lunaTlModelBadge = q<HTMLSpanElement>('lunaTlModelBadge');
     this.statusBadge = q<HTMLSpanElement>('lunaModalStatusBadge');
     this.logText = q<HTMLSpanElement>('lunaConnectionLog');
+    this.overlaySection = q<HTMLDivElement>('vnOverlaySection');
+    this.overlayUnsupportedNote = q<HTMLParagraphElement>('vnOverlayUnsupportedNote');
+    this.liveBatchInput = q<HTMLInputElement>('liveBatchSizeInput');
+    this.liveBatchHint = q<HTMLDivElement>('liveBatchHint');
+    this.applyOverlayAvailability();
+    this.syncLiveBatchUi();
+  }
+
+  /**
+   * Hides the whole VN Overlay block on platforms where the native command
+   * cannot work, leaving the LunaTranslator hook + TL Mode fully usable.
+   */
+  private applyOverlayAvailability(): void {
+    const supported = isOverlaySupported();
+    if (this.overlaySection) this.overlaySection.style.display = supported ? '' : 'none';
+    if (this.overlayUnsupportedNote) this.overlayUnsupportedNote.style.display = supported ? 'none' : '';
+    if (supported) return;
+
+    // A window restored from a desktop session could still be open server-side;
+    // tear it down so it cannot linger unfocusable behind the app.
+    void overlayController.closeOverlay().catch(() => {});
   }
 
   private setupListeners(): void {
@@ -81,6 +151,9 @@ export class LunaModalController {
     this.btnDisconnect?.addEventListener('click', () => {
       lunaHooker.disconnect();
     });
+
+    this.liveBatchInput?.addEventListener('change', () => this.onLiveBatchChanged());
+    this.liveBatchInput?.addEventListener('blur', () => this.onLiveBatchChanged());
 
     this.btnToggleOverlay?.addEventListener('click', async () => {
       try {
@@ -209,21 +282,38 @@ export class LunaModalController {
   private updateModeUi(mode: LunaOperatingMode): void {
     if (mode === 'tl') {
       if (this.lunaTlModeInfo) this.lunaTlModeInfo.style.display = 'block';
-      if (this.lunaTlModelBadge) {
-        const modelName = state.aiModel || state.aiApiType || 'API';
-        if (state.aiApiKey) {
-          this.lunaTlModelBadge.textContent = `Model: ${modelName}`;
-          this.lunaTlModelBadge.classList.remove('is-error');
-          this.lunaTlModelBadge.title = `${modelName} — dipakai untuk menerjemahkan dialog mentah`;
-        } else {
-          this.lunaTlModelBadge.textContent = 'API Key Belum Diisi!';
-          this.lunaTlModelBadge.classList.add('is-error');
-          this.lunaTlModelBadge.title = 'Isi API Key di Setting → API Global untuk memakai TL Mode';
-        }
-      }
+      updateLunaTlBadge(this.lunaTlModelBadge);
+      void import('./auto-copas/ui').then(m => m.syncCopasUi());
     } else {
       if (this.lunaTlModeInfo) this.lunaTlModeInfo.style.display = 'none';
     }
+  }
+
+  /**
+   * Reflects the TL look-ahead batch size: 1 is the plain single-line mode, so
+   * the explanation only appears once a real batch is configured. Stored via
+   * saveApiSettings so it survives a reload like every other AI preference.
+   */
+  private syncLiveBatchUi(): void {
+    const n = state.liveBatchSize || 1;
+    if (this.liveBatchInput) this.liveBatchInput.value = String(n);
+    if (!this.liveBatchHint) return;
+    if (n <= 1) {
+      this.liveBatchHint.textContent = 'Batch 1: hanya baris aktif yang diterjemahkan.';
+    } else {
+      this.liveBatchHint.textContent =
+        `Batch ${n}: baris aktif + ${n - 1} baris berikutnya diterjemahkan sekaligus, ` +
+        'jadi dialog selanjutnya sudah siap saat hook sampai ke sana.';
+    }
+  }
+
+  private onLiveBatchChanged(): void {
+    const raw = Number(this.liveBatchInput?.value);
+    const clamped = Number.isFinite(raw) ? Math.max(1, Math.min(20, Math.trunc(raw))) : 1;
+    state.liveBatchSize = clamped;
+    if (this.liveBatchInput) this.liveBatchInput.value = String(clamped);
+    this.syncLiveBatchUi();
+    void import('./auto-translate').then((m) => m.saveApiSettings());
   }
 
   private saveCurrentInputs(): void {
@@ -275,17 +365,19 @@ export class LunaModalController {
     this.syncFromConfig();
     const cur = lunaHooker.getStatus();
     this.updateStatusUi(cur.status, cur.message);
-    try {
-      const isOpen = await overlayController.isOverlayOpen();
-      if (this.btnToggleOverlay) {
-        const span = this.btnToggleOverlay.querySelector('span');
-        if (span) {
-          span.textContent = isOpen ? 'Sembunyikan Overlay' : 'Buka / Toggle Overlay';
+    if (isOverlaySupported()) {
+      try {
+        const isOpen = await overlayController.isOverlayOpen();
+        if (this.btnToggleOverlay) {
+          const span = this.btnToggleOverlay.querySelector('span');
+          if (span) {
+            span.textContent = isOpen ? 'Sembunyikan Overlay' : 'Buka / Toggle Overlay';
+          }
         }
-      }
-    } catch {}
+      } catch {}
 
-    await this.refreshOverlayInteractiveUi();
+      await this.refreshOverlayInteractiveUi();
+    }
     if (this.modal) {
       openModal(this.modal);
     }

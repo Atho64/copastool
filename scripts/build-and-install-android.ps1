@@ -60,8 +60,20 @@ Write-Host "Found APK: $($rawApk.FullName)" -ForegroundColor Green
 
 $zipalign = "C:\Users\Atho\AppData\Local\Android\Sdk\build-tools\35.0.0\zipalign.exe"
 $apksigner = "C:\Users\Atho\AppData\Local\Android\Sdk\build-tools\35.0.0\apksigner.bat"
-$credentialsFile = Join-Path $appDir "release-keystore-credentials.txt"
-$keystore = Join-Path $appDir "release.jks"
+# Release signing material lives OUTSIDE the repo (%USERPROFILE%\.android-keys) so it
+# can never be picked up by a stray `git add -f`, a folder zip, or a path-based backup.
+# Override with ANDROID_KEYSTORE_DIR. The in-repo copy is only a legacy fallback.
+$keyDir = if ($env:ANDROID_KEYSTORE_DIR) { $env:ANDROID_KEYSTORE_DIR } else { Join-Path $env:USERPROFILE ".android-keys" }
+$credentialsFile = Join-Path $keyDir "release-keystore-credentials.txt"
+$keystore = Join-Path $keyDir "release.jks"
+if (-not (Test-Path $keystore)) {
+    $legacyKeystore = Join-Path $appDir "release.jks"
+    if (Test-Path $legacyKeystore) {
+        Write-Warning "Keystore tidak ada di $keyDir - memakai salinan lama di dalam folder proyek. Pindahkan ke $keyDir."
+        $keystore = $legacyKeystore
+        $credentialsFile = Join-Path $appDir "release-keystore-credentials.txt"
+    }
+}
 
 $storePass = $env:ANDROID_KEYSTORE_PASSWORD
 if (-not $storePass -and (Test-Path $credentialsFile)) {
@@ -74,11 +86,11 @@ $keyAlias = "copastool"
 $keyPass = if ($env:ANDROID_KEY_PASSWORD) { $env:ANDROID_KEY_PASSWORD } else { $storePass }
 
 if (-not $storePass) {
-    throw "Password keystore tidak ditemukan. Pastikan release-keystore-credentials.txt ada atau set env ANDROID_KEYSTORE_PASSWORD."
+    throw "Password keystore tidak ditemukan. Pastikan $credentialsFile ada atau set env ANDROID_KEYSTORE_PASSWORD."
 }
 
 if (-not (Test-Path $keystore)) {
-    throw "Keystore tidak ditemukan di $keystore!"
+    throw "Keystore tidak ditemukan di $keystore! Set ANDROID_KEYSTORE_DIR untuk menunjuk folder lain."
 }
 
 New-Item -ItemType Directory -Force -Path "signed-apk" | Out-Null

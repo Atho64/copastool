@@ -51,6 +51,17 @@ const GENERIC_STOP = [
   '[data-testid*="stop" i]',
 ];
 
+/** Gemini renamed its stop control from "Stop generating" to "Stop response";
+ * both stay listed so the fast path keeps working without the label scan. */
+const GEMINI_STOP = [
+  'button[aria-label*="Stop response" i]',
+  'button[aria-label*="Stop generating" i]',
+  'button[aria-label*="Hentikan pembuatan" i]',
+  'button[aria-label*="Hentikan respons" i]',
+  '.stop-generating-button',
+  '[data-testid="stop-button"]',
+];
+
 export const COPAS_TARGETS: Record<CopasTargetId, CopasTargetConfig> = {
   gemini: {
     id: 'gemini',
@@ -71,12 +82,7 @@ export const COPAS_TARGETS: Record<CopasTargetId, CopasTargetConfig> = {
       'button.send-button',
       'button[mattooltip*="Send" i]',
     ],
-    stop: [
-      'button[aria-label*="Stop generating" i]',
-      'button[aria-label*="Hentikan pembuatan" i]',
-      '.stop-generating-button',
-      '[data-testid="stop-button"]',
-    ],
+    stop: GEMINI_STOP,
     assistant: [
       'model-response .markdown',
       'message-content.model-response-text',
@@ -153,11 +159,18 @@ export const COPAS_TARGETS: Record<CopasTargetId, CopasTargetConfig> = {
     // so send-state must be ignored (port of preferStop=true).
     stop: GENERIC_STOP,
     assistant: [
+      // DeepSeek's answer body. Keep the specific class first: a loose
+      // `[class*="markdown"]` also matches the tiny `.markdown-toolbar`
+      // chrome, and since the reader takes the LAST match, the toolbar's
+      // 4-char text would win — freezing response length and stalling
+      // completion detection until the 180s timeout.
       '.ds-markdown',
-      '[class*="markdown"]',
+      '.ds-markdown--block',
+      '[class*="ds-markdown"]',
       '.message-content',
-      '[data-role="assistant"]',
       '.assistant-message',
+      '[data-role="assistant"]',
+      '[class*="markdown"]',
     ],
     preferStop: true,
     idleNeeded: 8,

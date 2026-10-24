@@ -17,7 +17,8 @@ import { buildAiCheckPrompt, onApplyAiCheckCorrections, renderAiCheckCorrections
 import { getDisplayOrderedLines } from '../selection';
 import { isTauri } from '../native-storage';
 import { isAndroidNativeApp } from '../android-files';
-import { CopasError, isFatalCopasCode, type CopasDriver, type CopasStatusSink, type CopasWorkflow } from './types';import { COPAS_TARGETS, normalizeCopasTarget, type CopasTargetConfig } from './targets';
+import { CopasError, isFatalCopasCode, type CopasDriver, type CopasStatusSink, type CopasWorkflow } from './types';
+import { COPAS_TARGETS, normalizeCopasTarget, type CopasTargetConfig } from './targets';
 import { runCopasBatch } from './engine';
 import { getCamofoxDriver } from './camofox-driver';
 import { getAndroidDriver } from './android-driver';
@@ -183,6 +184,9 @@ export async function toggleCopasTranslate(): Promise<void> {
   if (isCopasTranslating) {
     isCopasTranslating = false;
     userCancelled = true;
+    // The loop never ran, so its `finally` will not release the slot — do it
+    // here or every later workflow is refused with "still running".
+    if (activeWorkflow === 'translate') activeWorkflow = null;
     setCopasStatus('translate', 'Menghentikan…');
     flashHint('Auto Copas Translate dihentikan.');
     return;
@@ -295,6 +299,8 @@ export async function toggleCopasGlossary(): Promise<void> {
   if (isCopasGlossary) {
     isCopasGlossary = false;
     userCancelled = true;
+    // See toggleCopasTranslate: release the slot on the early-return path.
+    if (activeWorkflow === 'glossary') activeWorkflow = null;
     setCopasStatus('glossary', 'Menghentikan…');
     flashHint('Auto Copas Glossary dihentikan.');
     return;
@@ -399,6 +405,8 @@ export async function toggleCopasAiCheck(): Promise<void> {
   if (isCopasAiCheck) {
     isCopasAiCheck = false;
     userCancelled = true;
+    // See toggleCopasTranslate: release the slot on the early-return path.
+    if (activeWorkflow === 'ai-check') activeWorkflow = null;
     const { resolveReviewAction } = await import('../auto-translate');
     resolveReviewAction('stop');
     setCopasStatus('ai-check', 'Menghentikan…');

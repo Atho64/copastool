@@ -20,6 +20,10 @@ const COPY_POLL_INTERVAL_MS = 300;
 const COPY_TIMEOUT_MS = 6000;
 const SEND_START_TIMEOUT_MS = 10000;
 const RESPONSE_TIMEOUT_MS = 180_000;
+/** If no stop control was ever seen AND the response length has not moved from
+ * the baseline, the assistant selector is not matching the site's answer node.
+ * Bail with a real explanation instead of waiting out the full timeout. */
+const SELECTOR_STALL_MS = 60_000;
 /** Composer must hold at least this fraction of the prompt for the paste to
  * count as landed (editors normalize whitespace, so 100% is not expected). */
 const PASTE_LENGTH_RATIO = 0.6;
@@ -70,6 +74,49 @@ async function verifyPasteLanded(
     if (Date.now() >= deadline) return false;
     await cancellableDelay(300, shouldCancel);
   }
+}
+
+/** Collapse whitespace so "prompt echoed back with different spacing" can be
+ * recognized. Sites rarely return a byte-identical copy of what was pasted. */
+function normalizeForCompare(text: string): string {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+/** Strip list numbering ("1. ", "1) ", "#1 ") so a prompt that the site
+ * re-serializes with line numbers still compares as the prompt. */
+function stripListNumbering(text: string): string {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.replace(/^\s*\d+\s*[.):\-]\s*/, ''))
+    .join('\n');
+}
+
+/** True when `text` is just the prompt we sent, echoed back (the site's
+ * "Copy prompt" / "Copy question" control). */
+export function isEchoOfPrompt(text: string, prompt: string): boolean {
+  const a = normalizeForCompare(text);
+  const b = normalizeForCompare(prompt);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  // Sites may re-serialize the prompt with list numbering on copy.
+  const aStripped = normalizeForCompare(stripListNumbering(text));
+  const bStripped = normalizeForCompare(stripListNumbering(prompt));
+  if (aStripped && bStripped && aStripped === bStripped) return true;
+  // A copy control may also trim a leading/trailing label; treat a text that is
+  // almost entirely the prompt as an echo rather than an answer.
+  if (a.length >= b.length * 0.9 && a.includes(b.slice(0, Math.min(b.length, 120)))) return true;
+  if (b.length >= a.length * 0.9 && b.includes(a.slice(0, Math.min(a.length, 120)))) return true;
+  return false;
+}
+
+/** Reasoning output that should never be accepted as a translation. Models
+ * often prefix their chain of thought with these markers, and a copy control
+ * scoped to the thinking block returns exactly that. */
+const REASONING_PREFIX_RE = /^\s*(thought|thinking|reasoning|berpikir|menalar|analisis|analyzing|chain of thought)\b/i;
+
+export function looksLikeReasoning(text: string): boolean {
+  const head = String(text || '').slice(0, 120);
+  return REASONING_PREFIX_RE.test(head);
 }
 
 export interface CopasBatchOptions {
@@ -183,7 +230,13 @@ export async function runCopasBatch(
 
   const sendStarted = async (): Promise<boolean> => {
     const state = await driver.evaluateExpr(jsReadPageState(target), target);
-    return state.stopVisible || state.composerEmpty || state.lastResponseLength !== baseline;
+    // `composerEmpty` on its own is not proof a run started — the composer is
+    // also empty when the paste never landed, and then we would wait the full
+    // response timeout for a turn that was never sent. Require it to be
+    // corroborated by a visible stop control or a changed response.
+    if (state.stopVisible) return true;
+    if (state.lastResponseLength !== baseline) return true;
+    return false;
   };
 
   let started = await sendStarted();
@@ -229,6 +282,26 @@ export async function runCopasBatch(
     // protects against copying the previous turn too early.
     if (state.stopVisible) sawGenerating = true;
 
+    // A response that is still exactly the baseline length this long means the
+    // assistant selector matched nothing (or matched page chrome): the loop can
+    // never satisfy `grew`, so it would spin for the full 180s and then report
+    // a generic timeout. Fail early with the actual cause instead.
+    //
+    // Only when no stop control was ever seen: while streaming the stop control
+    // is the reliable signal, and a long answer can legitimately sit at the
+    // previous response's exact length for a while.
+    if (
+      !sawGenerating &&
+      state.lastResponseLength === baseline &&
+      Date.now() - startedAt > SELECTOR_STALL_MS
+    ) {
+      throw new CopasError(
+        'copy-failed',
+        `Teks respons ${target.label} tidak terdeteksi — selector pesan situs mungkin berubah. ` +
+        'Coba buka halaman chat, pastikan respons benar-benar muncul, lalu jalankan ulang.',
+      );
+    }
+
     if (state.lastResponseLength !== lastLen) {
       lastLen = state.lastResponseLength;
       lastChangeAt = Date.now();
@@ -248,8 +321,17 @@ export async function runCopasBatch(
     const doneEqualLength = sawGenerating && state.composerEmpty
       && stableFor >= target.stableMs && idleStreak >= target.idleNeeded
       && state.lastResponseLength > baseline * 0.5;
+    // Weak-signal fallback: when the stop control was never observed (label
+    // drift, very fast responses), accept a settled, non-empty response once
+    // the composer is empty for a full window. Without this a single renamed
+    // stop button stalls every batch until the 180s timeout.
+    const doneSettled = state.composerEmpty
+      && state.lastResponseLength > 0
+      && state.lastResponseLength !== baseline
+      && stableFor >= target.stableMs
+      && idleStreak >= target.idleNeeded + 2;
 
-    if (done || doneEqualLength) break;
+    if (done || doneEqualLength || doneSettled) break;
 
     if (Date.now() - lastStatusAt > 5000) {
       lastStatusAt = Date.now();
@@ -270,7 +352,19 @@ export async function runCopasBatch(
     while (Date.now() < deadline) {
       if (cancelled()) throw new CopasError('cancelled', 'Dibatalkan.');
       const text = await driver.readClipboard();
-      if (text && text !== sentinel && text !== prompt) return text;
+      if (text && text !== sentinel) {
+        // "Copy prompt" controls return the prompt we just sent. Sites
+        // normalize whitespace on copy, so an exact `!== prompt` compares
+        // unequal and the prompt sails through as if it were the answer —
+        // which then "applies" the source text as the translation. Compare a
+        // whitespace-collapsed form instead.
+        // Also reject chain-of-thought output: a copy control scoped to the
+        // reasoning block returns "Thought for…" prose, not the translation.
+        if (!isEchoOfPrompt(text, prompt) && !looksLikeReasoning(text)) return text;
+        if (looksLikeReasoning(text)) {
+          status('Clipboard berisi teks thinking — mengabaikan.');
+        }
+      }
       await cancellableDelay(COPY_POLL_INTERVAL_MS, shouldCancel);
     }
     return null;
@@ -280,11 +374,39 @@ export async function runCopasBatch(
   for (let attempt = 0; attempt < 3 && !copied; attempt++) {
     const click = await driver.clickLastCopyButton(target, attempt);
     if (click.ariaText) {
-      copied = click.ariaText;
+      // The label carried the text inline; still reject a prompt echo and
+      // anything that is chain-of-thought rather than the answer.
+      if (!isEchoOfPrompt(click.ariaText, prompt) && !looksLikeReasoning(click.ariaText)) {
+        copied = click.ariaText;
+      }
+      if (copied) break;
+    }
+    if (!click.clicked && click.total === 0) {
+      status(`Tidak ada tombol Copy di ${target.label} — membaca dari halaman…`);
       break;
     }
-    if (!click.clicked && click.total === 0) break;
+    // Nothing was clicked on this attempt (e.g. only "Copy prompt" candidates
+    // exist) — polling the clipboard for 6s would just stall the batch.
+    if (!click.clicked) continue;
+    status(`Menunggu clipboard dari ${target.label} (${attempt + 1}/3)…`);
     copied = await readFreshClipboard();
+  }
+
+  // DOM fallback: clipboard copy controls on several sites either only expose
+  // "Copy prompt" or are gated behind hover/permission. The response text is
+  // already in the page, so read it directly rather than failing the batch —
+  // this only runs after the clipboard-first path produced nothing usable.
+  if (!copied) {
+    try {
+      const { jsReadLastResponseText } = await import('./page-scripts');
+      const domText = String(await driver.evaluateExpr(jsReadLastResponseText(target), target) || '');
+      if (domText.trim() && !isEchoOfPrompt(domText, prompt) && !looksLikeReasoning(domText)) {
+        copied = domText;
+        status('Clipboard kosong — teks respons dibaca langsung dari halaman.');
+      }
+    } catch {
+      /* fall through to the error below */
+    }
   }
 
   // Arena last resort: the code-block copy button breaks silently whenever

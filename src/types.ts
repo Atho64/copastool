@@ -175,6 +175,15 @@ export interface AppState {
   glossaryEngine: 'api' | 'copas';
   /** Engine for the AI Check Auto loop: HTTP API or Auto Copas (browser). */
   aiCheckEngine: 'api' | 'copas';
+  /** Engine for Live Translate (on-the-fly during gameplay): HTTP API or Auto Copas. */
+  liveTranslateEngine: 'api' | 'copas';
+  /**
+   * Look-ahead batch size for TL Mode. 1 = translate only the hooked line.
+   * >1 = when a hooked line arrives, translate it plus the next (n-1)
+   * untranslated lines in one request so upcoming dialogue is already ready.
+   * Only meaningful for the Copas engine, where one round-trip is expensive.
+   */
+  liveBatchSize: number;
   /** AI chat site Auto Copas drives (Gemini/ChatGPT/DeepSeek/Arena). */
   copasTarget: 'gemini' | 'chatgpt' | 'deepseek' | 'arena';
   tavilyApiKey: string;

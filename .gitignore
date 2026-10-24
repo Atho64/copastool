@@ -58,3 +58,6 @@ signed-apk/
 # third-party tools often carry copyleft or non-commercial licenses that
 # should not be redistributed with this MIT project.
 bin/
+
+# antislop audit and follow-up reports — local working notes, not shipped docs.
+anti-slop/

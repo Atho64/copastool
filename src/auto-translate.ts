@@ -19,6 +19,17 @@ import { getDisplayOrderedLines } from './selection';
 
 const API_STORAGE_KEY = 'cstl_api_settings';
 
+/** Upper bound on the TL look-ahead batch. Beyond ~20 lines one prompt starts
+ *  to lose per-line fidelity and the site's own input limit becomes a risk. */
+export const LIVE_BATCH_MAX = 20;
+
+/** Clamps a user-supplied TL batch size into 1..LIVE_BATCH_MAX. */
+export function normalizeLiveBatchSize(value: any): number {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, LIVE_BATCH_MAX);
+}
+
 function numberFromInput(el: any, fallback: number): number {
   const value = Number((el as HTMLInputElement | undefined)?.value);
   return Number.isFinite(value) ? value : fallback;
@@ -61,6 +72,8 @@ export function loadApiSettings(): void {
       }
       if (p.glossaryEngine === 'api' || p.glossaryEngine === 'copas') state.glossaryEngine = p.glossaryEngine;
       if (p.aiCheckEngine === 'api' || p.aiCheckEngine === 'copas') state.aiCheckEngine = p.aiCheckEngine;
+      if (p.liveTranslateEngine === 'api' || p.liveTranslateEngine === 'copas') state.liveTranslateEngine = p.liveTranslateEngine;
+      if (p.liveBatchSize !== undefined) state.liveBatchSize = normalizeLiveBatchSize(p.liveBatchSize);
       if (p.copasTarget) state.copasTarget = normalizeCopasTarget(p.copasTarget);
       if (p.tavilyApiKey !== undefined) state.tavilyApiKey = p.tavilyApiKey;
       if (p.autoRepeatOnFailure !== undefined) state.autoRepeatOnFailure = !!p.autoRepeatOnFailure;
@@ -74,6 +87,10 @@ export function loadApiSettings(): void {
   if (glossaryEngineSelect) glossaryEngineSelect.value = state.glossaryEngine || 'api';
   const aiCheckEngineSelect = document.getElementById('aiCheckEngineSelect') as HTMLSelectElement | null;
   if (aiCheckEngineSelect) aiCheckEngineSelect.value = state.aiCheckEngine || 'api';
+  const liveEngineSelect = document.getElementById('liveEngineSelect') as HTMLSelectElement | null;
+  if (liveEngineSelect) liveEngineSelect.value = state.liveTranslateEngine || 'api';
+  const liveBatchInput = document.getElementById('liveBatchSizeInput') as HTMLInputElement | null;
+  if (liveBatchInput) liveBatchInput.value = String(state.liveBatchSize || 1);
   for (const id of ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck']) {
     const el = document.getElementById(id) as HTMLSelectElement | null;
     if (el) el.value = state.copasTarget || 'gemini';
@@ -111,6 +128,8 @@ export function saveApiSettings(): void {
     aiKeyStrategy: state.aiKeyStrategy, aiTranslateMode: state.aiTranslateMode,
     glossaryEngine: state.glossaryEngine,
     aiCheckEngine: state.aiCheckEngine,
+    liveTranslateEngine: state.liveTranslateEngine,
+    liveBatchSize: state.liveBatchSize,
     copasTarget: state.copasTarget,
     tavilyApiKey: state.tavilyApiKey,
     autoRepeatOnFailure: state.autoRepeatOnFailure,

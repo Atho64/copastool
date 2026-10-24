@@ -665,9 +665,14 @@ input.dashboard-search-input,
 }
 
 .project-actions-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.project-actions-row > .card-btn-action {
+  flex: 1 1 0;
+  min-width: 72px;
 }
 
 .card-btn-action {

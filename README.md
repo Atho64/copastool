@@ -1,206 +1,257 @@
-# CopasTool (Tauri Cross-Platform)
+# CopasTool
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.13-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.1-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
 </div>
 
-Tool bantu penerjemahan visual novel dan novel (EPUB) yang ditenagai oleh **Tauri v2** untuk platform **Windows (Desktop)** dan **Android (Mobile)**. Alur kerja utamanya berbasis **Copy-Paste cerdas** ke Web AI (Gemini, ChatGPT, Claude, DeepSeek, dll.) maupun terjemahan otomatis, dilengkapi injeksi glosarium karakter, story context chaining, jendela Web AI companion bawaan, hingga ekspor kembali naskah game dalam satu aplikasi native yang ringan dan cepat.
+Alat bantu terjemahan untuk visual novel dan novel EPUB. Berjalan sebagai aplikasi native Tauri v2 di Windows dan Android, dan sebagai PWA di browser.
+
+Alur utamanya ada dua: kirim teks terpilih ke Web AI lewat clipboard lalu tempel hasilnya kembali, atau biarkan aplikasi yang memanggil API AI secara langsung. Sekalian diurus juga glosarium karakter, konteks cerita antar batch, dan ekspor balik ke format file aslinya.
 
 ---
 
 ## Fitur
 
 ### Impor
-- **File / Folder** — Impor file `.json` atau `.epub` satu-satu atau sekalian satu folder. Di Android, pemilih folder native membaca subfolder melalui Storage Access Framework.
-- **ZIP** — Impor banyak file sekaligus dari arsip `.zip`
-- **Impor File (Plugin/Parser)** — Impor format game yang didukung plugin terpasang (menu khusus + routing otomatis berdasarkan ekstensi/magic signature)
-- **Sistem Plugin & Parser (.zip / JS / Python)** — Pasang plugin ekstensi untuk format game, tema kustom, atau utilitas khusus. Lihat panduan lengkap di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
-- **File / Folder Terjemahan** — Merge hasil terjemahan ke proyek yang sudah ada
+- **File / Folder**: impor `.json` atau `.epub` satu per satu atau sekaligus satu folder. Di Android, pemilih folder native membaca subfolder lewat Storage Access Framework.
+- **ZIP**: impor banyak file dari satu arsip `.zip`.
+- **Plugin / Parser**: impor format game yang didukung plugin terpasang, lewat menu khusus atau routing otomatis berdasarkan ekstensi dan magic signature.
+- **Terjemahan**: gabungkan hasil terjemahan ke proyek yang sudah ada.
+- **Referensi bahasa**: impor teks bahasa lain (Inggris, Mandarin) per file atau seluruh folder, lalu dipakai sebagai referensi tambahan saat menerjemahkan.
 
-### Plugin & Parser System
-Format game tidak didukung bawaan? Kamu bisa memasang paket plugin (`.zip`) atau menulis parser custom sendiri lewat menu **Setting → Plugin & Parser Manager** (shortcut `Alt + P`).
+### Sistem Plugin & Parser
+Format game yang belum didukung bisa ditambahkan lewat paket plugin `.zip`, atau dengan menulis parser sendiri di menu **Setting → Plugin & Parser Manager** (`Alt + P`).
 
-Sistem plugin CSTL mencakup:
-1. **Parser Format Game**: Ekstraksi (`extract`) dan pengemasan kembali (`pack`) naskah format biner/teks dengan round-trip export.
-2. **Tema Visual & Watermark**: Personalisasi antarmuka dan palet warna via `theme.css`.
-3. **Panel Kustom (UI Panel)**: Widget tambahan di workspace dengan antarmuka interaktif.
-4. **Hook Clipboard & Terjemahan**: Pre-processing teks sebelum disalin ke AI dan post-processing sebelum terjemahan diterapkan.
-5. **Perintah Kustom & Shortcut**: Perintah khusus yang terdaftar di Shortcut Keyboard Manager.
-6. **Parser Legacy (JS / Python)**: Kompatibilitas penuh dengan parser skrip tunggal dan arsip `.zip` lama.
+Yang bisa dipasang:
 
-> 📖 **Panduan Pembuatan Plugin & Parser**:
-> Untuk dokumentasi arsitektur, spesifikasi `manifest.json`, Host API, contoh kode lengkap, dan integrasi parser, silakan baca **[PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md)**.
+1. **Parser format game**: ekstraksi `extract` dan pengemasan ulang `pack`, termasuk format biner dan arsip multi-file.
+2. **Tema visual**: `theme.css` dan `api.setTheme()` untuk palet dan watermark.
+3. **Panel kustom**: widget tambahan di workspace lewat `panel(parentEl, api)`.
+4. **Hook clipboard**: `onCopy` sebelum teks disalin, `onApply` sebelum terjemahan diterapkan.
+5. **Perintah kustom**: terdaftar otomatis di Shortcut Keyboard Manager lewat `api.registerShortcut()`.
+6. **Parser skrip tunggal (JS / Python)**: parser legacy satu file. Python berjalan di worker Pyodide yang dimuat dari CDN saat dipakai pertama kali (±10 MB).
 
-### Terjemahan AI
-Alur kerjanya sederhana: pilih baris → copy → tempel ke AI → paste hasilnya → terapkan. CSTL yang urus parsing dan mapping ke baris yang benar.
+Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggilan API yang izinnya belum dideklarasikan, jadi `permissions` adalah kontrak kepercayaan, bukan pengaman. Detail arsitektur, `manifest.json`, dan contoh kode ada di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
 
-- Copy teks yang dipilih ke format siap pakai untuk ChatGPT/Gemini/dll
-- Paste hasil terjemahan dan terapkan otomatis
-- **AI Check** — Copy terjemahan yang sudah ada ke AI untuk dicek ulang, lalu terapkan koreksinya
-- Prompt terjemahan dan AI check bisa dikustomisasi sendiri
-- Pilihan format output AI (numbered list, XML, dll.)
+### Terjemahan Copy-Paste
+Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetakan hasil AI ke nomor baris yang benar.
+
+- Format prompt bisa dipilih: numbered list, block, XML, JSONL, atau JSON array.
+- Prompt header bisa diedit sendiri, termasuk varian yang memakai tanda kutip Jepang (kagikakko).
+- **AI Check**: salin terjemahan yang sudah ada untuk diperiksa ulang, lalu terapkan koreksinya.
+- Undo dan redo untuk setiap penerapan terjemahan.
 
 ### API Global (AI)
-Hubungkan aplikasi ke AI tanpa perlu copy-paste manual. Terjemahan, ekstrak glosarium, AI check, dan AI Agent berjalan otomatis dari dalam aplikasi.
+Hubungkan aplikasi ke API AI supaya terjemahan, ekstraksi glosarium, AI Check, dan AI Agent berjalan tanpa copy-paste.
 
-- Dukung **OpenAI Compatible** (GPT, Claude via OpenRouter, DeepSeek, Local LLM) dan **Gemini API** (Google AI Studio)
-- Ambil daftar model langsung dari API dengan tombol fetch
-- **Thinking / Reasoning Mode** — Kontrol mode berpikir model untuk menghemat token atau meningkatkan akurasi:
-  - *Matikan* — menonaktifkan reasoning bila provider yang dipilih mendukungnya
-  - *Nyalakan* — kebalikannya, masing-masing provider pakai parameternya sendiri
-- **Filter thinking output** — Blok `<think>...</think>` dari model seperti Gemma 4 atau QwQ dihapus otomatis sebelum terjemahan diterapkan, termasuk bagian `thought: true` dari respons Gemini API
-- **Parameter generasi global** — Atur max output tokens, seed, frequency penalty, presence penalty, dan reasoning effort (minimal sampai extra-high) dari satu tempat. Konfigurasi ini dipakai konsisten oleh Auto Translate dan AI Agent untuk OpenAI-compatible, Anthropic, serta Gemini.
-- **Gemma 4 via Gemini API** — Model `gemma-4-31b-it` dan `gemma-4-26b-a4b-it` dikenali otomatis; mode thinking off dikirim sebagai `thinkingLevel: "minimal"` sesuai API Gemma 4.
-- Limit RPM dengan delay otomatis antar request
+- **OpenAI Compatible** (GPT, Claude via OpenRouter, DeepSeek, LLM lokal), **Gemini API** (Google AI Studio), dan **Anthropic**.
+- Daftar model bisa diambil langsung dari API lewat tombol fetch.
+- **Thinking / Reasoning**: matikan atau nyalakan mode berpikir. Masing-masing provider memakai parameternya sendiri.
+- **Filter `<think>`**: blok `<think>...</think>` dan part `thought: true` dari respons Gemini dibuang sebelum terjemahan diterapkan.
+- **Parameter generasi global**: max output tokens, seed, frequency penalty, presence penalty, dan reasoning effort (`minimal` sampai `xhigh`). Dipakai konsisten oleh Auto Translate dan AI Agent.
+- **Gemma 4**: model `gemma-4-*` dikenali otomatis, dan mode thinking off dikirim sebagai `thinkingLevel: "minimal"`.
+- **Limit RPM** dengan jeda otomatis antar request.
 
-### Auto Copas (Browser Otomatis) — **BETA**
-Mode "Copas" untuk Auto Translate, Auto Ekstrak (Glossary), dan Auto Check (AI Check). Alih-alih memanggil API, aplikasi menjalankan situs AI di browser otomatis dan memindahkan teks **murni lewat clipboard** — persis seperti copy-paste manual, tapi otomatis: paste prompt (Ctrl+V) → Enter → tunggu selesai → klik tombol Copy/Salin milik situsnya → baca hasil dari clipboard. Tidak ada manipulasi teks via DOM.
+### Auto Copas (BETA)
+Mode alternatif untuk Auto Translate, Auto Ekstrak, dan Auto Check yang tidak memakai API sama sekali. Aplikasi menjalankan situs AI di browser, lalu memindahkan teks **lewat clipboard** persis seperti copy-paste manual: tempel prompt (`Ctrl+V`), tekan Enter, tunggu selesai, klik tombol Copy milik situs, baca hasilnya dari clipboard. Tidak ada manipulasi teks lewat DOM.
 
-- **Target (v1):** Gemini, ChatGPT, DeepSeek, Arena
-- **Windows:** [Camoufox](https://github.com/daijro/camoufox) (browser anti-detect berbasis Firefox). Aplikasi mengunduhnya **langsung dari rilis GitHub** saat pertama dipakai (~500MB) lalu menjalankannya sendiri — **tanpa Node.js dan tanpa npm**. Setelah unduhan pertama, membuka browser jadi instan. Sesi login tersimpan di profil aplikasi (di samping folder browser), jadi login cukup sekali per situs lewat jendela **Buka Browser**.
-- **Android:** WebView in-app (activity `AutoCopasActivity`). Paste lewat InputConnection (clipboard asli), bukan injeksi DOM.
-- UI: pilih **Copas** di dropdown Translate (Auto/Agent/Copas) atau dropdown **API/Copas** di tab Glossary & AI Check, lalu pilih target. Tombol Auto yang sama berfungsi sebagai Start/Stop.
-- Deteksi selesai dua lapis (port dari extension referensi): tombol Stop hilang + teks respons stabil; capture respons lewat tombol Copy situs dengan sentinel clipboard supaya hasil basi tidak terbaca.
-- **Chat baru setiap X batch** — di Project/Dashboard Settings → **Auto Copas**: mulai percakapan baru di situs AI tiap X batch (0 = tidak pernah, 1 = tiap batch, X = tiap batch ke-X). Chat baru ditekan lewat tombol **New chat/Chat baru** milik situsnya (bukan reload halaman; reload URL hanya fallback jika tombolnya tidak ditemukan). Berlaku untuk semua target, termasuk Arena; pemilihan model tetap manual.
-- **Thinking (DeepSeek & Gemini)** — Project/Dashboard Settings → **Auto Copas**: paksa mode reasoning **Selalu ON / Selalu OFF / Default situs**. DeepSeek: tombol *Pikir Mendalam/DeepThink* (klik hanya saat statusnya beda). Gemini: baris *Thinking/Penalaran* di pemilih model. Diterapkan tiap batch sebelum kirim; best-effort (gagal set tidak menggagalkan batch).
-- Retry otomatis 1x dengan chat baru (atau terus-menerus jika "Ulangi jika gagal" aktif); Review mode AI Check tetap berfungsi.
-- Hanya tersedia di aplikasi native (desktop/Android) — tidak di PWA browser biasa. Semi-Auto copas yang lama tetap ada dan tidak berubah.
-- **Status: Beta** — fitur masih eksperimental; situs AI sering berubah struktur sehingga otomasi bisa gagal kapan saja. Laporkan bug jika ada.
+- **Target:** Gemini, ChatGPT, DeepSeek, Arena.
+- **Windows**: [Camoufox](https://github.com/daijro/camoufox), browser anti-detect berbasis Firefox. Aplikasi mengunduh rilis resminya dari GitHub saat pertama dipakai (sekitar 500 MB) lewat `curl.exe`, lalu menjalankannya sebagai child process. Tidak butuh Node.js atau npm. Setelah unduhan pertama, membuka browser langsung instan. Sesi login tersimpan di profil aplikasi, jadi login cukup sekali per situs lewat tombol **Buka Browser**.
+- **Android**: WebView in-app (`AutoCopasActivity`). Paste lewat `InputConnection`, memakai clipboard asli.
+- **Chat baru tiap X batch**: atur di Project/Dashboard Settings → **Auto Copas**. Nilai 0 berarti tidak pernah. Tombol New chat situsnya ditekan langsung, dan navigasi URL hanya dipakai sebagai fallback kalau tombolnya tidak ditemukan. Berlaku untuk semua target; pemilihan model tetap manual.
+- **Thinking**: paksa **Selalu ON / Selalu OFF / Default situs**. Hanya berlaku untuk DeepSeek (tombol Pikir Mendalam/DeepThink) dan Gemini (baris Thinking/Penalaran). Diterapkan tiap batch sebelum kirim, dan kegagalan mengatur thinking tidak menggagalkan batch.
+- **Retry**: 1x dengan chat baru. Kalau **Ulangi jika gagal** aktif, batch yang sama diulang terus sampai dihentikan.
+- Hanya tersedia di aplikasi native, tidak di PWA.
+- **Status beta.** Situs AI sering mengubah struktur halamannya, jadi otomasi bisa gagal kapan saja.
 
 ### AI Agent
-Chat langsung dengan AI yang punya akses ke data proyek. Bisa tanya, analisis, dan modifikasi terjemahan lewat percakapan.
+Chat dengan AI yang punya akses langsung ke data proyek. Agent bisa membaca, menganalisis, dan mengubah terjemahan lewat percakapan.
 
-**Tool yang tersedia:**
+**Tool baca:**
 
 | Tool | Fungsi |
-|------|--------|
+|---|---|
 | `getProjectStats()` | Ringkasan progress, jumlah baris, daftar file |
-| `getLines(start, end)` | Ambil teks asli + terjemahan untuk rentang baris tertentu |
-| `getContext(line_num, radius)` | Lihat baris sekitar sebuah baris target (konteks atas-bawah) |
-| `searchLines(query)` | Cari kata kunci di teks asli, terjemahan, atau nama karakter |
-| `getCharacterNames()` | Daftar semua nama karakter + deteksi inkonsistensi otomatis |
-| `analyzeQuality(limit)` | Cek baris belum diterjemahkan, terjemahan terlalu pendek, nama tidak konsisten |
-| `getProgressReport()` | Laporan progress terjemahan per file dengan progress bar |
-| `applyTranslations(updates)` | Terapkan terjemahan langsung ke proyek |
-| `editLine(line_num, fields)` | Edit satu baris (semua field: message, name, trans_message, dll) |
+| `getLines(start, end)` | Teks asli dan terjemahan untuk rentang baris |
+| `getContext(line_num, radius)` | Konteks sekitar satu baris, radius 1 sampai 20 |
+| `searchLines(query)` | Cari di teks asli, terjemahan, dan nama karakter |
+| `getCharacterNames()` | Daftar nama karakter, inkonsistensi ditandai |
+| `analyzeQuality(limit)` | Baris belum diterjemahkan, terjemahan terlalu pendek, nama tidak konsisten |
+| `getProgressReport()` | Progress per file |
+| `getGlossary()` | Glosarium aktif |
+| `listSettings()` | Semua setting yang bisa diubah |
+| `getMemory(category?)` / `listMemory()` | Memori agent, dengan filter kategori opsional |
+| `webSearch(query, source?)` | Cari di Wikipedia, Jisho, VNDB, atau Tavily (butuh API key) |
+| `searchVn(query, source?)` | Cari VN/anime lewat VNDB atau AniList |
+| `extractGlossary(query, source?)` | Ekstrak glosarium dari karakter VN/anime |
+
+**Tool tulis:**
+
+| Tool | Fungsi |
+|---|---|
+| `applyTranslations(updates)` | Terapkan terjemahan: `[{num, trans_message, trans_name?}]` |
+| `editLine(line_num, fields)` | Edit satu baris |
 | `editLines(updates)` | Edit beberapa baris sekaligus |
-| `clearTranslations(line_nums)` | Hapus terjemahan untuk baris tertentu |
-| `undoLastAction()` | Batalkan aksi terakhir |
-| `redoLastAction()` | Kembalikan aksi yang dibatalkan |
-| `getGlossary()` | Ambil daftar glosarium yang didefinisikan pengguna |
-| `editPrompt(prompt_type, new_prompt)` | Edit prompt terjemahan/glosarium/AI check/agent |
-| `editGlossary(new_glossary)` | Edit teks glosarium |
-| `listSettings()` | Tampilkan daftar semua setting yang bisa diubah |
-| `toggleSetting(setting_name, value)` | Ubah/toggle setting aplikasi |
-| `getMemory(category?)` | Ambil memori agent (optional filter category) |
-| `listMemory()` | Tampilkan semua memori agent |
-| `saveMemory(key, value, category, scope?)` | Simpan/update memori (global/project) |
-| `deleteMemory(key)` | Hapus memori by key |
+| `clearTranslations(line_nums)` | Hapus terjemahan baris tertentu |
+| `undoLastAction()` / `redoLastAction()` | Batalkan atau kembalikan aksi terakhir |
+| `editPrompt(prompt_type, new_prompt)` | Edit prompt translation, glossary, ai_check, atau agent |
+| `editGlossary(new_glossary)` | Tulis ulang glosarium |
+| `toggleSetting(setting_name, value)` | Ubah setting aplikasi |
+| `saveMemory(key, value, category, scope?)` / `deleteMemory(key)` | Kelola memori agent |
+
+**Tool delegasi dan alur kerja:**
+
+| Tool | Fungsi |
+|---|---|
+| `delegateParallelTranslate(startLine, endLine, instruction?)` | Terjemahkan rentang besar lewat subagent paralel |
+| `delegateTranslate(lineNums, instruction?)` | Terjemahkan kumpulan baris tertentu |
+| `delegateAnalyze(lineNums, focus?)` | Analisis kualitas terjemahan |
+| `delegateGlossaryExtract(queries, source?)` | Ekstrak glosarium dari beberapa VN/anime sekaligus |
+| `delegateAgent(task, max_turns?)` | Subagent otonom dengan loop tool sendiri |
+| `askUser(question, options?)` | Kartu pertanyaan interaktif; loop agent berhenti sampai dijawab |
+| `setPlan(steps)` / `updatePlanStep(step, status)` / `completePlan()` | Checklist rencana yang tampil live di chat |
+
+Mutasi lebih dari 10 baris menampilkan diff-preview dan menunggu konfirmasi.
 
 ### Glosarium
-Kelola nama karakter, tempat, dan istilah khusus supaya terjemahan konsisten.
+Nama karakter, tempat, dan istilah khusus supaya terjemahan konsisten.
 
-- Editor glosarium built-in
-- Copy seleksi teks ke AI untuk ekstrak terminologi otomatis
-- Import nama dari **VNDB** (pakai ID VN) atau **AniList** (pakai ID media)
-- Ekstrak nama dari anotasi ruby di file EPUB
-- Import/export glosarium ke file teks
-- Preview glosarium aktif langsung di workspace
+- Editor glosarium built-in, dengan preview aktif di workspace.
+- Salin seleksi teks ke AI untuk ekstraksi terminologi otomatis.
+- Impor nama dari **VNDB** (ID VN) atau **AniList** (ID media).
+- Ekstrak nama dari anotasi ruby di EPUB.
+- Impor dan ekspor glosarium ke file teks.
 
 ### Proofread & Pencarian
-- Cari teks di semua baris — teks asli maupun terjemahan
-- Support regex, case-sensitive, exact match
-- Filter scope pencarian (semua baris, hanya yang dipilih, dll.)
-- Replace All
+- Cari di teks asli maupun terjemahan.
+- Opsi regex, case-sensitive, dan exact match.
+- Filter cakupan: semua baris, hanya baris terpilih, dan seterusnya.
+- Replace All.
 
 ### Editor Baris
-Klik baris manapun untuk buka editor individual. Di sini bisa edit nama karakter, teks asli, terjemahan, dan tandai status terjemahan. Di Android editor muncul sebagai panel dari bawah agar tetap mudah dipakai bersama keyboard.
+Klik baris mana pun untuk mengedit nama karakter, teks asli, terjemahan, dan status terjemahan. Di Android editor muncul sebagai panel dari bawah supaya tidak tertutup keyboard.
 
 ### EPUB
-- Gambar berdiri sendiri tampil sebagai ilustrasi di antara bab/baris dan tidak menambah nomor baris terjemahan.
-- Gambar yang menyertai paragraf teks tetap tampil pada baris teksnya.
+- Gambar berdiri sendiri tampil sebagai ilustrasi di antara baris dan tidak menambah nomor baris.
+- Gambar yang menyertai paragraf tetap tampil pada baris teksnya.
 
-### Mode Immersif (Fullscreen Reader)
-Membaca terjemahan novel/visual novel tanpa distraksi dengan tampilan layar penuh:
-- **Toggle Teks Asli / Terjemahan** — Tombol instan di header untuk beralih antara teks asli Jepang dan hasil terjemahan.
-- **Kustomisasi Tampilan** — Ukuran font fleksibel (*stepper* + / -), opsi lebar teks (Sempit, Sedang, Lebar), dan tema nyaman di mata (Gelap, Sepia, Terang).
-- **Drawer Bookmark Terintegrasi** — Akses daftar bookmark langsung di mode baca untuk loncat ke baris tertentu tanpa keluar dari layar immersif.
-- **Shortcut & Kontrol Cepat** — `Alt + I` untuk buka/tutup, `Esc` untuk keluar, dan tombol sembunyikan/tampilkan header untuk fokus membaca penuh.
+### Mode Immersif
+Pembaca layar penuh untuk novel dan visual novel.
+- Toggle teks asli dan terjemahan dari header.
+- Ukuran font dengan stepper, lebar teks (Sempit, Sedang, Lebar), dan tema (Gelap, Sepia, Terang).
+- Drawer bookmark untuk lompat ke baris tertentu tanpa keluar dari mode baca.
+- `Alt + I` untuk buka tutup, `Esc` untuk keluar, dan tombol sembunyikan header untuk membaca tanpa distraksi.
 
-### Tampilan & Furigana
-- **Konversi Furigana Otomatis** — Didukung mesin Kuroshiro + Kuromoji yang berjalan di Web Worker terpisah agar antarmuka tetap responsif 60fps saat membaca naskah ribuan baris.
-- **Pilihan Format Furigana** — Hiragana (default), Katakana, atau Romaji.
-- **Cache Furigana Cerdas** — Menyimpan hasil konversi kanji sehingga tidak membebani CPU saat scrolling berulang.
-- **Kamus & Morfologi Kata** — Fitur pencarian arti kata bawaan untuk melihat cara baca, bentuk dasar, dan terjemahan langsung dari teks.
+### Furigana & Kamus
+- Konversi furigana memakai Kuroshiro dan Kuromoji di Web Worker terpisah, jadi UI tidak ikut menunggu saat membaca naskah panjang.
+- Format keluaran: Hiragana (default), Katakana, atau Romaji.
+- Hasil konversi kanji di-cache, jadi scrolling berulang tidak mengulang perhitungan.
+- Pencarian arti kata menampilkan cara baca, bentuk dasar, kelas kata, dan terjemahan.
 
 ### Seleksi & Auto-Increment
-- Pilih semua, pilih range (baris X–Y), atau klik manual
-- **Auto-Increment Baris** — Setelah terjemahan berhasil diterapkan, rentang baris "Dari - Sampai" otomatis maju dan rentang berikutnya langsung dipilih mengikuti ukuran **Batch Translate**. Mempercepat alur kerja terjemahan bertahap tanpa perlu memilih baris baru secara manual.
-- **Shortcut Keyboard Manager** — Navigasi cepat dan pemicu aksi instan (buat proyek, navigasi batch, copy AI, terapkan terjemahan `Ctrl+Enter`, undo/redo) yang dapat dikustomisasi dan direkam langsung melalui menu **Shortcut Keyboard**.
-- Undo untuk batalkan penerapan terjemahan terakhir
-- Progress bar real-time
+- Pilih semua, pilih rentang, atau klik manual.
+- Setelah terjemahan diterapkan, rentang "Dari - Sampai" otomatis maju dan rentang berikutnya langsung terpilih mengikuti ukuran Batch Translate.
+- Undo untuk penerapan terakhir, plus progress bar.
 
 ### Pengaturan
-- Bahasa sumber & target
-- **Referensi Bahasa Tambahan (JSON)** — Impor teks referensi bahasa lain (misalnya terjemahan Inggris/Mandarin) per file atau seluruh folder (Storage Access Framework Android) dengan kontrol kartu per slot (Ref 1 & Ref 2).
-- Jumlah baris per batch (terjemahan, glosarium, AI check)
-- Jumlah baris konteks yang ikut di-copy ke AI
-- Regex filter kustom (dengan opsi case-sensitive)
-- Tag HTML untuk parsing EPUB
+- Bahasa sumber dan target.
+- Jumlah baris per batch untuk terjemahan, glosarium, dan AI Check.
+- Jumlah baris konteks yang ikut disalin ke AI, sebelum dan sesudah.
+- Regex filter kustom dengan opsi case-sensitive.
+- Tag HTML untuk parsing EPUB.
 
-### Alat Tambahan (Menu Tools)
-- **File Explorer OPFS** — Jelajahi dan kelola file virtual workspace internal browser/native (lihat ukuran file, unduh, atau bersihkan file direktori OPFS).
-- **Riwayat Kamus** — Buka kembali riwayat pencarian kosakata Jepang dan arti kata.
-- **Text Replacer** — Penggantian teks massal cepat di luar alur kerja proofread.
+### Menu Tools
+Menu **Tools** di workspace berisi:
+- **Daftar File** dan **Validasi QC**.
+- **Riwayat Kamus**: buka kembali pencarian kosakata sebelumnya.
+- **Text Replacer**: penggantian teks massal di luar alur proofread.
+- **File Explorer (OPFS)**: lihat ukuran file, unduh, atau bersihkan direktori penyimpanan.
+- **Mode Immersif**.
+- **Luna Hooker & VN Overlay**: terjemahkan dialog saat bermain, lihat bagian di bawah.
+- **Ekspor ke Spreadsheet** dan **Impor Spreadsheet ke Proyek Ini**.
+
+### Luna Hooker & VN Overlay (Terjemahan Sambil Main)
+Menghubungkan CopasTool ke [LunaTranslator](https://github.com/HIllya51/LunaTranslator) yang sedang menghook teks game, lalu mencocokkan dialog yang muncul ke baris proyek.
+
+- **Setup**: aktifkan *Layanan Jaringan* di LunaTranslator pada port `2333`, pasang Text Hooker ke game, lalu klik **Hubungkan** di menu Luna Hooker CopasTool.
+- **Mode Check**: hanya menunjukkan apakah dialog game cocok dengan baris di proyek.
+- **Mode TL**: baris yang belum diterjemahkan langsung diterjemahkan saat muncul, lalu disimpan ke proyek. Hasilnya tampil di overlay dan bisa di-undo seperti edit biasa.
+- **Mesin TL**: pilih **API** atau **Copas** di bagian TL Mode. Copas memakai situs AI yang sudah login di browser otomatis, jadi TL Mode bisa jalan tanpa API key. Pilihan situs dan tombol **Buka Browser** ada di baris yang sama.
+- **VN Overlay (Windows)**: jendela melayang yang menampilkan dialog aktif di atas game fullscreen, dengan mode klik-tembus dan tombol **Diagnosa Fullscreen** untuk memeriksa z-order.
+
+Satu catatan soal Copas untuk TL Mode: Auto Copas hanya punya satu tab browser dan satu percakapan, jadi TL Mode berhenti sendiri kalau Auto Translate, Auto Ekstrak, atau Auto Check sedang berjalan. Hentikan batch itu dulu.
 
 ### Penyimpanan
-Semua proyek disimpan langsung di penyimpanan native OS (bebas batas kuota browser) atau browser **OPFS**. Proyek bisa di-backup dan dipulihkan lewat file `.copas` (format `.cstl` tetap didukung penuh). **Backup ke Folder** tersedia di Chrome/Edge desktop dan aplikasi Android: desktop memakai File System Access API, sedangkan Android memakai pemilih folder native. Lihat [petunjuk backup folder](#backup-ke-folder).
+Proyek disimpan di penyimpanan aplikasi: filesystem native kalau berjalan sebagai aplikasi Tauri, atau OPFS kalau berjalan di browser. Proyek bisa di-backup dan dipulihkan lewat file `.copas`; format lama `.cstl` tetap didukung.
 
-Data biner besar dan aset file disimpan di file penyimpanan terpisah supaya auto-save tetap ringan. Dashboard hanya memuat metadata proyek, bukan seluruh isi data — jadi tetap cepat meski proyek sudah banyak.
+Data biner dan aset file disimpan terpisah dari metadata, jadi auto-save tetap ringan dan dashboard tidak perlu memuat seluruh isi proyek.
 
 #### Backup ke Folder
 
-> Di desktop fitur ini tersedia pada **Chrome / Edge / Brave / Opera** **dan aplikasi Windows CopasTool**. Di aplikasi Android native, folder dipilih melalui pemilih folder sistem. Firefox/Safari dan browser mobile lain tetap memakai **Backup Semua ZIP**.
+Tersedia di Chrome, Edge, Brave, Opera, aplikasi Windows, dan aplikasi Android. Desktop memakai File System Access API, aplikasi Windows memakai dialog pemilih folder native (`tauri-plugin-dialog`), Android memakai izin folder Storage Access Framework. Firefox, Safari, dan browser mobile lain memakai **Backup Semua ZIP**.
 
-CSTL menulis file backup **langsung ke satu folder yang kamu pilih** — tanpa download atau upload ke layanan cloud. Browser desktop menggunakan izin folder bawaan browser (*File System Access API*), sedangkan aplikasi Windows menggunakan dialog pemilih folder native (tauri-plugin-dialog). Android menggunakan izin folder Storage Access Framework; izin baca/tulis disimpan oleh Android supaya folder yang sama bisa dipakai lagi setelah aplikasi dibuka ulang.
+**Cara pakai:**
+1. Klik **Backup ke Folder** di dashboard, lalu pilih folder.
+2. Proyek ditulis sebagai `nama_proyek_backup.copas`, termasuk file EPUB asli dan aset pendukung. Backup berikutnya memperbarui file yang sama.
+3. Klik **Pulihkan dari Folder** untuk memilih `.copas`, `.copas.zip`, atau `.cstl`. Pemulihan membuat proyek baru.
+
+**Android:** folder boleh berada di penyimpanan perangkat atau penyedia dokumen seperti Google Drive. Berikan akses saat dialog memintanya.
+
+**Desktop:** browser bisa meminta izin folder lagi setelah dimulai ulang. Pilih **Allow on every visit** kalau opsi itu muncul.
+
+**Sinkron ke cloud:** folder tujuannya folder biasa, jadi bisa diarahkan ke folder milik aplikasi sinkron. Contoh: pilih folder di dalam `Drive saya` milik Google Drive for Desktop, atau jalankan `rclone sync D:\CSTLBackups drive:CSTL` lewat Task Scheduler. Dropbox, OneDrive, dan Syncthing bekerja dengan cara yang sama.
 
 #### Folder Simpan Backup & Export (Aplikasi Native)
 
-Di aplikasi Windows dan Android, **semua backup dan export** (Backup, Backup Semua ZIP, Export, ekspor glosarium, dll.) otomatis ditulis ke satu **folder simpan**:
+Di aplikasi Windows dan Android, semua backup dan export (Backup, Backup Semua ZIP, Export, ekspor glosarium) ditulis ke satu folder simpan.
 
-- Saat pertama kali menyimpan, dialog pemilih folder native muncul sekali — folder itu lalu **diingat permanen** untuk penyimpanan berikutnya, sama seperti perilaku *Backup ke Folder* di browser.
-- Di Windows folder dipilih lewat dialog sistem (tauri-plugin-dialog); di Android lewat pemilih folder Storage Access Framework yang izinnya dipegang Android.
-- Kalau folder tidak bisa ditulis lagi (dipindah/dihapus), pemilih folder muncul lagi otomatis di penyimpanan berikutnya. Di Android, jika pemilihan folder dibatalkan, file tetap tersimpan ke folder **Download** seperti perilaku lama.
+- Folder dipilih sekali lewat dialog native, lalu diingat untuk penyimpanan berikutnya.
+- Kalau folder sudah tidak bisa ditulis (dipindah atau dihapus), pemilih folder muncul lagi otomatis.
+- Di Android, membatalkan pemilihan folder membuat file tetap tersimpan ke folder **Download**.
 
-**Mode "Selalu tanya lokasi simpan" (Save As):** aktifkan opsi **Selalu tanya lokasi simpan (dialog Save As) setiap backup & export** di *Pengaturan Dashboard* supaya setiap penyimpanan memunculkan dialog **Save As** — lokasi dan nama file bisa diganti setiap kali, persis seperti browser dengan *"Ask where to save each file"*. Di Windows dialognya native (tauri-plugin-dialog), di Android memakai *create document* Storage Access Framework yang juga punya kolom nama file. Selama opsi ini aktif, folder simpan yang tersimpan diabaikan; membatalkan dialog berarti penyimpanan dibatalkan.
+**Mode "Selalu tanya lokasi simpan":** aktifkan opsi ini di *Pengaturan Dashboard* kalau ingin setiap penyimpanan memunculkan dialog Save As, seperti opsi "Ask where to save each file" di browser. Selama opsi aktif, folder simpan yang tersimpan diabaikan. Membatalkan dialog berarti penyimpanan dibatalkan.
 
-**Cara pakai:**
+#### Spreadsheet (.xlsx)
 
-1. Klik **Backup ke Folder** di dashboard, lalu pilih folder pada dialog sistem (desktop atau Android).
-2. Proyek disimpan di sana sebagai file `nama_proyek_backup.copas` — termasuk file EPUB asli dan aset data pendukung. Menjalankan backup lagi akan memperbarui file bernama sama.
-3. Klik **Pulihkan dari Folder** untuk memilih backup `.copas`, `.copas.zip`, atau `.cstl`. Pemulihan membuat proyek baru.
+Proyek bisa diekspor ke `.xlsx`, diedit bersama penerjemah lain di Excel, LibreOffice, atau Google Sheets, lalu ditarik kembali ke CopasTool. Tidak ada integrasi akun Google; Google Sheets dipakai sebagai editor file biasa.
 
-**Android:** folder dapat berada di penyimpanan perangkat atau penyedia dokumen seperti Google Drive. Berikan akses saat dialog Android memintanya. Untuk backup portabel satu file atau jika pemilih folder tidak tersedia, gunakan **Backup Semua ZIP**.
+**Ekspor** dari menu **Tools → Ekspor ke Spreadsheet**, atau tombol **Sheet** pada kartu proyek di dashboard. Hasilnya satu workbook berisi tiga tab:
 
-**Desktop:** browser dapat meminta izin folder lagi setelah dimulai ulang. Pilih **Allow on every visit** jika browser menawarkan opsi tersebut.
+| Tab | Isi |
+|-----|-----|
+| `Lines` | `line_num`, `file`, `name`, `message`, `trans_name`, `trans_message`, `is_translated`, `bookmarked`, `status`, plus kolom `extra` (JSON) untuk field struktural seperti Luca, EPUB, referensi bahasa, dan custom parser. |
+| `Glossary` | `source`, `target`, `type`, `description`, satu baris per entri. |
+| `Info` | Pengaturan proyek (`context_lines`, batch size, prompt, bahasa) sebagai baris `key` / `value`, plus penanda format. |
 
-**Sinkron ke cloud (opsional):** folder itu folder biasa, jadi bisa diarahkan ke folder milik aplikasi sinkron supaya backup naik ke cloud otomatis:
+**Di Google Sheets:** buka [sheets.google.com](https://sheets.google.com), pilih **File → Import**, unggah `.xlsx`, lalu *Replace spreadsheet*. Setelah diedit, unduh lagi lewat **File → Download → Microsoft Excel (.xlsx)**.
 
-- **Google Drive for Desktop** → saat memilih folder, arahkan ke folder di dalam `Drive saya`. File yang ditulis CSTL otomatis ikut naik ke Google Drive (dan bisa diakses dari HP).
-- **rclone** (power user) → `rclone sync D:\CSTLBackups drive:CSTL` dijadwalkan lewat Task Scheduler. Bekerja juga untuk Dropbox, OneDrive, S3, dll.
-- Dropbox / OneDrive / Syncthing juga sama saja — semua yang masuk ke folder itu ikut tersinkron.
+**Impor** punya dua pintu masuk, dan keduanya harus diklik sendiri:
 
-### Shortcut Keyboard (Pintasan Keyboard)
-CSTL dilengkapi sistem pintasan keyboard bawaan yang dapat dikustomisasi dan direkam secara interaktif melalui menu **Shortcut Keyboard**:
+- **Workspace → Tools → Impor Spreadsheet ke Proyek Ini**, dipakai saat proyek sedang terbuka.
+- **Dashboard → ⚙ → Pulihkan dari Spreadsheet (.xlsx)**, dipakai saat tidak ada proyek terbuka. Hasilnya selalu proyek baru, karena dashboard selalu menutup proyek.
 
-| Kategori | Aksi | Shortcut Bawaan |
+Setelah file dipilih, CopasTool menanyakan:
+
+- **Gabung ke Proyek Ini** (hanya kalau ada proyek terbuka): terjemahan dicocokkan per `line_num` + `file`. Hanya kolom terjemahan dan flag yang diambil; teks asli `message` tidak diubah, jadi ekspor ke format game tetap sinkron. Baris bernomor baru ditambahkan, glosarium digabung dan entri yang sudah ada diperbarui.
+- **Buat Proyek Baru**: seluruh isi sheet, glosarium, dan pengaturan `Info` menjadi proyek baru.
+
+Impor tidak pernah otomatis. File spreadsheet tidak dibaca saat proyek dibuka, dan merge tidak berjalan tanpa konfirmasi eksplisit.
+
+Kolom dibaca berdasarkan nama header, jadi urutan kolom boleh diubah dan nama tab boleh diganti (misalnya `Lines` menjadi `Script`) selama kolom `message` ada. Baris `Info` yang tidak dikenal diabaikan.
+
+Yang tidak ikut dalam spreadsheet: file EPUB asli, source mentah Luca dan custom parser (`lucaRawFiles`, `customRawFiles`), dan aset gambar EPUB. Untuk pindah perangkat lengkap dengan file aslinya, pakai **Backup** (`.copas`).
+
+### Shortcut Keyboard
+Semua pintasan bisa direkam ulang lewat menu **Shortcut Keyboard**.
+
+| Kategori | Aksi | Bawaan |
 |---|---|---|
 | **Dashboard** | Fokus Kolom Cari Project | `/` |
-| **Workspace (Umum)** | Ekspor Terjemahan | `Alt + E` |
+| **Workspace** | Ekspor Terjemahan | `Alt + E` |
 | | Buka Cari & Ganti (Proofread) | `Alt + R` |
 | | Buka Tab Glosarium | `Alt + G` |
 | | Buka Tab AI Check | `Alt + K` |
@@ -220,109 +271,85 @@ CSTL dilengkapi sistem pintasan keyboard bawaan yang dapat dikustomisasi dan dir
 | | Terapkan Terjemahan | `Ctrl + Enter` |
 | | Undo Terjemahan | `Alt + Z` |
 | | Redo Terjemahan | `Alt + Y` |
-| **Plugin Commands** | Perintah Kustom Plugin | *Dikonfigurasi per perintah di menu Shortcut* |
+| **Plugin** | Perintah Kustom | Didaftarkan plugin sendiri |
 
-> 💡 **Kustomisasi Shortcut**: Buka menu **Shortcut Keyboard** dari header atau dropdown settings &rarr; klik tombol kombinasi pada aksi yang diinginkan &rarr; tekan kombinasi tombol baru di keyboard. Tekan `Backspace` untuk menghapus shortcut atau tombol `Reset` untuk mengembalikan ke setelan default.
+Untuk mengubah: buka menu **Shortcut Keyboard**, klik kombinasi pada aksi yang ingin diganti, lalu tekan kombinasi baru. `Backspace` menghapus pintasan, `Reset` mengembalikan ke setelan default.
 
 ---
 
 ## Tutorial
 
-### 1. Mulai Proyek Baru
+### Mulai Proyek Baru
+Klik **Buat Project**, isi nama proyek, pilih tipe file yang akan diimpor (JSON atau EPUB), lalu klik **Buka**.
 
-Buka aplikasi CSTL di desktop atau Android, klik **Buat Project**, isi nama proyek dan pilih tipe file yang akan diimpor (JSON atau EPUB). Setelah proyek dibuat, klik **Buka** untuk masuk ke workspace.
+### Impor Script
+Di workspace, klik **Impor** di toolbar dan pilih file atau folder. Semua baris langsung muncul di tabel. File yang sudah pernah diimpor dilewati otomatis.
 
-### 2. Impor Script
+### Terjemahan Manual (Copy-Paste)
+1. Pilih baris satu per satu, atau pakai **Pilih Range** untuk memilih banyak sekaligus.
+2. Klik **Copy Terjemahan**, lalu tempel ke ChatGPT, Gemini, atau AI lain.
+3. Setelah AI selesai, salin seluruh responsnya dan tempel ke kotak **Paste Hasil AI**.
+4. Klik **Terapkan**. CopasTool mem-parsing hasil dan mengisi terjemahan ke baris yang sesuai.
 
-Di dalam workspace, klik tombol **Impor** di toolbar atas. Pilih file atau folder yang ingin diimpor. Semua baris akan langsung muncul di tabel. Kalau file sudah pernah diimpor sebelumnya, duplikat akan diabaikan otomatis.
+Kalau hasilnya meleset, klik **Undo**.
 
-### 3. Terjemahan Manual (Copy-Paste)
+### Auto Translate via API
+1. Klik tombol pengaturan API di pojok kanan bawah workspace (ikon robot).
+2. Pilih **Tipe API**: OpenAI Compatible, Gemini, atau Anthropic.
+3. Isi **API Key** dan **Model**. Tombol ↻ mengambil daftar model langsung dari API.
+4. Atur **RPM** sesuai limit akun, lalu klik **Simpan API**.
+5. Pilih baris yang ingin diterjemahkan, klik **Jalankan Auto Translate**.
 
-Ini alur dasar tanpa API:
+Untuk model thinking yang mengeluarkan blok `<think>...</think>`, aktifkan **Filter `<think>...</think>`** di pengaturan API.
 
-1. **Pilih baris** — klik baris satu-satu, atau pakai "Pilih Range" untuk pilih banyak sekaligus
-2. **Copy ke AI** — klik tombol **Copy Terjemahan**, lalu paste ke ChatGPT / Gemini / AI apapun
-3. **Paste hasil** — setelah AI selesai, copy seluruh responnya, paste ke kotak **Paste Hasil AI** di CSTL
-4. **Terapkan** — klik **Terapkan**, CSTL parsing otomatis dan isi terjemahan ke baris yang sesuai
+#### Auto Translate / Auto Ekstrak / Auto Check via Copas
+Kalau tidak punya API key:
+1. Pilih **Copas** di dropdown mode (Translate: Auto/Agent/Copas; Glossary & AI Check: API/Copas), lalu pilih target situsnya.
+2. Klik **Buka Browser**, lalu login sekali di jendela yang muncul. Windows memakai Camoufox, Android memakai WebView in-app. Sesi tersimpan.
+3. Klik tombol Auto seperti biasa. Prompt ditempel otomatis, respons diambil lewat tombol Copy situs, hasilnya diterapkan per batch.
 
-Kalau hasilnya tidak sesuai, klik **Undo** untuk batalkan.
+### Glosarium
+Isi glosarium sebelum mulai menerjemahkan banyak baris.
+1. Buka tab **Glosarium** di workspace.
+2. Ketik nama karakter, tempat, atau istilah khusus di editor.
+3. Atau klik **Import VNDB/AniList** dan masukkan ID VN atau media.
+4. Glosarium aktif ikut tersalin otomatis setiap kali kamu menyalin teks ke AI.
 
-### 4. Auto Translate (Langsung via API)
+### AI Agent
+1. Klik tombol agent di pojok kanan bawah workspace (ikon chat).
+2. Contoh permintaan:
+   - *"Terjemahkan baris 1 sampai 10"*: agent mengambil teksnya, menerjemahkan, lalu menerapkan sendiri.
+   - *"Cek konsistensi nama karakter"*: agent menganalisis dan melaporkan inkonsistensi.
+   - *"Baris mana yang belum diterjemahkan?"*: agent memberi ringkasan progress.
+   - *"Cari baris yang ada kata 'sayonara'"*: agent mencari dan menampilkan hasilnya.
+3. Semua perubahan bisa di-undo dengan mengetik *"undo"* atau lewat tombol Undo.
 
-Kalau tidak mau copy-paste manual, hubungkan ke API:
+### AI Check
+1. Pilih baris yang sudah diterjemahkan.
+2. Klik **Copy AI Check** untuk menyalin teks asli dan terjemahan dalam format khusus.
+3. Tempel ke AI dan minta koreksi.
+4. Salin hasilnya, tempel ke kotak **Paste AI Check**, lalu klik **Terapkan Koreksi**.
 
-1. Klik ikon 🤖 di pojok kanan bawah
-2. Pilih **Tipe API** (OpenAI Compatible atau Gemini)
-3. Isi **API Key** dan **Model** (bisa klik tombol ↻ untuk fetch daftar model otomatis)
-4. Atur **RPM** sesuai limit akun, lalu klik **Simpan API**
-5. Pilih baris yang ingin diterjemahkan, klik **Jalankan Auto Translate**
+Yang ikut bekerja saat Auto Check:
 
-Untuk model thinking yang mengeluarkan blok `<think>...</think>`, aktifkan **Filter `<think>...</think>`** di pengaturan API supaya output terjemahan bersih dari teks reasoning.
+- **Confidence scoring**: AI memberi tingkat keyakinan (high/medium/low) per koreksi. Koreksi high confidence (typo, grammar, nama salah, sisa aksara Jepang) diterapkan otomatis, sementara medium dan low masuk antrian review manual di tab AI Check. Opsi **Auto-apply koreksi high confidence** bisa dimatikan supaya semua koreksi direview manual.
+- **Sanity gate lokal**: koreksi yang identik dengan teks sekarang dibuang. Rewrite yang mengubah lebih dari 60% token ditandai untuk review dan tidak diterapkan otomatis.
+- **Linter lokal**: sisa tanda baca Jepang (。、・〜ー) dan spasi ganda diperbaiki tanpa AI. Sisa aksara CJK dan nama yang melanggar glosarium dikirim sebagai hint ke AI.
+- **Konteks dua arah**: selain konteks baris sebelumnya, tersedia konteks baris sesudah dari Dashboard Settings.
+- **Format JSON** untuk jalur API, dengan perbaikan JSON otomatis. Plaintext tetap didukung untuk jalur Copas.
+- **Memori penolakan**: koreksi yang kamu tolak dicatat sebagai entri `REJECTED`, jadi batch berikutnya tidak mengusulkan perubahan yang sama.
+- **Deep Check**: dua pass per batch. Pass pertama fokus akurasi makna, pass kedua fokus naturalness. Dua request per batch.
+- Prompt bawaan menganut prinsip minimal edit: AI hanya mengubah bagian yang bermasalah.
 
-#### Auto Translate / Auto Ekstrak / Auto Check via "Copas" (tanpa API)
+### Proofread & Replace
+Buka tab **Proofread**. Aktifkan **Regex** kalau perlu pola kompleks, centang **Case Sensitive** atau **Exact Match** sesuai kebutuhan, lalu klik **Replace All**.
 
-Tidak punya API key? Mode **Copas** menjalankan situs AI (Gemini, ChatGPT, DeepSeek, Arena) di browser otomatis dan menggerakkan copy-paste-nya sendiri:
+### Ekspor
+Klik **Ekspor** di toolbar. File hasil terjemahan diunduh dalam format aslinya (`.json` atau `.epub`). Untuk format game lain, plugin parser terpasang yang menjalankan `pack()`, termasuk format biner dan arsip multi-file.
 
-1. Pilih **Copas** di dropdown mode (Translate: Auto/Agent/Copas; Glossary & AI Check: API/Copas)
-2. Pilih target situs di sebelahnya, klik **Buka Browser** — login sekali di jendela yang muncul (Windows: Camoufox; Android: webview in-app). Sesi tersimpan.
-3. Klik tombol Auto seperti biasa — prompt di-paste otomatis, respons diambil lewat tombol Copy situs, hasil langsung diterapkan per batch
-4. Windows: aplikasi mengunduh **Camoufox langsung dari GitHub** saat pertama dipakai (~500MB) lalu menjalankannya sendiri — **tidak butuh Node.js/npm**
+Untuk backup proyek beserta seluruh datanya, klik **Backup** di dashboard. File `.copas` bisa dipulihkan kapan pun lewat tombol **Pulihkan**. Format lama `.cstl` juga tetap didukung.
 
-### 5. Glosarium
-
-Sebelum mulai terjemahan besar, disarankan isi glosarium dulu:
-
-1. Buka tab **Glosarium** di workspace
-2. Ketik nama karakter, tempat, atau istilah khusus di editor
-3. Atau klik **Import VNDB/AniList** — masukkan ID VN/media, nama karakter otomatis terisi
-4. Glosarium aktif akan otomatis ikut di-copy saat kamu copy teks ke AI
-
-### 6. AI Agent
-
-AI Agent bisa bantu langsung tanpa perlu manual:
-
-1. Klik ikon 💬 di pojok kanan bawah untuk buka panel chat
-2. Contoh yang bisa diminta:
-   - *"Terjemahkan baris 1 sampai 10"* — agent ambil teksnya, terjemahkan, dan terapkan sendiri
-   - *"Cek konsistensi nama karakter"* — agent analisis dan laporkan inkonsistensi
-   - *"Baris mana yang belum diterjemahkan?"* — agent beri ringkasan progress
-   - *"Cari baris yang ada kata 'sayonara'"* — agent search dan tampilkan hasilnya
-3. Semua perubahan yang dilakukan agent bisa di-undo dengan berkata *"undo"* atau klik tombol Undo
-
-### 7. AI Check
-
-Setelah selesai menerjemahkan, bisa minta AI untuk cek ulang kualitasnya:
-
-1. Pilih baris yang sudah diterjemahkan
-2. Klik **Copy AI Check** — teks asli + terjemahan di-copy ke format khusus
-3. Paste ke AI, minta koreksi
-4. Copy hasilnya, paste ke kotak **Paste AI Check**, klik **Terapkan Koreksi**
-
-Fitur kualitas AI Check:
-
-- **Confidence scoring** — AI memberi confidence (high/medium/low) per koreksi. Koreksi **high confidence** (typo, grammar, nama salah, sisa aksara Jepang) auto-apply saat Auto Check; medium/low masuk antrian review manual di tab AI Check. Matikan **Auto-apply koreksi high confidence** agar semua koreksi tetap direview manual.
-- **Sanity gate lokal** — koreksi yang identik dengan teks sekarang (no-op) dibuang otomatis; rewrite besar (>60% teks berubah) ditandai ⚠ review dan tidak di-auto-apply.
-- **Linter lokal** — sisa tanda baca Jepang (。、・〜ー) dan spasi ganda diperbaiki otomatis tanpa AI; sisa aksara CJK dan nama yang melanggar glosarium dikirim sebagai hint ke AI (baris ini diperiksa khusus).
-- **Konteks dua arah** — selain *Konteks Baris Sebelumnya*, tersedia *Konteks Baris Sesudah* (Dashboard Settings).
-- **Format output JSON** (mesin API) — parsing deterministik dengan perbaikan JSON otomatis; plaintext tetap didukung untuk jalur copas.
-- **Memori penolakan** — koreksi yang kamu tolak/skip dicatat sebagai entri REJECTED di changelog, sehingga batch berikutnya tidak mengusulkan perubahan yang sama lagi.
-- **Deep Check (opsional)** — dua pass spesialis per batch: pass 1 fokus akurasi makna terhadap teks sumber, pass 2 fokus naturalness. 2x request per batch, untuk proyek yang butuh kualitas maksimal.
-- Prompt bawaan kini menegaskan prinsip **minimal edit**: AI hanya boleh mengubah bagian yang bermasalah, tanpa menggaya ulang bagian yang sudah benar.
-
-### 8. Proofread & Replace
-
-Gunakan tab **Proofread** untuk cari dan ganti teks secara massal:
-
-- Aktifkan **Regex** kalau perlu pola matching yang lebih kompleks
-- Centang **Case Sensitive** atau **Exact Match** sesuai kebutuhan
-- Klik **Replace All** untuk ganti semua sekaligus
-
-### 9. Ekspor
-
-Kalau sudah selesai, klik **Ekspor** di toolbar. File hasil terjemahan akan didownload dalam format aslinya (`.json` atau `.epub`). Untuk format game lain, ekspor round-trip dijalankan oleh plugin parser terpasang (`pack()`) — termasuk format biner dan multi-file arsip.
-
-Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard — file `.copas` akan tersimpan dan bisa dipulihkan kapanpun lewat tombol **Pulihkan** (file format lama `.cstl` juga tetap didukung).
-
+---
 
 ## Format yang Didukung
 
@@ -330,117 +357,116 @@ Untuk backup proyek beserta semua datanya, klik **Backup** di halaman dashboard 
 |--------|:-----:|:------:|---------|
 | `.json` | ✅ | ✅ | |
 | `.epub` | ✅ | ✅ | |
-| `.zip` | ✅ | — | Berisi banyak file |
-| `.copas` / `.cstl` | ✅ | ✅ | Backup proyek (format baru `.copas`, legacy `.cstl` tetap didukung) |
-| Plugin / Parser Kustom | ✅ | ✅ | Format game/naskah tambahan via paket plugin (`.zip`) |
+| `.zip` | ✅ | tidak | Berisi banyak file |
+| `.copas` / `.cstl` | ✅ | ✅ | Backup proyek; `.cstl` adalah format lama |
+| `.xlsx` | ✅ | ✅ | Spreadsheet, lihat bagian Spreadsheet |
+| Plugin / Parser Kustom | ✅ | ✅ | Format tambahan lewat paket plugin `.zip` |
 
 ---
 
-## Keamanan (Security)
+## Keamanan
 
-CopasTool adalah aplikasi native (Tauri v2) yang memuat halaman AI pihak ketiga di jendela terpisah. Batas kepercayaannya diatur eksplisit:
+CopasTool memuat halaman AI pihak ketiga di jendela terpisah, jadi batas kepercayaannya diatur eksplisit.
 
-- **Jendela terpercaya dibatasi dan tidak seragam.** `src-tauri/capabilities/default.json` memberi izin penuh hanya ke `"windows": ["main"]`. Jendela `vn-overlay` memakai `capabilities/overlay.json` yang sengaja minimal (event, drag/posisi/ukuran jendela, close/hide) — tanpa clipboard, dialog, filesystem, atau opener, karena overlay hanya merender teks dialog lokal. Jendela `ai-companion` yang memuat situs AI pihak ketiga sengaja tidak diberi capability sama sekali.
-- **Setiap perintah native memverifikasi pemanggilnya.** Semua command di `src-tauri/src/lib.rs` menerima parameter `tauri::WebviewWindow` dan menolak panggilan dari jendela selain `main`; hanya command overlay yang juga menerima `vn-overlay`, lewat `ensure_trusted_window`. Jadi halaman AI tidak bisa menyentuh filesystem walau konfigurasi capability diubah.
-- **Allowlist host untuk jendela AI.** `open_ai_window` hanya menerima URL `https` ke host di `ALLOWED_AI_HOSTS` (gemini.google.com, chatgpt.com, chat.deepseek.com, meta.ai, claude.ai, chat.qwenlm.ai, lmarena.ai, ...). Kalau kamu menambah target baru di `AI_TARGET_URLS` (`src/ai-webview-controller.ts`), tambahkan juga host-nya di `ALLOWED_AI_HOSTS`.
-- **`eval_ai_script` hanya menyuntik ke host yang diizinkan.** Script automasi ditolak bila jendela AI ternyata sudah bernavigasi ke host lain. URL dipindahkan ke `window.location.href` lewat `serde_json`, jadi tidak bisa keluar dari string literal JS.
-- **`withGlobalTauri: false`.** Objek `window.__TAURI__` tidak lagi disuntikkan ke setiap webview. Frontend memakai import `@tauri-apps/api` yang di-bundle, sedangkan deteksi runtime memakai `window.__TAURI_INTERNALS__`.
-- **Path penyimpanan disanitasi.** `native_save_file` / `native_read_file` / `native_delete_file` / `native_list_files` menolak path absolut dan `..` (path traversal), lalu memastikan target tetap berada di dalam folder data aplikasi.
-- **Penulisan ke folder pilihan user tetap dijaga.** `native_write_file_to` / `native_read_file_from` / `native_list_dir` hanya menerima folder absolut yang berasal dari dialog pemilih folder native (`tauri-plugin-dialog`, izin `dialog:allow-open` hanya untuk jendela `main`); nama filenya disanitasi terhadap `..`, `:`, dan path absolut, dan path hasil harus tetap di dalam folder tersebut.
-- **Jendela overlay dibuat sesuai permintaan.** `vn-overlay` tidak lagi terdaftar sebagai window tersembunyi di `tauri.conf.json`, jadi tidak ada instance webview ekstra (dan tidak ada masalah di Android, yang tidak mendukung overlay) sampai kamu menekan tombol overlay. `toggle_vn_overlay_window` dibuat `async` karena command sinkron yang membuat window akan deadlock di Windows.
-- **Camoufox Auto Copas dikendalikan secara lokal dan loopback-only.** Browser Camoufox diunduh dari rilis resmi GitHub, dijalankan sebagai child process milik aplikasi (dimatikan saat aplikasi keluar), dan dikendalikan lewat WebDriver BiDi di `ws://127.0.0.1:<port>` — hanya loopback, tidak bisa diarahkan ke host lain. Browser dibuka hanya dari jendela `main`. Di Android, semua perintah `copas*` hanya menjalankan WebView in-app yang memuat situs target.
-- **`csp: null` dipertahankan dengan sengaja.** CSP ketat di jendela utama juga akan membatasi jendela AI yang memuat konten pihak ketiga, sementara aplikasi butuh inline style/script, Web Worker, dan koneksi ke API AI pilihanmu. Batas keamanan yang sebenarnya ada pada capability + guard Rust di atas.
+- **Capability per jendela.** `src-tauri/capabilities/default.json` hanya berlaku untuk `"windows": ["main"]`. Jendela `vn-overlay` memakai `capabilities/overlay.json` yang minimal: event, drag, posisi/ukuran, close, hide. Tanpa clipboard, dialog, filesystem, atau opener, karena overlay hanya merender teks dialog lokal. Jendela `ai-companion` tidak diberi capability sama sekali.
+- **Setiap perintah native memeriksa pemanggilnya.** Command di `src-tauri/src/lib.rs` menerima parameter `tauri::WebviewWindow` lalu memanggil `ensure_main_window` atau `ensure_trusted_window`. Hanya command overlay yang juga menerima `vn-overlay`. Halaman AI tidak bisa menyentuh filesystem meskipun konfigurasi capability diubah.
+- **Allowlist host untuk jendela AI.** `open_ai_window` hanya menerima URL `https` ke host di `ALLOWED_AI_HOSTS`: `gemini.google.com`, `aistudio.google.com`, `chatgpt.com`, `chat.openai.com`, `chat.deepseek.com`, `meta.ai`, `claude.ai`, `chat.qwenlm.ai`, `lmarena.ai`, `arena.ai`, termasuk subdomainnya. Kalau menambah target baru, daftar URL situsnya ada di `COPAS_TARGETS` (`src/auto-copas/targets.ts`) dan host-nya harus ditambahkan ke `ALLOWED_AI_HOSTS`.
+- **`eval_ai_script` hanya menyuntik ke host yang diizinkan.** Script ditolak kalau jendela AI sudah bernavigasi ke host lain. URL dipindahkan ke `window.location.href` lewat `serde_json`, jadi tidak bisa keluar dari string literal JS.
+- **`withGlobalTauri: false`.** `window.__TAURI__` tidak disuntikkan ke setiap webview. Frontend memakai import `@tauri-apps/api` yang di-bundle, dan deteksi runtime memakai `window.__TAURI_INTERNALS__`.
+- **Path penyimpanan disanitasi.** `native_save_file`, `native_read_file`, `native_delete_file`, dan `native_list_files` menolak path absolut dan `..`, lalu memastikan target tetap di dalam folder data aplikasi.
+- **Penulisan ke folder pilihan user dijaga.** `native_write_file_to`, `native_read_file_from`, dan `native_list_dir` hanya menerima folder absolut yang berasal dari dialog pemilih folder native. Izin `dialog:allow-open` hanya diberikan ke jendela `main`. Nama file disanitasi terhadap `..`, `:`, dan path absolut, dan path hasil harus tetap di dalam folder tersebut.
+- **Jendela overlay dibuat sesuai permintaan.** `vn-overlay` tidak terdaftar sebagai window tersembunyi di `tauri.conf.json`, jadi tidak ada webview ekstra sampai tombol overlay ditekan, dan Android yang tidak mendukung overlay tidak terpengaruh. `toggle_vn_overlay_window` dibuat `async` karena command sinkron yang membuat window akan deadlock di Windows.
+- **Camoufox Auto Copas hanya lewat loopback.** Browser diunduh dari rilis resmi GitHub, dijalankan sebagai child process milik aplikasi, dan dikendalikan lewat WebDriver BiDi di `ws://127.0.0.1:<port>`. Browser hanya bisa dibuka dari jendela `main`. Di Android, semua perintah `copas*` hanya menjalankan WebView in-app yang memuat situs target.
+- **`csp: null` dipertahankan dengan sengaja.** CSP ketat di jendela utama juga akan membatasi jendela AI yang memuat konten pihak ketiga, sementara aplikasi butuh inline style dan script, Web Worker, serta koneksi ke API AI pilihanmu. Batas keamanan yang sebenarnya ada pada capability dan guard Rust di atas.
 
 ---
 
 ## Stack
 
-**TypeScript** + **Vite** — dicompile ke vanilla JS, tidak ada runtime framework berat. Dependensi utama:
-- **Tauri v2** — runtime desktop (Windows NSIS & MSI) dan mobile (Android APK)
-- **@tauri-apps/plugin-clipboard-manager** — akses clipboard native fokus-independen
-- **@tauri-apps/plugin-dialog** — pemilih folder native untuk folder simpan backup & export di Windows
-- **Web Worker Storage** — isolasi parsing dan commit IndexedDB/OPFS di thread terpisah agar UI tetap responsif 60fps
-- **Android Native Bridge** — in-app AI companion WebView overlay, background lifecycle keep-alive, pemilih folder Storage Access Framework untuk impor/backup, penyimpanan file langsung ke folder `Download`, dan WebView Auto Copas
-- **Camoufox (unduh langsung dari GitHub) + reqwest + tokio-tungstenite** — browser otomatis Camoufox untuk Auto Copas di Windows; browser diunduh dari rilis GitHub dan dikendalikan lewat **WebDriver BiDi** (WebSocket lokal 127.0.0.1, tanpa Node.js/npm)
-- **JSZip** — parsing file `.zip`
-- **Kuroshiro + Kuromoji** — konversi furigana (hiragana/romaji) untuk teks Jepang
-- **Pako** — kompresi/dekompresi data
-- **OPFS API & IndexedDB** — penyimpanan lokal file & database proyek
-- **vite-plugin-pwa** — PWA support (install ke homescreen, offline cache)
+TypeScript dan Vite, dikompilasi ke vanilla JS tanpa runtime framework.
+
+- **Tauri v2**: runtime desktop (NSIS dan MSI) dan mobile (APK).
+- **@tauri-apps/plugin-clipboard-manager**: clipboard native yang tidak bergantung fokus jendela.
+- **@tauri-apps/plugin-dialog**: pemilih folder native untuk folder simpan backup dan export, dipakai di Windows dan Android.
+- **Web Worker storage**: `JSON.stringify` dan `JSON.parse` proyek berjalan di thread terpisah, jadi auto-save tidak membuat UI tersendat.
+- **Android native bridge**: jendela WebView in-app, pemilih folder Storage Access Framework, penyimpanan ke `Download` lewat MediaStore, dan WebView Auto Copas.
+- **Camoufox + tokio-tungstenite**: browser otomatis untuk Auto Copas di Windows, dikendalikan lewat **WebDriver BiDi** di WebSocket loopback. Unduhan memakai `curl.exe`; tanpa Node.js dan npm.
+- **JSZip**: parsing arsip `.zip` dan penulisan `.xlsx`.
+- **Kuroshiro + Kuromoji**: konversi furigana.
+- **Pako**: kompresi dan dekompresi.
+- **OPFS dan IndexedDB**: penyimpanan lokal file dan database proyek.
+- **vite-plugin-pwa**: PWA, install ke homescreen, dan cache offline.
 
 ---
 
-## Pengembangan & Build (Developer)
+## Pengembangan & Build
 
 ### Prasyarat
 
-- **Node.js 20+** dan npm
-- **Rust stable** + dependensi Tauri
-- Untuk Android: **Android SDK + NDK 26.3.11579264** dan **JDK 17**
+- **Node.js 20+** dan npm.
+- **Rust stable** plus dependensi Tauri.
+- Untuk Android: **Android SDK**, **NDK 26.3.11579264**, dan **JDK 17**.
+- Untuk unduhan Camoufox di Windows: `curl.exe`, yang sudah tersedia di Windows 10 versi 1803 ke atas.
 
 ### Perintah
 
 | Perintah | Fungsi |
 |----------|--------|
-| `npm run dev` | Jalankan versi web (Vite dev server, port 5173) |
+| `npm run dev` | Vite dev server di port 5173 |
 | `npm run build` | Type-check (`tsc`) lalu build produksi ke `dist/` |
 | `npm run preview` | Pratinjau lokal build produksi |
-| `npm run typecheck` | Type-check TypeScript saja, tanpa emit |
+| `npm run typecheck` | Type-check TypeScript tanpa emit |
 | `npm run version:check` | Pastikan semua penanda versi sama dengan `package.json` |
-| `npm run tauri:dev` | Jalankan aplikasi desktop Tauri (mode dev) |
-| `npm run tauri:build` | Build installer Windows (NSIS/MSI) |
-| `npm run android:init` | Buat scaffold Android di `src-tauri/gen/` (sekali per clone) |
+| `npm run test:copas` | Test invariant page-script Auto Copas |
+| `npm run tauri:dev` | Aplikasi desktop Tauri mode dev |
+| `npm run tauri:build` | Build installer Windows (NSIS dan MSI) |
+| `npm run android:init` | Scaffold Android di `src-tauri/gen/` lalu patch bridge |
 | `npm run android:build` | Patch bridge Android lalu build APK |
-| `scripts\build-and-install-android.ps1` | Build, align, sign & install langsung ke HP Android via ADB |
+| `scripts\build-and-install-android.ps1` | Build, align, sign, dan install ke HP lewat ADB |
 
-> `src-tauri/gen/` masuk `.gitignore`, jadi **clone baru wajib menjalankan `npm run android:init`** sebelum build Android. Build desktop tidak butuh langkah ini.
+`src-tauri/gen/` masuk `.gitignore`, jadi **clone baru wajib menjalankan `npm run android:init`** sebelum build Android. Kedua skrip Android di atas sudah memanggil `scripts/patch-android-bridge.mjs`, yang menyalin `AndroidBridge.kt` dan `AutoCopasActivity.kt` dari `src-tauri/android/` ke proyek hasil scaffold. Tanpa langkah itu, build akan jalan tetapi bridge native-nya kosong. Build desktop tidak butuh langkah ini.
 
 ### Versi aplikasi
 
-`package.json → "version"` adalah satu-satunya sumber kebenaran. Saat build/dev, versi diinjeksi ke frontend sebagai `__APP_VERSION__` oleh `vite.config.ts` (badge dashboard + status bar). `npm run version:check` — juga jadi gate pertama di CI sebelum semua job build — memverifikasi `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, badge README, dan placeholder `index.html` sudah sinkron. Untuk menaikkan versi, ubah keempat tempat itu sekaligus lalu jalankan `npm run version:check`.
+`package.json → "version"` adalah satu-satunya sumber kebenaran. Saat build dan dev, `vite.config.ts` menginjeksi versi ke frontend sebagai `__APP_VERSION__` untuk badge dashboard dan status bar.
+
+`npm run version:check` juga menjadi gate pertama di CI. Perintah ini memverifikasi `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, badge versi README, dan placeholder `__APP_VERSION__` di `index.html`. Untuk menaikkan versi, ubah keempat tempat itu sekaligus lalu jalankan ulang perintahnya.
 
 ### CI (`.github/workflows/build-tauri.yml`)
 
-- `version-check` — gate verifikasi versi + memastikan tag rilis cocok dengan `package.json`.
-- `build-windows` — menghasilkan installer Windows:
-  - `CopasTool_<version>_x64-setup.exe` (NSIS)
-  - `CopasTool_<version>_x64_en-US.msi` (MSI)
-- `build-android` — menghasilkan APK Android yang sudah di-align dan di-sign:
-  - `CopasTool_universal.apk` (APK universal untuk semua arsitektur: arm64-v8a, armeabi-v7a, x86_64)
-- `publish-release` — mengunggah installer `.exe`, `.msi`, dan `.apk` ke GitHub Release saat tag `v*` di-push.
+- `version-check`: verifikasi versi, jalankan `npm run test:copas`, dan pastikan tag rilis cocok dengan `package.json`.
+- `build-windows`: menghasilkan `CopasTool_<version>_x64-setup.exe` (NSIS) dan `CopasTool_<version>_x64_en-US.msi` (MSI).
+- `build-android`: menghasilkan APK yang sudah di-align dan di-sign untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`. Tiga arsitektur dibangun sebagai APK terpisah, bukan satu APK universal; setiap APK dinamai mengikuti target output Gradle, misalnya `app-arm64-release-unsigned-signed.apk`. Keystore release diambil dari repository secret. Kalau secret tidak tersedia, workflow membuat keystore sementara supaya build tetap hijau, tetapi APK hasilnya tidak bisa memperbarui instalasi CopasTool yang sudah ada.
+- `publish-release`: mengunggah `.exe`, `.msi`, dan `.apk` ke GitHub Release saat tag `v*` di-push.
 
-Cache yang dipakai: `Swatinem/rust-cache` (Cargo registry + `src-tauri/target`) untuk job Windows dan Android, `actions/cache` untuk `~/.gradle`, serta cache npm bawaan `actions/setup-node`. NDK tidak di-cache karena runner GitHub sudah menyediakannya dan ukurannya terlalu besar untuk batas cache repo.
+Cache yang dipakai: `Swatinem/rust-cache` untuk job Windows dan Android, `actions/cache` untuk `~/.gradle`, dan cache npm bawaan `actions/setup-node`. NDK tidak di-cache karena runner GitHub sudah menyediakannya.
 
-> **Catatan ukuran:** kamus Kuromoji di `public/dict/` berukuran ±**17 MB**. Item ini tetap dibundle ke APK (dibutuhkan furigana), tetapi **tidak lagi di-precache** oleh service worker — pembukaan pertama hanya mengunduh shell aplikasi (±1 MB) dan kamus masuk cache saat furigana dipakai pertama kali, setelah itu tetap tersedia offline.
+Kamus Kuromoji di `public/dict/` berukuran sekitar 17 MB. Item ini tetap dibundle ke APK karena dibutuhkan furigana, tetapi tidak di-precache service worker. Pembukaan pertama hanya mengunduh shell aplikasi (sekitar 1 MB), dan kamus masuk cache saat furigana dipakai pertama kali.
 
 ---
 
 ## Platform & Kompatibilitas
 
-CopasTool dapat dijalankan sebagai aplikasi native maupun aplikasi web (PWA):
+**Windows Desktop (native):**
+- Windows 10 dan Windows 11, 64-bit.
+- Installer tersedia dalam bentuk NSIS (`.exe`) dan Windows Installer (`.msi`).
+- Penyimpanan memakai filesystem native tanpa batas kuota browser, dan jendela AI Companion terpisah.
 
-- **Windows Desktop (Native):**
-  - Mendukung Windows 10 dan Windows 11 (64-bit).
-  - Tersedia pilihan installer NSIS (`.exe`) dan Windows Installer (`.msi`).
-  - Menggunakan penyimpanan filesystem native (bebas kuota browser), notifikasi status dalam aplikasi, dan jendela pendamping AI terpisah.
+**Android (native):**
+- `minSdk` 24, yaitu Android 7.0 (Nougat) ke atas.
+- APK dibangun untuk `arm64-v8a`, `armeabi-v7a`, dan `x86_64`.
+- Jendela WebView in-app, pemilih folder dan backup lewat Storage Access Framework, serta penyimpanan ke koleksi `Download` lewat MediaStore. Pada Android 10 ke atas, MediaStore tidak memerlukan izin storage tambahan.
 
-- **Android (Native):**
-  - Mendukung Android 8.0 (Oreo / API level 26) ke atas.
-  - APK Universal (`CopasTool_universal.apk`) mendukung arsitektur `arm64-v8a`, `armeabi-v7a`, dan `x86_64`.
-  - Dilengkapi in-app AI companion WebView overlay, background lifecycle keep-alive saat multitasking, impor folder dan backup folder melalui pemilih Android, serta penyimpanan langsung ke folder `Download`.
-
-- **Web Browser & PWA:**
-  - Dapat diinstall sebagai PWA ke homescreen/desktop dengan dukungan offline cache.
-  - Penyimpanan menggunakan OPFS (`navigator.storage.getDirectory()`) dengan fallback otomatis ke IndexedDB:
-    - **Chrome / Edge 102+** (Sangat disarankan)
-    - **Firefox 111+**
-    - **Safari 15.2+** (menggunakan IndexedDB fallback)
+**Browser dan PWA:**
+- Bisa di-install sebagai PWA dengan cache offline.
+- Penyimpanan memakai OPFS (`navigator.storage.getDirectory()`) dengan fallback ke IndexedDB.
+- Chrome / Edge 102+ (disarankan), Firefox 111+, Safari 15.2+ (memakai fallback IndexedDB).
 
 ---
 
 ## Kredit
 
-Original dibuat oleh [Atho64](https://github.com/atho64), di-fork oleh [LuKazuu](https://github.com/LuKazuu), lalu di-fork balik dan dikembangkan lagi oleh [Atho64](https://github.com/atho64).
+Dibuat oleh [Atho64](https://github.com/atho64), di-fork oleh [LuKazuu](https://github.com/LuKazuu), lalu di-fork balik dan dikembangkan lagi oleh [Atho64](https://github.com/atho64).
 
 ---
 
@@ -448,6 +474,6 @@ Original dibuat oleh [Atho64](https://github.com/atho64), di-fork oleh [LuKazuu]
 
 CopasTool dirilis di bawah **[MIT License](./LICENSE)**.
 
-CopasTool dibangun di atas karya orang lain. Dependensi npm (JSZip, Kuroshiro, Kuromoji, Pako) berlisensi permisif dan aman dipakai di bawah MIT. Kamus furigana memakai Kuromoji + IPADIC (Apache 2.0 / NAIST).
+Dependensi npm (JSZip, Kuroshiro, Kuromoji, Pako, path-browserify) berlisensi permisif. Kamus furigana memakai Kuromoji dan IPADIC (Apache 2.0 / NAIST). Tidak ada komponen copyleft atau non-komersial yang dibundel maupun dibutuhkan.
 
-Tidak ada komponen copyleft atau non-komersial yang dibundel maupun dibutuhkan. Daftar lengkap ada di **[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)**.
+Daftar lengkap ada di **[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)**.

@@ -53,6 +53,7 @@ import {
   backupCurrentProject, backupAllProjectsAsZip, flushAutoSaveNow,
 } from './project';
 import { isFolderBackupSupported, backupAllToFolder, openFolderRestorePicker } from './folder-backup';
+import { exportProjectToSpreadsheet, importSpreadsheetFile } from './spreadsheet';
 import { getStandardPromptHeaderForFormat } from './ai-format';
 import { lunaModal } from './luna-modal';
 import { overlayController } from './overlay-controller';
@@ -87,7 +88,7 @@ function debounce(func: Function, wait: number) {
 export function cacheElements(): void {
   const ids = [
     'dashboardView', 'workspaceView', 'projectList', 'projectFilterInput', 'projectSortSelect', 'projectCountBadge', 'btnNewProject', 'btnRestoreProject', 'btnBackupAllProjects', 'btnFolderBackup', 'btnFolderRestore',
-    'btnBackToDashboard', 'btnBackupProject', 'btnBatchPrev', 'btnBatchNext', 'projectNameDisplay', 'restoreProjectInput', 'btnDropdownImport', 'dropdownImportMenu', 'btnDropdownImportOther', 'dropdownImportOtherMenu', 'btnImportFile', 'btnDropdownTools', 'dropdownToolsMenu',
+    'btnBackToDashboard', 'btnBackupProject', 'btnBatchPrev', 'btnBatchNext', 'projectNameDisplay', 'restoreProjectInput', 'spreadsheetInput', 'btnExportSpreadsheet', 'btnImportSpreadsheet', 'btnSpreadsheetImport', 'btnDropdownImport', 'dropdownImportMenu', 'btnDropdownImportOther', 'dropdownImportOtherMenu', 'btnImportFile', 'btnDropdownTools', 'dropdownToolsMenu',
     'btnDropdownDashboardSettings', 'dropdownDashboardSettingsMenu', 'btnDashboardSettings', 'dashboardSettingsModal', 'btnDashboardSettingsSave', 'btnDashboardSettingsReset', 'paletteSelect', 'btnDashboardSettingsCancel', 'btnDashboardPrompts', 'dashboardPromptsModal', 'dpPromptInput', 'dpPromptTemplateSelect', 'dpGlossaryPromptInput', 'dpAiCheckPromptInput', 'dpAgentPromptInput', 'dpSummaryPromptInput', 'btnDashboardPromptsSave', 'btnDashboardPromptsReset', 'btnDashboardPromptsCancel',
     'dsSourceLang', 'dsTargetLang', 'dsTranslationMode', 'dsAiFormat', 'dsContextLines', 'dsContextLinesAfter', 'dsContextType', 'dsSelectionBatch', 'dsGlossaryBatch', 'dsAiCheckBatch', 'dsParallelBatch', 'dsSubagentWorkers', 'dsShowFurigana', 'dsFuriganaType', 'dsFontSize', 'dsEnableDictionary', 'dsDictionaryEngine', 'dsDictionaryPrompt', 'dsRegexFilter', 'dsRegexFilterCase', 'dsDisableEmptyLineValidation', 'dsCheckKanaResidue', 'dsCheckSimilarity', 'dsSimilarityThreshold', 'dsSimilarityThresholdWrap', 'dsCheckLengthRatio', 'dsLengthRatioThreshold', 'dsLengthRatioWrap', 'dsCheckLinebreak', 'dsCheckLanguage', 'dsCheckPunctuation', 'dsCheckUntransName', 'dsIgnorePasteNames', 'dsEnableBackgroundChaining', 'dsEnableUncertainMarking', 'dsSafeTagsForChatgpt', 'dsAgentMaxTurns', 'dsEpubTags', 'dsShowEpubImages', 'dsEnableLogging',
     'btnImportFolder', 'btnImportZip', 'btnImportTranslatedFile', 'btnImportTranslatedFolder', 'btnExport', 'btnProofread',
@@ -449,6 +450,21 @@ export function bindEvents(): void {
   ui.btnBatchNext?.addEventListener('click', () => selectActiveWorkspaceBatch(1));
   ui.btnRestoreProject?.addEventListener('click', () => (ui.restoreProjectInput as HTMLInputElement).click());
   ui.restoreProjectInput?.addEventListener('change', onRestoreProject);
+  // Google Spreadsheet round-trip — both directions are manual only (explicit
+  // user click + file pick), never automatic on project open.
+  ui.btnSpreadsheetImport?.addEventListener('click', () => (ui.spreadsheetInput as HTMLInputElement).click());
+  ui.spreadsheetInput?.addEventListener('change', async (ev: Event) => {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    await importSpreadsheetFile(file);
+  });
+  ui.btnExportSpreadsheet?.addEventListener('click', () => { void exportProjectToSpreadsheet(); });
+  // Workspace entry point. The dashboard copy above can only create new
+  // projects (closing a project clears currentProjectId), so merge is only
+  // reachable from here, where the target project is already open.
+  ui.btnImportSpreadsheet?.addEventListener('click', () => (ui.spreadsheetInput as HTMLInputElement).click());
   ui.btnImageLightboxClose?.addEventListener('click', () => {
     (ui.imageLightboxModal as HTMLElement | null)?.classList.remove('open');
   });
@@ -995,7 +1011,7 @@ if (ui.settingsCheckSimilarity) {
   // ── Auto Copas (browser otomatis) — engine selects, target picker, login ──
   // Row visibility + select values live in auto-copas/ui.ts (syncCopasUi) so
   // loadApiSettings can re-run them after restoring saved settings on reload.
-  const copasTargetSelectIds = ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck'];
+  const copasTargetSelectIds = ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck', 'copasTargetSelectLive'];
   populateCopasTargetSelects();
   for (const id of copasTargetSelectIds) {
     const sel = document.getElementById(id) as HTMLSelectElement | null;
@@ -1003,9 +1019,14 @@ if (ui.settingsCheckSimilarity) {
       state.copasTarget = normalizeCopasTarget(sel.value);
       import('./auto-translate').then(m => m.saveApiSettings());
       syncCopasUi();
+      // Keep every target picker on the same site — one shared browser tab.
+      for (const otherId of copasTargetSelectIds) {
+        const other = document.getElementById(otherId) as HTMLSelectElement | null;
+        if (other && other !== sel) other.value = state.copasTarget;
+      }
     });
   }
-  for (const btnId of ['btnCopasOpenBrowserTranslate', 'btnCopasOpenBrowserGlossary', 'btnCopasOpenBrowserAiCheck']) {
+  for (const btnId of ['btnCopasOpenBrowserTranslate', 'btnCopasOpenBrowserGlossary', 'btnCopasOpenBrowserAiCheck', 'btnCopasOpenBrowserLive']) {
     document.getElementById(btnId)?.addEventListener('click', () => {
       void import('./auto-copas/bridge').then(m => m.openCopasBrowser());
     });
@@ -1021,6 +1042,13 @@ if (ui.settingsCheckSimilarity) {
     state.aiCheckEngine = aiCheckEngineSelect.value === 'copas' ? 'copas' : 'api';
     import('./auto-translate').then(m => m.saveApiSettings());
     syncCopasUi();
+  });
+  const liveEngineSelect = document.getElementById('liveEngineSelect') as HTMLSelectElement | null;
+  liveEngineSelect?.addEventListener('change', () => {
+    state.liveTranslateEngine = liveEngineSelect.value === 'copas' ? 'copas' : 'api';
+    import('./auto-translate').then(m => m.saveApiSettings());
+    syncCopasUi();
+    void import('./luna-modal').then(m => m.refreshLunaTlBadge());
   });
   syncCopasUi();
   const repeatCheck = (ui.checkAutoRepeatOnFailure || document.getElementById('checkAutoRepeatOnFailure')) as HTMLInputElement | null;

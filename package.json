@@ -1,7 +1,7 @@
 {
   "name": "copas-tool",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "version:check": "node scripts/check-versions.mjs",
+    "test:copas": "node scripts/test-copas-scripts.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

@@ -30,6 +30,7 @@ import { stringifyAsync, parseAsync } from './storage-worker';
 import { saveOrDownloadBlob } from './download-helper';
 import { isSaveAskEveryTime, setSaveAskEveryTime } from './native-save-folder';
 import { cstlPrompt, cstlConfirm } from './dialog';
+import { exportProjectToSpreadsheet } from './spreadsheet';
 
 export function isProjectFile(name: string): boolean {
   return name.endsWith(PROJECT_EXT) || name.endsWith(LEGACY_PROJECT_EXT);
@@ -907,6 +908,9 @@ export function renderDashboardProjects(): void {
           <button type="button" class="btn btn-outline card-btn-action btn-backup" title="Backup Project">
             ${icon('download', 14)} <span>Backup</span>
           </button>
+          <button type="button" class="btn btn-outline card-btn-action btn-sheet" title="Ekspor ke Google Spreadsheet (.xlsx)">
+            ${icon('file-text', 14)} <span>Sheet</span>
+          </button>
           <button type="button" class="btn btn-danger-outline card-btn-action btn-delete" title="Hapus Project">
             ${icon('trash', 14)} <span>Hapus</span>
           </button>
@@ -948,6 +952,30 @@ export function renderDashboardProjects(): void {
         await backupDashboardProject(p.name, await fetchProjectData(p.id), p.id);
       } finally {
         this.disabled = false;
+      }
+    });
+
+    // Spreadsheet export from a closed project: open it just long enough to
+    // reuse the live-project builder, then restore the dashboard. Import is
+    // never chained off this — it always starts from an explicit user click.
+    card.querySelector('.btn-sheet')?.addEventListener('click', async function(this: HTMLButtonElement) {
+      this.disabled = true;
+      const original = this.innerHTML;
+      this.innerHTML = `<span class="spinner-border" style="width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;margin-right:6px"></span> <span>Sheet...</span>`;
+      const projectData = await loadProjectDataForOpen(p.id).catch(() => null);
+      if (!projectData) {
+        alert('Gagal membaca proyek untuk diekspor.');
+        this.disabled = false;
+        this.innerHTML = original;
+        return;
+      }
+      try {
+        await openProject(p.id, projectData);
+        await exportProjectToSpreadsheet();
+      } finally {
+        await closeProject();
+        this.disabled = false;
+        this.innerHTML = original;
       }
     });
 

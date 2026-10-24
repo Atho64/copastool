@@ -194,8 +194,11 @@ class OverlayController {
 
       // If TL Mode is active and line is untranslated, trigger live AI translation
       if (mode === 'tl' && isUntranslated && !liveTranslator.isLineInFlight(cur.line_num)) {
+        const engineLabel = state.liveTranslateEngine === 'copas' ? 'Auto Copas' : 'AI API';
+        const batchN = Math.max(1, state.liveBatchSize || 1);
+        const batchNote = state.liveTranslateEngine === 'copas' && batchN > 1 ? ` (batch ${batchN})` : '';
         this.latestPayload.isTranslating = true;
-        this.latestPayload.lunaMessage = `TL Mode: Menyiapkan terjemahan #${cur.line_num}...`;
+        this.latestPayload.lunaMessage = `TL Mode: Menyiapkan terjemahan #${cur.line_num}${batchNote}...`;
         this.broadcastLatest();
 
         liveTranslator.scheduleDebounced(
@@ -215,7 +218,7 @@ class OverlayController {
               }
               this.latestPayload.currentLine.is_translated = true;
               this.latestPayload.isTranslating = false;
-              this.latestPayload.lunaMessage = `TL Selesai #${cur.line_num} (AI API)`;
+              this.latestPayload.lunaMessage = `TL Selesai #${cur.line_num} (${engineLabel})`;
               this.broadcastLatest();
             }
           },
@@ -225,7 +228,8 @@ class OverlayController {
               this.latestPayload.lunaMessage = `Gagal TL: ${err?.message || err}`;
               this.broadcastLatest();
             }
-          }
+          },
+          state.liveBatchSize || 1
         );
       } else {
         this.broadcastLatest();

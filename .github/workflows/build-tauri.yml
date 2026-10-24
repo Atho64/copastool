@@ -37,6 +37,9 @@ jobs:
       - name: Check version markers
         run: npm run version:check
 
+      - name: Test Auto Copas page-script invariants
+        run: npm run test:copas
+
       - name: Check release tag matches package.json version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -77,6 +80,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve release channel
+        id: channel
+        run: |
+          # A semver prerelease version (0.1.14-beta.1) must publish as a GitHub
+          # prerelease so it is never handed out as "latest". Derive it from
+          # package.json instead of hardcoding false.
+          if [[ "$(node -p "require('./package.json').version")" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "Detected prerelease version — publishing as GitHub prerelease."
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Tauri Windows App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -84,7 +100,7 @@ jobs:
         with:
           tagName: ''
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ steps.channel.outputs.prerelease }}
 
       - name: Upload Windows Installer Artifacts
         uses: actions/upload-artifact@v4
