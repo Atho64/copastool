@@ -332,7 +332,9 @@ function parseLinesRows(rows: string[][]): { lines: Line[]; warnings: string[] }
       name: nameRaw || null,
       message: escapeStoredNewlines(messageRaw),
       trans_name: idxTransName === -1 ? null : (String(row[idxTransName] ?? '') || null),
-      trans_message: escapeStoredNewlines(transRaw),
+      // Spasi di akhir kalimat dipertahankan: hasil edit di sheet tetap utuh
+      // setelah diimpor kembali (lihat escapeStoredNewlines).
+      trans_message: escapeStoredNewlines(transRaw, { preserveTrailingSpace: true }),
       is_translated: idxIsTrans === -1
         ? (idxStatus === -1 ? !!transRaw.trim() : parseBoolCell(String(row[idxStatus] ?? '')))
         : parseBoolCell(String(row[idxIsTrans] ?? '')),

@@ -4,8 +4,19 @@ export function unescapeStoredNewlines(text: string): string {
   return String(text || '').replace(/\\n/g, '\n');
 }
 
-export function escapeStoredNewlines(text: string): string {
-  return String(text || '').replace(/\r?\n/g, '\\n').trim();
+/**
+ * Ubah baris baru asli menjadi escape `\n` literal sebelum disimpan.
+ * Dengan `preserveTrailingSpace` spasi di akhir kalimat dipertahankan
+ * (dipakai untuk field terjemahan yang diedit user).
+ */
+export function escapeStoredNewlines(text: string, options: { preserveTrailingSpace?: boolean } = {}): string {
+  const normalized = String(text || '').replace(/\r?\n/g, '\\n');
+  if (!options.preserveTrailingSpace) return normalized.trim();
+  // Spasi di akhir kalimat sering ditulis sengaja (mis. memberi jarak sebelum
+  // jeda/pergantian baris di dalam game), jadi jangan dibuang saat menyimpan.
+  // Hanya spasi/tab di awal yang dirapikan; isi yang seluruhnya spasi = kosong.
+  const withoutLeading = normalized.replace(/^[ \t]+/, '');
+  return withoutLeading.trim() ? withoutLeading : '';
 }
 
 /**

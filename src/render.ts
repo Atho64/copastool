@@ -12,6 +12,7 @@ import { isClannadProtagonistToken, parseLucaTxtText, resolveLucaDisplayName } f
 import { getFileDisplayOrder } from './file-list';
 import { getEpubImageBlobUrl, getEpubImagesForFile, preloadEpubImages, loadEpubImage, openImageLightbox } from './epub-images';
 import { getCustomParser } from './custom-parsers';
+import { escapeStoredNewlines } from './string-utils';
 import { convertToFurigana, getCachedFurigana } from './furigana';
 import type { DisplayRow, EpubImageAsset, Line } from './types';
 
@@ -302,12 +303,13 @@ export function initPreviewContainerDelegation(): void {
         recordSelectionHistory();
         syncCheckboxUI();
       } else if (input.dataset.num) {
-        // Line checkbox
         const num = parseInt(input.dataset.num);
         if (input.checked) state.selectedLines.add(num);
         else state.selectedLines.delete(num);
+        input.closest('.preview-row')?.classList.toggle('row-selected', input.checked);
         recordSelectionHistory();
-        syncCheckboxUI();
+        syncVisibleSeparators();
+        updateButtonStates();
       }
     }
   });
@@ -480,7 +482,7 @@ export function renderMainRow(rowData: DisplayRow, recycledRow?: HTMLElement): H
 
 // ─── Checkbox Sync ────────────────────────────────────────────────────────────
 
-export function syncCheckboxUI(): void {
+function syncVisibleSeparators(): void {
   document.querySelectorAll<HTMLInputElement>('.preview-row.separator input[type="checkbox"]').forEach(cb => {
     const file = (cb as any).dataset.file;
     const range = file ? fileLineRanges.get(file) : null;
@@ -503,15 +505,25 @@ export function syncCheckboxUI(): void {
       cb.checked = fileLines.length > 0 && fileLines.every(l => state.selectedLines.has(l.line_num));
     }
   });
-  document.querySelectorAll<HTMLInputElement>('.preview-row:not(.separator) input[type="checkbox"]').forEach(cb => {
-    const num = Number((cb as any).dataset.num);
-    const isChecked = state.selectedLines.has(num);
-    cb.checked = isChecked;
-    const row = cb.closest('.preview-row');
-    if (isChecked) row?.classList.add('row-selected');
-    else row?.classList.remove('row-selected');
+}
+
+let _checkboxSyncRAF: number | null = null;
+
+export function syncCheckboxUI(): void {
+  if (_checkboxSyncRAF !== null) return;
+  _checkboxSyncRAF = requestAnimationFrame(() => {
+    _checkboxSyncRAF = null;
+    syncVisibleSeparators();
+    document.querySelectorAll<HTMLInputElement>('.preview-row:not(.separator) input[type="checkbox"]').forEach(cb => {
+      const num = Number((cb as any).dataset.num);
+      const isChecked = state.selectedLines.has(num);
+      cb.checked = isChecked;
+      const row = cb.closest('.preview-row');
+      if (isChecked) row?.classList.add('row-selected');
+      else row?.classList.remove('row-selected');
+    });
+    updateButtonStates();
   });
-  updateButtonStates();
 }
 
 // ─── Name Table ────────────────────────────────────────────────────────────────
@@ -866,6 +878,20 @@ function _runUpdateButtonStates(): void {
   if (ui.pasteArea) (ui.pasteArea as HTMLTextAreaElement).placeholder = getTranslationPastePlaceholder();
 }
 
+function updateEditedLine(line: Line): void {
+  const index = state.displayRows.findIndex(row => row.type === 'line' && row.line === line);
+  if (index < 0) return;
+  getMainScroller()?.refreshItem(index);
+  updateStatusBar();
+  updateButtonStates();
+  (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
+  if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
+  import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
+  if (state.translationMode === 'htl') {
+    import('./htl-mode').then(m => m.refreshHtlPanels()).catch(() => {});
+  }
+}
+
 // ─── Line Editor ──────────────────────────────────────────────────────────────
 
 export function openLineEditor(num: number): void {
@@ -882,7 +908,9 @@ export function openLineEditor(num: number): void {
   (ui.lineNameWrap as HTMLElement).style.display = l.name && !hideMcName ? 'block' : 'none';
   (ui.lineNameInput as HTMLInputElement).value = l.name && !hideMcName ? (l.trans_name || '') : '';
   if (l.name && !hideMcName) (ui.lineNameInput as HTMLInputElement).placeholder = l.name;
-  (ui.lineMessageInput as HTMLTextAreaElement).value = (l.trans_message || '').trim();
+  // Jangan trim di sini: apa yang tampil harus sama dengan yang disimpan,
+  // termasuk spasi di akhir kalimat yang sengaja ditulis user.
+  (ui.lineMessageInput as HTMLTextAreaElement).value = l.trans_message || '';
   (ui.lineTranslatedCheck as HTMLInputElement).checked = isTranslated(l);
   // LucaSystem reference languages
   if (state.projectType === 'luca' && (l.luca_en || l.luca_zh || l.luca_jp)) {
@@ -957,11 +985,14 @@ export function onSaveLineEditor(): void {
   const l = state.lineByNum.get(getActiveLineEditorLineNum()!);
   if (!l) return;
   const ilustrasi = isIlustrasiLine(l);
-  const m = (ui.lineMessageInput as HTMLTextAreaElement).value.trim().replace(/\r?\n/g, '\\n');
+  // Spasi di akhir kalimat dipertahankan (bukan artefak): user memakainya untuk
+  // mengatur jarak teks di dalam game. Hanya isi yang seluruhnya kosong yang
+  // dianggap tidak ada.
+  const m = escapeStoredNewlines((ui.lineMessageInput as HTMLTextAreaElement).value, { preserveTrailingSpace: true });
   if ((ui.lineTranslatedCheck as HTMLInputElement).checked && !m && !state.disableEmptyLineValidation && !ilustrasi) return alert('Gagal: Pesan terjemahan kosong.');
   let n: string | null = null;
   const hideMcName = isClannadProtagonistToken(l.name) && getActiveLucaProfile().nameAtFormat;
-  if (l.name && !hideMcName) n = (ui.lineNameInput as HTMLInputElement).value.trim().replace(/\r?\n/g, '\\n');
+  if (l.name && !hideMcName) n = escapeStoredNewlines((ui.lineNameInput as HTMLInputElement).value);
   pushUndoSnapshot(true, [l.line_num]);
   const before = { trans_message: l.trans_message, trans_name: l.trans_name, is_translated: l.is_translated };
   l.trans_message = m || ((ui.lineTranslatedCheck as HTMLInputElement).checked && (state.disableEmptyLineValidation || ilustrasi) ? '' : null);
@@ -969,7 +1000,7 @@ export function onSaveLineEditor(): void {
   if (l.name && !hideMcName) l.trans_name = n || null;
   try { (window as any).CSTL?.plugins?.runHooksSync?.('lineSave', l.line_num, l, before); } catch (_) {}
   closeModal(ui.lineEditorModal as HTMLElement);
-  refreshAll();
+  updateEditedLine(l);
   import('./proofread').then(m => {
     if ((ui.proofreadModal as HTMLElement).classList.contains('open')) m.renderProofreadResults(true);
   });

@@ -12,6 +12,7 @@ import { unescapeStoredNewlines, escapeStoredNewlines, escapeXml, stripPlaintext
 import { getLineDisplayName } from './luca-engine';
 import { isTranslated, isIlustrasiLine } from './state';
 import { getDisplayOrderedLines } from './selection';
+import { isPlausibleSpeakerName } from './speaker-name';
 import type { Line, ParsedTranslationItem } from './types';
 
 export function applyPromptVariables(prompt: string): string {
@@ -371,21 +372,8 @@ export function parseTranslationNumberedPaste(
     return jpColonIdx;
   };
 
-  const isPlausibleSpeaker = (cand: string): boolean => {
-    let clean = cand.replace(/^\[\?\]\s*/, '').trim();
-    if (!clean) return false;
-    clean = stripDecorativeWrapping(clean);
-    if (!clean) return false;
-    // Karakter misterius/anonim seperti "???", "？？？", "??", "？", "!"
-    if (/^[?？!！]+$/.test(clean)) return true;
-    if (/^\d+$/.test(clean)) return false;
-    if (clean.length > 40) return false;
-    if (clean.split(/\s+/).filter(Boolean).length > 5) return false;
-    // Tanda baca yang tidak boleh ada di nama karakter (koma, titik akhir kalimat, tanda kutip, kurung siku tak berpasangan, dll).
-    // Tanda tanya (?/？), tanda seru (!/！), tilde (~/〜), tanda kurung, dan apostrof diperbolehkan di nama karakter (misal: "Nama???", "Gadis?", "???", "Nama!", "Sosok (???)").
-    if (/[.,…—–\n\r"“”«»「」『』]/.test(clean)) return false;
-    return true;
-  };
+  // Nama boleh memuat koma ("Nino, Menoa, Ichito"), lihat speaker-name.ts.
+  const isPlausibleSpeaker = (cand: string): boolean => isPlausibleSpeakerName(cand);
 
   const matchesSourceSpeaker = (cand: string, sourceLine: any): boolean => {
     if (!sourceLine?.name) return false;

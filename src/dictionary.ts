@@ -42,8 +42,8 @@ function initDrag() {
     if ((e.target as HTMLElement).closest('#dictPopupClose')) return;
 
     isDragging = true;
-    const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
-    const clientY = e instanceof MouseEvent ? e.clientY : e.touches[0].clientY;
+    const clientX = e instanceof MouseEvent ? e.clientX : (e.touches?.[0]?.clientX ?? 0);
+    const clientY = e instanceof MouseEvent ? e.clientY : (e.touches?.[0]?.clientY ?? 0);
     dragStartX = clientX;
     dragStartY = clientY;
     dragInitialLeft = parseInt(popup.style.left || '0', 10);
@@ -53,8 +53,8 @@ function initDrag() {
   const onDragMove = (e: MouseEvent | TouchEvent) => {
     if (!isDragging) return;
     e.preventDefault(); // Prevent scrolling while dragging
-    const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
-    const clientY = e instanceof MouseEvent ? e.clientY : e.touches[0].clientY;
+    const clientX = e instanceof MouseEvent ? e.clientX : (e.touches?.[0]?.clientX ?? dragStartX);
+    const clientY = e instanceof MouseEvent ? e.clientY : (e.touches?.[0]?.clientY ?? dragStartY);
     const dx = clientX - dragStartX;
     const dy = clientY - dragStartY;
     popup.style.left = `${dragInitialLeft + dx}px`;
@@ -247,7 +247,7 @@ function handleMouseUp(e: MouseEvent | TouchEvent) {
   let isTouch = false;
   if (window.TouchEvent && e instanceof TouchEvent) {
     isTouch = true;
-    if (e.changedTouches.length > 0) {
+    if (e.changedTouches && e.changedTouches.length) {
       clientX = e.changedTouches[0].clientX;
       clientY = e.changedTouches[0].clientY;
     }

@@ -72,6 +72,8 @@ import './plugins';
 import { createPluginHostBridge } from './plugin-host-bridge';
 import { ensureStoragePersistence, checkStorageQuota } from './project';
 import { isTauri } from './native-storage';
+import { initContextMenu } from './context-menu';
+import { syncPlatformFeatures, isAndroidPlatform } from './platform';
 
 // ─── Debounce Utility ─────────────────────────────────────────────────────────
 
@@ -1085,7 +1087,10 @@ if (ui.settingsCheckSimilarity) {
   // File List
   ui.btnFileList?.addEventListener('click', () => openFileListModal());
   ui.btnImmersiveOpen?.addEventListener('click', () => Immersive.open());
-  ui.btnLunaHookerOpen?.addEventListener('click', () => lunaModal.open());
+  ui.btnLunaHookerOpen?.addEventListener('click', () => {
+    if (isAndroidPlatform()) return;
+    void lunaModal.open();
+  });
   ui.btnFileListClose?.addEventListener('click', () => closeFileListModal());
   ui.btnFileListAdd?.addEventListener('click', () => onAddFile());
   ui.btnFileListDelete?.addEventListener('click', () => onDeleteSelectedFiles());
@@ -1750,8 +1755,13 @@ export async function init(): Promise<void> {
 
   loadPalette();
   cacheElements();
+  syncPlatformFeatures();
+  // The WebView re-runs the user-agent feature pass after layout changes made by
+  // the on-screen keyboard or split screen.
+  window.addEventListener('resize', syncPlatformFeatures);
   initScrollers();
   bindEvents();
+  initContextMenu();
   Immersive.init();
 
   if (!navigator.storage || !navigator.storage.getDirectory) {

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.1-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.2-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -134,6 +134,8 @@ Nama karakter, tempat, dan istilah khusus supaya terjemahan konsisten.
 
 ### Editor Baris
 Klik baris mana pun untuk mengedit nama karakter, teks asli, terjemahan, dan status terjemahan. Di Android editor muncul sebagai panel dari bawah supaya tidak tertutup keyboard.
+
+Spasi di akhir kalimat terjemahan disimpan apa adanya (dipakai untuk mengatur jarak teks di dalam game), dan nama karakter boleh memuat koma — mis. `123. Nino, Menoa, Ichito: halo` tetap terbaca sebagai satu nama saat menempel hasil AI berformat nomor.
 
 ### EPUB
 - Gambar berdiri sendiri tampil sebagai ilustrasi di antara baris dan tidak menambah nomor baris.

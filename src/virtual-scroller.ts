@@ -187,6 +187,22 @@ export class VirtualScroller<T = any> {
     return this.rowMap.get(index);
   }
 
+  refreshItem(index: number): void {
+    const current = this.rowMap.get(index);
+    if (!current || index < 0 || index >= this.items.length) return;
+    const anchorIndex = this.findStartIndex();
+    const anchorOffset = this.scrollTop - this.positionAt(anchorIndex);
+    const updated = this.renderItem(this.items[index], current);
+    if (updated !== current) {
+      current.replaceWith(updated);
+      this.rowMap.set(index, updated);
+    }
+    if (this.positioned) this.positionRow(updated, index);
+    if (this.updateMeasuredHeight(index, updated)) {
+      this.applyMeasuredChanges(anchorIndex, anchorOffset);
+    }
+  }
+
   onScroll(): void {
     if (this.disposed) return;
     this.isUserScrolling = true;
@@ -315,7 +331,9 @@ export class VirtualScroller<T = any> {
     // Keep the overscan smaller on touch devices. Low/mid-range Android GPUs
     // benefit from fewer live row subtrees, while desktop keeps a larger
     // cushion for high-speed wheel scrolling.
-    const buffer = window.matchMedia('(pointer: coarse)').matches ? 8 : 16;
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    const lowMemory = Number((navigator as any).deviceMemory || 8) <= 4;
+    const buffer = coarsePointer ? (lowMemory ? 4 : 6) : 16;
     let targetStart = this.findStartIndex() - Math.floor(buffer / 2);
     targetStart = Math.max(0, targetStart);
     const minRenderedItems = Math.min(total - targetStart, buffer);

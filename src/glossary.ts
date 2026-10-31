@@ -218,21 +218,27 @@ export function isLikelyRubyNameCandidate(base: string, reading: string): boolea
   return /^[\u3400-\u9fff]{2,4}(?:[\s　・･][\u3400-\u9fff]{1,4})?$/.test(base.trim());
 }
 
+let glossaryPreviewKey = '';
+
 export function renderGlossaryPreview(): void {
+  const wrap = ui.glossaryPreviewWrap as HTMLElement | undefined;
+  const text = ui.glossaryPreviewText as HTMLElement | undefined;
+  if (!wrap || !text) return;
   if (!state.glossaryText.trim()) {
-    ui.glossaryPreviewWrap.hidden = true;
-    ui.glossaryPreviewText.textContent = '';
+    glossaryPreviewKey = '';
+    wrap.hidden = true;
+    if (text.textContent) text.textContent = '';
     return;
   }
+  const selectionKey = Array.from(state.selectedLines).sort((a, b) => a - b).join(',');
+  const previewKey = `${state.activeWorkspaceTab}\0${state.glossaryText}\0${selectionKey}`;
+  if (previewKey === glossaryPreviewKey) return;
+  glossaryPreviewKey = previewKey;
   const selectedText = getSelectedTranslationPlainText();
   const matches = selectedText ? getGlossaryMatches(selectedText) : [];
-  if (!matches.length) {
-    ui.glossaryPreviewWrap.hidden = true;
-    ui.glossaryPreviewText.textContent = '';
-    return;
-  }
-  ui.glossaryPreviewText.textContent = matches.join('\n');
-  ui.glossaryPreviewWrap.hidden = false;
+  const preview = matches.join('\n');
+  wrap.hidden = !preview;
+  if (text.textContent !== preview) text.textContent = preview;
 }
 
 export async function onCopyForGlossaryAi(): Promise<void> {

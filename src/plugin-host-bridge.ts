@@ -12,6 +12,7 @@ import { onCopyForAi } from './translate';
 import { updateCustomImportAccept } from './custom-parser-modal';
 import jszipSource from 'jszip/dist/jszip.min.js?raw';
 import { cstlPrompt, cstlConfirm } from './dialog';
+import { escapeStoredNewlines } from './string-utils';
 
 export function createPluginHostBridge(): PluginHostBridge {
   try {
@@ -192,10 +193,14 @@ export function createPluginHostBridge(): PluginHostBridge {
       markTranslated: (num: number, transMsg?: string | null, transName?: string | null) => {
         const l = state.lines.find((line) => line.line_num === num);
         if (!l) return false;
-        l.trans_message = transMsg != null ? String(transMsg).replace(/\r?\n/g, '\\n').trim() : null;
+        // Spasi di akhir kalimat dipertahankan seperti di editor baris (plugin
+        // memakai API ini untuk menulis terjemahan manual).
+        l.trans_message = transMsg != null
+          ? escapeStoredNewlines(String(transMsg), { preserveTrailingSpace: true })
+          : null;
         l.is_translated = true;
         if (transName != null) {
-          l.trans_name = String(transName).replace(/\r?\n/g, '\\n').trim();
+          l.trans_name = escapeStoredNewlines(String(transName));
         }
         queueAutoSave();
         refreshAll();

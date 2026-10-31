@@ -44,6 +44,11 @@ jobs:
       - name: Test Auto Copas page-script invariants
         run: npm run test:copas
 
+      # Speaker-name parsing and stored-text normalization: both fail silently
+      # (names swallowed into the message, trailing spaces dropped on reload).
+      - name: Test pasted-translation text handling
+        run: npm run test:text
+
       - name: Check release tag matches package.json version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

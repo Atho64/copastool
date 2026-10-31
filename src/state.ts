@@ -1,6 +1,7 @@
 // @module state.ts — Shared application state, ui cache, and module-level variables
 
 import type { AppState, UiCache, Line } from './types';
+import { escapeStoredNewlines } from './string-utils';
 import {
   DEFAULT_LUCA_MC_DISPLAY_NAME,
   DEFAULT_PROMPT_HEADER,
@@ -195,10 +196,13 @@ export function isTranslated(line: Line): boolean {
   return !!line.is_translated && (state.disableEmptyLineValidation || !!String(line.trans_message).trim());
 }
 
-function fastNormalizeText(val: any): string | null {
+function fastNormalizeText(val: any, options: { preserveTrailingSpace?: boolean } = {}): string | null {
   if (val == null) return null;
   const s = String(val);
   if (!s) return '';
+  // Spasi di akhir teks terjemahan disimpan apa adanya (lihat
+  // escapeStoredNewlines), jadi jangan lewat jalur trim cepat untuk field itu.
+  if (options.preserveTrailingSpace) return escapeStoredNewlines(s, options);
   if (s.includes('\r') || s.includes('\n')) {
     return s.replace(/\r?\n/g, '\\n').trim();
   }
@@ -211,8 +215,8 @@ export function normalizeLineDict(line: any): Line {
     file: String(line.file),
     name: fastNormalizeText(line.name),
     message: fastNormalizeText(line.message) || '',
-    trans_name: fastNormalizeText(line.trans_name),
-    trans_message: fastNormalizeText(line.trans_message) || '',
+    trans_name: fastNormalizeText(line.trans_name, { preserveTrailingSpace: true }),
+    trans_message: fastNormalizeText(line.trans_message, { preserveTrailingSpace: true }) || '',
     is_translated: Boolean(line.is_translated),
     ...(line.bookmarked != null ? { bookmarked: Boolean(line.bookmarked) } : {}),
     ...(line.luca_jp != null ? { luca_jp: String(line.luca_jp) } : {}),

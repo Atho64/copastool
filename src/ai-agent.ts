@@ -20,6 +20,7 @@ import type { AgentMemory, MemoryCategory, MemoryScope } from './types';
 
 import { chatCompletion, currentAbortEpoch, stripThinkingTagsForStream, type ChatMessage, type ChatRole } from './ai-client';
 import { salvageJsonObject } from './json-repair';
+import { escapeStoredNewlines } from './string-utils';
 
 export { chatCompletion, type ChatMessage, type ChatRole };
 export type { StreamDeltaCallback } from './ai-client';
@@ -708,8 +709,13 @@ function applyLineEdit(l: Line, fields: Record<string, any>): string[] {
     } else if (val === null) {
       (l as any)[key] = null;
     } else {
-      // Sanitize newlines untuk field teks (konsisten dengan normalizeLineDict)
-      (l as any)[key] = String(val).replace(/\r?\n/g, '\\n').trim();
+      // Sanitize newlines untuk field teks (konsisten dengan normalizeLineDict).
+      // Field terjemahan mempertahankan spasi di akhir kalimat, sama seperti
+      // editor baris: spasi itu sering disengaja (mis. jarak sebelum jeda).
+      const text = String(val);
+      (l as any)[key] = (key === 'trans_message' || key === 'trans_name')
+        ? escapeStoredNewlines(text, { preserveTrailingSpace: true })
+        : text.replace(/\r?\n/g, '\\n').trim();
     }
     changed.push(key);
   }
