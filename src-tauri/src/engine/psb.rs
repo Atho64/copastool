@@ -1,6 +1,6 @@
 //! PSB scenario read and write.
 //!
-//! Wamsoft scenarios are PSB trees, sometimes wrapped in a zlib layer (MDF).
+//! Kirikiri scenarios are PSB trees, sometimes wrapped in a zlib layer (MDF).
 //! This module converts them to and from JSON, the shape the rest of the
 //! engine works with.
 

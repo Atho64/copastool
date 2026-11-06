@@ -7,7 +7,7 @@ use crate::engine::types::{
 pub trait GameEngine: Send + Sync {
     fn id(&self) -> &'static str;
 
-    /// Name shown in the UI, e.g. "KirikiriZ - Wamsoft".
+    /// Name shown in the UI, e.g. "Kirikiri (XP3)".
     fn display_name(&self) -> &'static str;
 
     fn detect(&self, game_dir: &Path) -> Option<EngineDetectionResult>;

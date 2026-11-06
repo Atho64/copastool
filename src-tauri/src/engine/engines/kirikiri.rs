@@ -12,7 +12,7 @@ use crate::engine::types::{
 use crate::engine::word_wrap::wrap_text;
 use crate::engine::xp3;
 
-pub struct KrkrWamsoftEngine;
+pub struct KirikiriEngine;
 
 /// Natural alphanumeric comparator (e.g. "scene2" < "scene10", "5fd_001" < "5fd_010")
 pub fn natural_cmp(s1: &str, s2: &str) -> std::cmp::Ordering {
@@ -64,7 +64,7 @@ pub fn natural_cmp(s1: &str, s2: &str) -> std::cmp::Ordering {
 }
 
 /// A PSB scenario payload, either plain (`PSB\0`) or MDF-compressed (`mdf\0`).
-/// Some CIRCUS / WamSoft titles store their whole `.ks.scn` set in MDF form.
+/// Some CIRCUS titles store their whole `.ks.scn` set in MDF form.
 fn looks_like_psb(magic: &[u8]) -> bool {
     magic.len() >= 3 && (magic.starts_with(b"PSB") || magic.starts_with(b"mdf") || magic.starts_with(b"MDF"))
 }
@@ -257,13 +257,13 @@ fn detect_pe_info(exe_path: &Path) -> (String, String, Option<String>) {
     (core_engine, arch_str, publisher)
 }
 
-impl GameEngine for KrkrWamsoftEngine {
+impl GameEngine for KirikiriEngine {
     fn id(&self) -> &'static str {
-        "kirikiri_wamsoft"
+        "kirikiri"
     }
 
     fn display_name(&self) -> &'static str {
-        "KirikiriZ - Wamsoft"
+        "Kirikiri (XP3)"
     }
 
     fn detect(&self, game_dir: &Path) -> Option<EngineDetectionResult> {
@@ -352,7 +352,7 @@ impl GameEngine for KrkrWamsoftEngine {
                             }
                         } else if entry.file_type().is_file() {
                             let ext = entry.path().extension().and_then(|x| x.to_str()).map(|s| s.to_lowercase()).unwrap_or_default();
-                            // WamSoft scenario is PSB only, so `.scn` is the sole
+                            // Kirikiri scenario here is PSB only, so `.scn` is the sole
                             // scenario extension; KAG/TJS scripts are engine
                             // code. No `json` either: console/Steam metadata
                             // folders are full of it and made this engine claim
@@ -462,11 +462,7 @@ impl GameEngine for KrkrWamsoftEngine {
 
         let publisher = pe_publisher.unwrap_or_else(|| "Visual Novel Studio".to_string());
 
-        let has_scn_files = archives.iter().any(|a| a.name.to_lowercase().starts_with("scn") || a.name.to_lowercase().ends_with(".scn"));
-
-        let framework_label = if has_scn_files { "FreeMote (PSB)" } else { "WamSoft (PSB)" };
-
-        let engine_name = format!("{} ({}) - {}", core_engine, arch, framework_label);
+        let engine_name = format!("{} ({}) - PSB", core_engine, arch);
 
         Some(EngineDetectionResult {
             engine_id: self.id().to_string(),
@@ -563,7 +559,7 @@ impl GameEngine for KrkrWamsoftEngine {
                     continue;
                 }
 
-                // WamSoft scenario is always PSB (plain or MDF-compressed), so
+                // Kirikiri scenario is PSB (plain or MDF-compressed), so
                 // only the magic header is trusted for payloads left under a
                 // different name. Plain-text Kirikiri scripts are engine code
                 // and must never be collected as scenario.
@@ -865,7 +861,7 @@ impl GameEngine for KrkrWamsoftEngine {
             }
         }
 
-        // WamSoft scenario is PSB only, so there is no KAG/TJS text fallback.
+        // Scenario here is PSB only, so there is no KAG/TJS text fallback.
         // An empty result means the wrong archive was extracted, which beats
         // injecting engine scripts as dialogue.
 
@@ -1075,7 +1071,7 @@ impl GameEngine for KrkrWamsoftEngine {
                 let as_mdf = if source_scn.exists() { psb::is_mdf(&source_scn) } else { true };
                 psb::compile(&parsed, &dest_scn, as_mdf)?;
             }
-            // No KAG/TJS fallback: WamSoft scenario is PSB only, so a line
+            // No KAG/TJS fallback: scenario is PSB only, so a line
             // whose decompiled JSON is missing is skipped instead of exported
             // as a raw engine script.
         }
@@ -1176,7 +1172,7 @@ mod tests {
         dir
     }
 
-    /// A folder holding only KAG/TJS scripts must not be offered as a WamSoft
+    /// A folder holding only KAG/TJS scripts must not be offered as a Kirikiri
     /// scenario source: those are engine/plugin scripts, not story text.
     #[test]
     fn test_detect_ignores_tjs_only_folder() {
@@ -1186,7 +1182,7 @@ mod tests {
         fs::write(data.join("Config.tjs"), "// TJS engine script").unwrap();
         fs::write(data.join("scene.ks"), "*start\r\nHello").unwrap();
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
         assert!(
             engine.detect(&root).is_none(),
             ".tjs/.ks files must not make a folder a Kirikiri scenario candidate"
@@ -1203,9 +1199,9 @@ mod tests {
         fs::create_dir_all(&data).unwrap();
         fs::write(data.join("chapter01.scn"), b"PSB\0scenario").unwrap();
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
         let result = engine.detect(&root).expect("a .scn folder must still be detected");
-        assert_eq!(result.engine_id, "kirikiri_wamsoft");
+        assert_eq!(result.engine_id, "kirikiri");
         assert!(
             result.archives.iter().any(|a| a.name == "data" && a.is_likely_scenario),
             "the folder holding .scn files must be a scenario candidate"
@@ -1224,7 +1220,7 @@ mod tests {
         fs::write(raw.join("Config.tjs"), "// TJS engine script").unwrap();
         fs::write(raw.join("scene.ks"), "*start\r\nHello world").unwrap();
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
         let lines = engine.read_lines(&cache, None).expect("read_lines must succeed");
         assert!(lines.is_empty(), "no .tjs/.ks lines may be loaded, got {}", lines.len());
 
@@ -1270,7 +1266,7 @@ mod tests {
         )
         .unwrap();
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
         let jp = engine.read_lines(&cache, None).expect("read jp");
         let en = engine
             .read_lines(
@@ -1302,9 +1298,9 @@ mod tests {
     fn test_detect_tenshin_ranman() {
         let path = Path::new(r"F:\Visual Novels\Tenshin Ranman Happy GO Lucky!!");
         if path.exists() {
-            let engine = KrkrWamsoftEngine;
+            let engine = KirikiriEngine;
             let result = engine.detect(path).expect("Tenshin Ranman must be detected");
-            assert_eq!(result.engine_id, "kirikiri_wamsoft");
+            assert_eq!(result.engine_id, "kirikiri");
             assert!(result.primary_archive.is_some());
             let primary = result.primary_archive.unwrap();
             assert!(primary == "scn.xp3" || primary == "patch.xp3" || primary.contains("scn"), "Tenshin Ranman must prioritize scn.xp3 or patch.xp3, got: {}", primary);
@@ -1316,9 +1312,9 @@ mod tests {
     fn test_detect_dc5() {
         let path = Path::new(r"F:\Visual Novels\D.C.5");
         if path.exists() {
-            let engine = KrkrWamsoftEngine;
+            let engine = KirikiriEngine;
             let result = engine.detect(path).expect("D.C.5 must be detected");
-            assert_eq!(result.engine_id, "kirikiri_wamsoft");
+            assert_eq!(result.engine_id, "kirikiri");
             assert!(result.primary_archive.is_some());
             let primary = result.primary_archive.unwrap();
             assert!(primary == "data.xp3" || primary == "patch.xp3" || primary.contains("patch"), "D.C.5 must detect data.xp3 or patch.xp3, got: {}", primary);
@@ -1333,9 +1329,9 @@ mod tests {
             return;
         }
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
         let result = engine.detect(path).expect("DC4FD must be detected");
-        assert_eq!(result.engine_id, "kirikiri_wamsoft");
+        assert_eq!(result.engine_id, "kirikiri");
         println!("DC4FD archives found: {:?}", result.archives.iter().map(|a| &a.name).collect::<Vec<_>>());
 
         let candidate = result.archives.iter().find(|a| {
@@ -1374,7 +1370,7 @@ mod tests {
         }
 
         let cache_dir = Path::new(r"C:\Users\Atho\AppData\Roaming\com.copastool.app\game_cache\tenshin_ranman_test");
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
 
         println!("Extracting scn.xp3 from Tenshin Ranman...");
         let opts = ExtractionOptions {
@@ -1415,7 +1411,7 @@ mod tests {
             _ => return,
         };
 
-        let engine = KrkrWamsoftEngine;
+        let engine = KirikiriEngine;
 
         let mut lines = engine.read_lines(&cache_dir, None).expect("read lines");
         assert!(!lines.is_empty());

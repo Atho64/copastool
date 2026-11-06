@@ -12,7 +12,7 @@ use tauri::Emitter;
 
 use self::cache::{default_cache_dir_for, game_cache_slug};
 use self::engines::artemis::ArtemisEngine;
-use self::engines::krkr_wamsoft::KrkrWamsoftEngine;
+use self::engines::kirikiri::KirikiriEngine;
 use self::traits::GameEngine;
 use self::types::{
     EngineDetectionResult, ExportPatchOptions, ExportResult, ExtractionOptions, ReadScenarioOptions, ScenarioTextLine,
@@ -20,7 +20,7 @@ use self::types::{
 
 /// Engines tried by `engine_detect_game`, first match wins.
 pub fn get_registered_engines() -> Vec<Box<dyn GameEngine>> {
-    vec![Box::new(KrkrWamsoftEngine), Box::new(ArtemisEngine)]
+    vec![Box::new(KirikiriEngine), Box::new(ArtemisEngine)]
 }
 
 fn detect_engine(game_dir: &std::path::Path) -> Result<Box<dyn GameEngine>, String> {
