@@ -43,6 +43,20 @@ fn main() {
         .expect("extract failed");
     println!("extracted {} json files in {:?}", count, t0.elapsed());
 
+    // Snapshot the decompiled scenario before export: export_patch writes the
+    // translated JSON back into the cache, so this copy is the only true
+    // "before" state available afterwards.
+    let snapshot = cache_dir.join("decompiled_json_before");
+    let _ = std::fs::remove_dir_all(&snapshot);
+    let _ = std::fs::create_dir_all(&snapshot);
+    if let Ok(entries) = std::fs::read_dir(cache_dir.join("decompiled_json")) {
+        for entry in entries.flatten() {
+            if entry.path().is_file() {
+                let _ = std::fs::copy(entry.path(), snapshot.join(entry.file_name()));
+            }
+        }
+    }
+
     let lines = engine.read_lines(&cache_dir, None).expect("read_lines failed");
     println!("read {} dialogue lines", lines.len());
     for line in lines.iter().take(3) {
@@ -60,7 +74,7 @@ fn main() {
         output_dir: Some(std::env::temp_dir().join("copastool_engine_smoke_out").to_string_lossy().to_string()),
         target_archive: options.target_archive.clone(),
         language_index: 1,
-        enable_word_wrap: true,
+        enable_word_wrap: false,
         max_chars_per_line: 56,
         extra_files_dir: None,
         install_to_game: false,
@@ -112,5 +126,34 @@ fn main() {
         .iter()
         .filter(|l| l.message.contains("[EN]") || l.trans_message.as_deref().unwrap_or("").contains("[EN]"))
         .count();
+
+    // Positional check: every line the patch returns must sit at the same
+    // (file, line_num) as the original and carry exactly "[EN] " + original.
+    let mut expected: std::collections::HashMap<(String, usize), String> = std::collections::HashMap::new();
+    for l in &lines {
+        expected.insert((l.file.clone(), l.line_num), l.message.clone());
+    }
+    let mut matched = 0usize;
+    let mut mismatched = 0usize;
+    let mut first_bad: Option<String> = None;
+    for l in &patched {
+        let want = format!("[EN] {}", expected.get(&(l.file.clone(), l.line_num)).cloned().unwrap_or_default());
+        let ok = l.message == want || l.trans_message.as_deref() == Some(want.as_str());
+        if ok {
+            matched += 1;
+        } else {
+            mismatched += 1;
+            if first_bad.is_none() {
+                first_bad = Some(format!("{}:{} {:?}", l.file, l.line_num, l.message));
+            }
+        }
+    }
+    for l in patched.iter().take(3) {
+        println!("  patched {}:{} {}", l.file, l.line_num, l.message);
+    }
     println!("patch round-trip: {} lines, {} carry the translation", patched.len(), injected);
+    println!("positional match: {} ok, {} mismatched", matched, mismatched);
+    if let Some(bad) = first_bad {
+        println!("  first mismatch: {}", bad);
+    }
 }

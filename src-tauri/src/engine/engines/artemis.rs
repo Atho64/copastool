@@ -627,6 +627,11 @@ fn parse_text_table(sc: &mut Scanner, entries: &mut Vec<AstTextEntry>, next_scen
                     indexed.push(entry);
                 }
             }
+            // Dialogue text can contain `[`, so a bare byte scan would mistake
+            // it for the indexed layout and drop the whole table.
+            Some(b'"') => {
+                let _ = inner.read_string();
+            }
             Some(_) => {
                 inner.pos += 1;
             }
@@ -671,6 +676,9 @@ fn parse_lang_blocks(inner: &mut Scanner, scene_index: usize) -> Option<AstTextE
             None | Some(b'}') => break,
             Some(b',') => {
                 inner.pos += 1;
+            }
+            Some(b'"') => {
+                let _ = inner.read_string();
             }
             Some(_) => {
                 let save = inner.pos;
@@ -794,10 +802,11 @@ fn run_message(run: &AstRun) -> String {
 /// Serializes a translated message as a Lua run: wrapped to `max_chars`,
 /// quoted, re-joined with `{"rt2"}` line-break markers:
 /// `{ "part1", {"rt2"}, "part2" }`.
-fn build_run_parts(trans: &str, max_chars: usize) -> String {
-    let wrapped = wrap_text(trans, max_chars, "\u{0}");
+fn build_run_parts(trans: &str, max_chars: usize, wrap: bool) -> String {
+    let wrapped = if wrap { wrap_text(trans, max_chars, "\u{0}") } else { trans.to_string() };
+    let marker = if wrap { '\u{0}' } else { '\n' };
     wrapped
-        .split('\u{0}')
+        .split(marker)
         .flat_map(|s| s.split('\n'))
         .filter(|s| !s.is_empty())
         .map(|s| format!("\"{}\"", lua_escape(s)))
@@ -1078,7 +1087,7 @@ impl GameEngine for ArtemisEngine {
                 }
                 for (run, replacement) in block.runs.iter().zip(runs_changed.iter()) {
                     match replacement {
-                        Some(trans) => pieces.push(format!("{{ {} }}", build_run_parts(trans, options.max_chars_per_line))),
+                        Some(trans) => pieces.push(format!("{{ {} }}", build_run_parts(trans, options.max_chars_per_line, options.enable_word_wrap))),
                         None => pieces.push(src[run.start..run.end].to_string()),
                     }
                 }
@@ -1409,10 +1418,10 @@ mod tests {
         // Translated runs must be emitted as QUOTED Lua strings, re-joined
         // with rt2 markers.
         assert_eq!(
-            build_run_parts("abcdefghij", 5),
+            build_run_parts("abcdefghij", 5, true),
             "\"abcde\", {\"rt2\"}, \"fghij\""
         );
-        assert_eq!(build_run_parts("そのまま", 42), "\"そのまま\"");
+        assert_eq!(build_run_parts("そのまま", 42, true), "\"そのまま\"");
     }
 
     #[test]
