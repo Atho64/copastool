@@ -52,6 +52,30 @@ export function buildExistingGlossaryHint(sourceText: string): string {
   return sanitizeTagsForChatgpt(block);
 }
 
+/** One source line per entry, with the speaker prefix kept so the model can
+ *  tell who is talking. */
+export function buildGlossarySourceLines(lines: Line[]): string[] {
+  return lines.map(l => {
+    let namePart = '';
+    if (l.name) namePart = l.trans_name ? `${l.trans_name}: ` : `${l.name}: `;
+    return `${namePart}${l.trans_message || l.message}`;
+  }).filter(Boolean);
+}
+
+export function buildGlossaryExtractionPrompt(sourceText: string): string {
+  const base = applyPromptVariables((state.glossaryPrompt || DEFAULT_GLOSSARY_PROMPT).trim());
+  const existingHint = buildExistingGlossaryHint(sourceText);
+  return `${base}${existingHint}\n\n${sourceText}\n`;
+}
+
+/** Merge a raw AI reply into the stored glossary without going through the
+ *  paste box, so automated runs never clobber what the user typed there. */
+export function mergeGlossaryFromAiText(raw: string): { added: number; updated: number } {
+  const parsed = parseGlossaryToMap(raw);
+  if (!parsed.size) return { added: 0, updated: 0 };
+  return mergeGlossaryEntries(parsed);
+}
+
 /**
  * Replace angle-bracket section markers with safe `=== LABEL ===` markers so
  * ChatGPT's composer does not strip them as HTML; closing tags are dropped. Only
@@ -243,9 +267,7 @@ export async function onCopyForGlossaryAi(): Promise<void> {
   const sel = state.lines.filter(l => !l._hidden && !isIlustrasiLine(l) && state.selectedLines.has(l.line_num));
   if (!sel.length) return;
   const out = getSelectedTranslationPlainText().split('\n').filter(Boolean);
-  const basePrompt = applyPromptVariables((state.glossaryPrompt || DEFAULT_GLOSSARY_PROMPT).trim());
-  const existingHint = buildExistingGlossaryHint(out.join('\n'));
-  const promptText = `${basePrompt}${existingHint}\n\n${out.join('\n')}\n`;
+  const promptText = buildGlossaryExtractionPrompt(out.join('\n'));
   try {
     await navigator.clipboard.writeText(promptText);
     flashHint(`Disalin ${sel.length} baris untuk ekstraksi glossary.`);

@@ -108,6 +108,9 @@ export const state: AppState = {
   contextType: 'raw',
   selectionBatchSize: DEFAULT_SELECTION_BATCH_SIZE,
   glossaryBatchSize: DEFAULT_GLOSSARY_BATCH_SIZE,
+  // Extract glossary terms for each batch before translating it, so later
+  // batches inherit the terms found earlier.
+  glossaryInLoop: false,
   aiCheckBatchSize: DEFAULT_AI_CHECK_BATCH_SIZE,
   parallelBatchSize: 1,
   subagentWorkers: 3,

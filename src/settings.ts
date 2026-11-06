@@ -316,6 +316,7 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   }
   if (ui.settingsSelectionBatchSizeInput) (ui.settingsSelectionBatchSizeInput as HTMLInputElement).value = String(state.selectionBatchSize);
   if (ui.settingsGlossaryBatchSizeInput) (ui.settingsGlossaryBatchSizeInput as HTMLInputElement).value = String(state.glossaryBatchSize);
+  if (ui.settingsGlossaryInLoop) (ui.settingsGlossaryInLoop as HTMLInputElement).checked = !!state.glossaryInLoop;
   if (ui.settingsAiCheckBatchSizeInput) (ui.settingsAiCheckBatchSizeInput as HTMLInputElement).value = String(state.aiCheckBatchSize);
   if (ui.settingsParallelBatchSizeInput) (ui.settingsParallelBatchSizeInput as HTMLInputElement).value = String(state.parallelBatchSize ?? 1);
   if (ui.settingsSubagentWorkersInput) (ui.settingsSubagentWorkersInput as HTMLInputElement).value = String(state.subagentWorkers ?? 3);
@@ -432,6 +433,7 @@ export function onSavePromptSettings(): void {
   state.contextType = contextType as any;
   state.selectionBatchSize = selectionBatchSize;
   state.glossaryBatchSize = glossaryBatchSize;
+  state.glossaryInLoop = !!((ui.settingsGlossaryInLoop as HTMLInputElement)?.checked);
   state.aiCheckBatchSize = aiCheckBatchSize;
   state.parallelBatchSize = parallelBatchSize;
   state.subagentWorkers = Math.max(1, Math.min(10, parseInt((ui.settingsSubagentWorkersInput as HTMLInputElement)?.value) || 3));

@@ -233,6 +233,7 @@ export interface AppState {
   contextType: string;
   selectionBatchSize: number;
   glossaryBatchSize: number;
+  glossaryInLoop: boolean;
   aiCheckBatchSize: number;
   parallelBatchSize: number;
   subagentWorkers: number;

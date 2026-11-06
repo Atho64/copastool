@@ -1108,6 +1108,10 @@
                 <input id="settingsAgentMaxTurns" type="number" class="text-input w-full" min="0" max="999" value="10" />
               </div>
             </div>
+            <label class="checkbox-line mt-2" title="Sebelum tiap batch diterjemahkan, istilah baru diekstrak dulu ke glossary. Batch berikutnya memakai istilah itu, jadi nama dan istilah konsisten. Biaya request jadi dua kali lipat.">
+              <input id="settingsGlossaryInLoop" type="checkbox" />
+              <span>Ekstrak glossary tiap batch sebelum terjemah (istilah lebih konsisten)</span>
+            </label>
             <label class="checkbox-line mt-2">
               <input id="settingsIncrementCheck" type="checkbox" />
               <span>Aktifkan Auto-Increment baris (mengikuti ukuran Batch Translate)</span>

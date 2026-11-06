@@ -1380,6 +1380,7 @@ function buildProjectPersistenceData(): Record<string, any> {
     glossary_text: state.glossaryText, context_lines: state.contextLines,
     context_type: state.contextType, selection_batch_size: state.selectionBatchSize,
     glossary_batch_size: state.glossaryBatchSize, ai_check_batch_size: state.aiCheckBatchSize,
+    glossary_in_loop: state.glossaryInLoop,
     parallel_batch_size: state.parallelBatchSize,
     subagent_workers: state.subagentWorkers,
     enableBackgroundChaining: state.enableBackgroundChaining,
@@ -2011,6 +2012,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.contextType = data.context_type || 'raw';
   state.selectionBatchSize = normalizeSelectionBatchSize(data.selection_batch_size);
   state.glossaryBatchSize = normalizeSelectionBatchSize(data.glossary_batch_size, DEFAULT_GLOSSARY_BATCH_SIZE);
+  state.glossaryInLoop = !!data.glossary_in_loop;
   state.aiCheckBatchSize = normalizeSelectionBatchSize(data.ai_check_batch_size, DEFAULT_AI_CHECK_BATCH_SIZE);
   state.parallelBatchSize = Math.max(1, Math.min(10, parseInt(data.parallel_batch_size) || 1));
   state.subagentWorkers = Math.max(1, Math.min(10, parseInt(data.subagent_workers) || 3));

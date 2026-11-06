@@ -3,13 +3,12 @@
 import * as CopasUiModule from './auto-copas/ui';
 import * as RenderModule from './render';
 import * as SelectionModule from './selection';
-import * as AiFormatModule from './ai-format';
-import * as GlossaryModule from './glossary';
 import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { buildSelectedTranslationExport, applyPromptVariables } from './ai-format';
-import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
-import { DEFAULT_PROMPT_HEADER, DEFAULT_GLOSSARY_PROMPT } from './constants';
+import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines, mergeGlossaryFromAiText } from './glossary';
+import type { Line } from './types';
+import { DEFAULT_PROMPT_HEADER } from './constants';
 import { flashHint } from './render';
 import { openModal, closeModal } from './project';
 import * as Translate from './translate';
@@ -536,6 +535,26 @@ function getRepeatDelayMs(): number {
   return Math.max(1000, Math.round(60000 / rpm));
 }
 
+/** Glossary pass for one translation batch. Runs before the batch is
+ *  translated, so terms found here are already in the prompt that translates
+ *  the same lines, and every later batch inherits them. */
+async function extractGlossaryForBatch(batch: Line[], btn: HTMLButtonElement): Promise<void> {
+  const pending = batch.filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l));
+  if (!pending.length) return;
+  const sourceText = buildGlossarySourceLines(pending).join('\n');
+  if (!sourceText.trim()) return;
+
+  btn.textContent = `Ekstrak glossary ${pending.length} baris... (Klik Stop)`;
+  const raw = await fetchWithRetry(() => fetchApiResult(buildGlossaryExtractionPrompt(sourceText)), (retry) => {
+    btn.textContent = `${formatRetryLabel(retry)}... (Klik Stop)`;
+  }, () => !isAutoTranslating);
+
+  if (!raw || !raw.trim()) return;
+  const { added, updated } = mergeGlossaryFromAiText(raw);
+  for (const l of pending) l._glossary_extracted = true;
+  appendProjectLog('Glossary batch', `+${added} baru, ${updated} diperbarui`);
+}
+
 let isAutoTranslating = false;
 
 export async function onAutoTranslate(): Promise<void> {
@@ -596,6 +615,16 @@ export async function onAutoTranslate(): Promise<void> {
 
       const batchSize = state.selectionBatchSize || 100;
       const batch = untranslatedLines.slice(0, batchSize);
+
+      if (state.glossaryInLoop) {
+        try {
+          await extractGlossaryForBatch(batch, btn);
+        } catch (err: any) {
+          // A glossary hiccup must not cost the user the translation run.
+          if (!isAutoTranslating) throw err;
+          appendProjectLog('Glossary batch gagal', String(err?.message || err));
+        }
+      }
 
       state.selectedLines.clear();
       for (const l of batch) {
@@ -702,10 +731,11 @@ export async function onAutoTranslate(): Promise<void> {
 
         btn.textContent = `Menerjemahkan ${sel.length} baris (${subBatches.length}x paralel)... (Klik untuk Stop)`;
 
-        const glossaryBlock = getGlossaryPrompt('');
-
         const buildSubPrompt = (subBatch: typeof sel): string => {
           const subText = buildSelectedTranslationExport(false, new Set(subBatch.map(l => l.line_num)));
+          // Each sub-batch needs its own matches; asking with an empty string
+          // matched nothing, so parallel runs never saw the glossary at all.
+          const glossaryBlock = getGlossaryPrompt(subText);
           // Each sub-batch is its own request, so the header describes that
           // sub-batch's line count, not the whole run's.
           state._lastExportedLineCount = subBatch.length;
@@ -889,17 +919,8 @@ export async function onAutoGlossary(): Promise<void> {
 
       btn.textContent = `Ekstrak Batch (${batchLines.length} baris)... (Klik Stop)`;
 
-      const out = batchLines.map(l => {
-        let namePart = '';
-        if (l.name) namePart = l.trans_name ? `${l.trans_name}: ` : `${l.name}: `;
-        return `${namePart}${l.trans_message || l.message}`;
-      }).filter(Boolean);
-
-      const { applyPromptVariables } = await Promise.resolve(AiFormatModule);
-      const { buildExistingGlossaryHint } = await Promise.resolve(GlossaryModule);
-      const basePrompt = applyPromptVariables((state.glossaryPrompt || DEFAULT_GLOSSARY_PROMPT).trim());
-      const existingHint = buildExistingGlossaryHint(out.join('\n'));
-      const prompt = `${basePrompt}${existingHint}\n\n${out.join('\n')}\n`;
+      const out = buildGlossarySourceLines(batchLines);
+      const prompt = buildGlossaryExtractionPrompt(out.join('\n'));
 
       let rawResult = await fetchWithRetry(() => fetchApiResult(prompt), (retry) => {
         btn.textContent = `${formatRetryLabel(retry)}... (Klik Stop)`;
