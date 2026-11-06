@@ -1,4 +1,4 @@
-// @module luna-modal.ts — Modal manager for LunaTranslator & VN Overlay settings
+// @module luna-modal.ts: modal manager for LunaTranslator and VN overlay settings.
 
 import * as CopasUiModule from './auto-copas/ui';
 import { lunaHooker, type LunaConnectionStatus, type LunaOperatingMode } from './luna-hooker';
@@ -11,21 +11,20 @@ const q = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 /**
  * The floating VN overlay is desktop-Windows only: raising a window above a
- * fullscreen game needs Win32 SetWindowPos + DWM info, and the Rust
- * `open_vn_overlay_window` command returns an error on any non-desktop target.
- * Detect that here so the UI hides the controls instead of offering a button
- * whose only outcome is an error. User-agent based (not `isAndroidNativeApp`)
- * so an Android/PWA browser build is covered too, and so desktop browsers
- * keep the feature: outside Tauri the overlay opens as a popped-out window.
+ * fullscreen game needs Win32 SetWindowPos and DWM info, and the Rust
+ * `open_vn_overlay_window` command errors on any non-desktop target, so the UI
+ * hides the controls instead of offering a button that can only fail. The check
+ * is user-agent based (not `isAndroidNativeApp`) so Android/PWA builds are
+ * covered while desktop browsers keep the feature as a popped-out window.
  */
 function isOverlaySupported(): boolean {
   return !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
 /**
- * Renders the TL Mode engine badge. In Copas mode the API key is irrelevant,
- * so the badge reports the target site instead of demanding a key. In API mode
- * a missing key is a hard stop, which the badge makes visible before gameplay.
+ * Renders the TL Mode engine badge: in Copas mode it reports the target site
+ * (no API key needed), in API mode it makes a missing key visible before
+ * gameplay.
  */
 function updateLunaTlBadge(badge: HTMLSpanElement | null): void {
   if (!badge) return;
@@ -42,7 +41,7 @@ function updateLunaTlBadge(badge: HTMLSpanElement | null): void {
     badge.classList.remove('is-error');
     badge.title = `${modelName}: dipakai untuk menerjemahkan dialog mentah`;
   } else {
-    badge.textContent = 'API Key Belum Diisi!';
+    badge.textContent = 'API Key belum diisi';
     badge.classList.add('is-error');
     badge.title = 'Isi API Key di Setting → API Global, atau pilih mesin Copas di TL Mode';
   }
@@ -82,12 +81,11 @@ export class LunaModalController {
     if (this.initialized) return;
     this.initialized = true;
 
-    // Refresh element bindings in case modal was rendered dynamically
+    // Re-bind in case the modal was rendered dynamically.
     this.bindElements();
     this.setupListeners();
     this.syncFromConfig();
 
-    // Subscribe to status
     lunaHooker.onStatusChange((status, message) => {
       this.updateStatusUi(status, message);
     });
@@ -121,8 +119,8 @@ export class LunaModalController {
   }
 
   /**
-   * Hides the whole VN Overlay block on platforms where the native command
-   * cannot work, leaving the LunaTranslator hook + TL Mode fully usable.
+   * Hides the VN Overlay block where the native command cannot work; the hook
+   * and TL Mode stay usable.
    */
   private applyOverlayAvailability(): void {
     const supported = isOverlaySupported();
@@ -250,9 +248,9 @@ export class LunaModalController {
   }
 
   /**
-   * Reflects the overlay's live interaction mode on the main-window button.
-   * Reads the authoritative value from Rust rather than tracking a local copy,
-   * because the overlay can be closed and recreated between renders.
+   * Reflects the overlay's live interaction mode on the main-window button. Reads
+   * the value from Rust rather than a local copy, because the overlay can be
+   * closed and recreated between renders.
    */
   private async refreshOverlayInteractiveUi(): Promise<void> {
     const btn = this.btnOverlayInteractive;
@@ -276,8 +274,8 @@ export class LunaModalController {
     btn.classList.toggle('btn-outline', !isOn);
     if (span) span.textContent = `Interaktif: ${isOn ? 'aktif' : 'nonaktif'}`;
     btn.title = isOn
-      ? 'Overlay menerima klik — matikan agar klik masuk ke game'
-      : 'Klik-tembus — nyalakan untuk menggeser / tekan tombol';
+      ? 'Overlay menerima klik, matikan agar klik masuk ke game'
+      : 'Klik-tembus, nyalakan untuk menggeser / tekan tombol';
   }
 
   private updateModeUi(mode: LunaOperatingMode): void {
@@ -291,9 +289,8 @@ export class LunaModalController {
   }
 
   /**
-   * Reflects the TL look-ahead batch size: 1 is the plain single-line mode, so
-   * the explanation only appears once a real batch is configured. Stored via
-   * saveApiSettings so it survives a reload like every other AI preference.
+   * Reflects the TL look-ahead batch size; the explanation only appears once a
+   * real batch is configured. Persisted via saveApiSettings like other AI prefs.
    */
   private syncLiveBatchUi(): void {
     const n = state.liveBatchSize || 1;

@@ -2,7 +2,7 @@ import Kuroshiro from 'kuroshiro';
 // @ts-ignore
 import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
 // Kuromoji's legacy XHR loader accepts malformed/partial responses as valid
-// buffers. Load and verify each gzip dictionary before giving it to Kuromoji.
+// buffers, so each gzip dictionary is loaded and verified before use.
 // @ts-ignore
 import BrowserDictionaryLoader from 'kuromoji/src/loader/BrowserDictionaryLoader.js';
 // @ts-ignore
@@ -22,8 +22,8 @@ function loadVerifiedTokenizer(dictPath: string, analyzer: any): Promise<void> {
   const Tokenizer = moduleValue(KuromojiTokenizer);
   const loader = new Loader(dictPath);
   // kuromoji's path-browserify join turns an absolute URL such as
-  // http://localhost:5173/dict/ into http:/localhost:5173/dict/.
-  // Keep its requested filename, but resolve it against the original base.
+  // http://localhost:5173/dict/ into http:/localhost:5173/dict/. Keep its
+  // requested filename, but resolve it against the original base.
   const dictionaryBase = new URL(dictPath, self.location.href);
   if (!dictionaryBase.pathname.endsWith('/')) dictionaryBase.pathname += '/';
   const expectedSizes: Record<string, number> = {
@@ -57,9 +57,9 @@ function loadVerifiedTokenizer(dictPath: string, analyzer: any): Promise<void> {
             throw new Error(`${url.pathname} gzip decode failed: ${error?.message || error}`);
           }
         } else if (expectedSize && responseBytes.byteLength === expectedSize) {
-          // Vite serves public .gz files with Content-Encoding: gzip. Fetch
-          // transparently decodes that HTTP encoding, so the body is already
-          // the raw Kuromoji dictionary and has no gzip magic bytes.
+          // Vite serves public .gz files with Content-Encoding: gzip, which Fetch
+          // decodes transparently, so the body is already the raw dictionary and
+          // has no gzip magic bytes.
           decoded = responseBytes;
         } else {
           throw new Error(`${url.pathname} is neither a gzip dictionary nor a recognized raw dictionary (received ${responseBytes.byteLength} bytes)`);
@@ -94,7 +94,7 @@ async function init(customDictPath?: string) {
   if (kuroshiroInstance) return;
   if (!initPromise) {
     initPromise = (async () => {
-      // Robust constructor resolution across ESM / CommonJS bundlers
+      // Constructor resolution across ESM / CommonJS bundlers.
       const KuroClass = (Kuroshiro as any).default?.default || (Kuroshiro as any).default || Kuroshiro;
       const kuroshiro = new KuroClass();
 
@@ -111,8 +111,8 @@ async function init(customDictPath?: string) {
       if (!dictPath.endsWith('/')) dictPath += '/';
 
       const analyzer = new AnalyzerClass({ dictPath });
-      // Replace only initialization's dictionary loader; keep the analyzer's
-      // stock parse implementation and Kuromoji tokenization behavior.
+      // Replace only the dictionary loader; keep the analyzer's stock parse
+      // implementation and Kuromoji tokenization behavior.
       analyzer.init = () => loadVerifiedTokenizer(dictPath!, analyzer);
       await kuroshiro.init(analyzer);
       kuroshiroInstance = kuroshiro;

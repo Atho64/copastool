@@ -1,11 +1,9 @@
-// @module auto-copas/camofox-driver.ts — Windows/desktop Auto Copas transport.
-//
-// Drives Camoufox (the anti-detect Firefox fork) that the Rust backend
-// downloads directly from the daijro/camoufox GitHub release and launches
-// headed with WebDriver BiDi. No Node.js, no npm. Every call goes through the
-// Rust commands (`copas_camofox_ensure` / `copas_camofox_request`) so the
-// webview CSP/CORS never matters. Clipboard text is the OS clipboard —
-// written/read via the Tauri clipboard plugin, shared with the Camoufox window.
+// @module auto-copas/camofox-driver.ts: Windows/desktop Auto Copas transport.
+// Drives Camoufox (the anti-detect Firefox fork) that the Rust backend downloads
+// from the daijro/camoufox GitHub release and launches headed with WebDriver
+// BiDi. No Node.js, no npm. Every call goes through the Rust commands
+// (`copas_camofox_ensure` / `copas_camofox_request`) so webview CSP/CORS never
+// matters. Clipboard text is the OS clipboard, shared with the Camoufox window.
 
 import * as PageScriptsModule from './page-scripts';
 import { invoke } from '@tauri-apps/api/core';
@@ -15,9 +13,8 @@ import { readClipboardText, writeClipboardText } from '../native-clipboard';
 
 const CAMOFOX_USER_ID = 'copastool-app';
 const CAMOFOX_SESSION_KEY = 'copastool';
-/** The Rust backend downloads the Camoufox browser from GitHub on first use
- * (~500MB), then launches it instantly. Give the first-ever download a wide
- * window; later starts are quick. */
+/** The Rust backend downloads Camoufox from GitHub on first use (~500MB), then
+ * launches it instantly. Give the first download a wide window. */
 const ENSURE_TIMEOUT_MS = 900_000;
 const ENSURE_POLL_MS = 2000;
 /** camofox idles sessions out after ~10 minutes; poll the tab list so a long
@@ -44,8 +41,6 @@ class CamofoxDriver implements CopasDriver {
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 
   async ensureReady(target: CopasTargetConfig, status: CopasStatusSink): Promise<void> {
-    // 1) Browser up? (the Rust backend downloads Camoufox from GitHub on first
-    //    use — ~500MB — then launches it; later starts are quick)
     const deadline = Date.now() + ENSURE_TIMEOUT_MS;
     for (;;) {
       let result: CamofoxEnsureResult;
@@ -66,16 +61,15 @@ class CamofoxDriver implements CopasDriver {
       await new Promise((r) => setTimeout(r, ENSURE_POLL_MS));
     }
 
-    // 2) Tab for this target — reuse when the site is already open.
     const existing = this.tabIds.get(target.id);
     if (existing && (await this.tabAlive(existing))) return;
     this.tabIds.delete(target.id);
     await this.ensureTab(target);
   }
 
-  /** A tab listed by GET /tabs can be a GHOST — the server keeps the record
-   * but the page is gone (health even reports activeTabs: 0 while listing
-   * tabs). Probe with a trivial evaluate; a 404 means the record is dead. */
+  /** A tab listed by GET /tabs can be a ghost: the server keeps the record but the
+   * page is gone (health reports activeTabs: 0 while still listing tabs). Probe
+   * with a trivial evaluate; a 404 means the record is dead. */
   private async tabAlive(tabId: string): Promise<boolean> {
     try {
       const res = await camofoxRequest('POST', `tabs/${tabId}/evaluate`, {
@@ -104,8 +98,8 @@ class CamofoxDriver implements CopasDriver {
       list = null;
     }
     const tabs: any[] = Array.isArray(list?.tabs) ? list.tabs : [];
-    // 1) Adopt a tab already sitting on the target site — but only if it
-    //    probes alive (ghost records must be cleaned, not reused).
+    // Adopt a tab already sitting on the target site, but only if it probes
+    // alive (ghost records must be cleaned, not reused).
     for (const t of tabs.filter((t) => String(t.url || '').startsWith(target.urlPrefix))) {
       if (await this.tabAlive(String(t.tabId))) {
         this.tabIds.set(target.id, String(t.tabId));
@@ -114,10 +108,9 @@ class CamofoxDriver implements CopasDriver {
       }
       await this.deleteTab(String(t.tabId));
     }
-    // 2) Adopt ANY other live tab of our session and point it at the site.
-    //    A Cloudflare challenge or site redirect changes the URL so the prefix
-    //    check above misses — spawning yet another tab here is what made the
-    //    browser rapidly cycle through sites. Navigate the existing one.
+    // Adopt any other live tab of our session and point it at the site. A
+    // Cloudflare challenge or redirect changes the URL so the prefix check above
+    // misses, and spawning another tab there made the browser cycle through sites.
     for (const t of tabs) {
       const tabId = String(t.tabId);
       if (this.tabIds.get(target.id) === tabId) continue;
@@ -130,9 +123,9 @@ class CamofoxDriver implements CopasDriver {
       this.startKeepalive();
       return;
     }
-    // sessionKey is the "tab group identifier" and is REQUIRED on creation
-    // (openapi marks it optional, the server does not). One group holds all
-    // our per-target tabs; userId scopes the session.
+    // sessionKey is the "tab group identifier" and is REQUIRED on creation (the
+    // openapi marks it optional, the server does not). One group holds all our
+    // per-target tabs; userId scopes the session.
     const created = await camofoxRequest('POST', 'tabs', {
       userId: CAMOFOX_USER_ID,
       sessionKey: CAMOFOX_SESSION_KEY,
@@ -142,7 +135,7 @@ class CamofoxDriver implements CopasDriver {
       throw new CopasError('tab-not-found', `Tidak bisa membuka tab ${target.label} di browser otomatis.`);
     }
     if (created.navigationOk === false) {
-      // Page returned HTTP >= 400 — surface it via one navigation retry.
+      // Page returned HTTP >= 400, surface it via one navigation retry.
       await camofoxRequest('POST', `tabs/${created.tabId}/navigate`, { userId: CAMOFOX_USER_ID, url: target.url });
     }
     this.tabIds.set(target.id, String(created.tabId));
@@ -162,10 +155,10 @@ class CamofoxDriver implements CopasDriver {
     return tabId;
   }
 
-  /** camofox errors that mean "the tab/session is gone" (404 tab-not-found,
-   * 503 "Browser session expired", browser disconnects). Recovery: drop the
-   * cached tab, let ensureTab create a fresh session — the persistence plugin
-   * restores saved logins on session creation — then retry once. */
+  /** camofox errors meaning "the tab/session is gone" (404 tab-not-found, 503
+   * "Browser session expired", browser disconnects). Recovery: drop the cached
+   * tab, let ensureTab create a fresh session (the persistence plugin restores
+   * saved logins), then retry once. */
   private static isRecoverableTabError(msg: string): boolean {
     return /camofox (404|503)|tab[-_ ]?not[-_ ]?found|not found|session expired|browser.{0,24}(expired|closed|disconnected)|context or browser has been closed|target closed/i.test(msg);
   }

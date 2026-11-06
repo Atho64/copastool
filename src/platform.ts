@@ -1,4 +1,4 @@
-// @module platform.ts — Capability checks shared by all UI entry points
+// @module platform.ts: capability checks shared by all UI entry points.
 
 export function isAndroidPlatform(): boolean {
   return /Android/i.test(navigator.userAgent);
@@ -19,8 +19,8 @@ export function syncPlatformFeatures(): void {
   for (const id of desktopOnlyIds) {
     const el = document.getElementById(id);
     if (!el) continue;
-    // The menu containers style their rows with higher-specificity selectors
-    // than the global [hidden] rule, so hide the item itself as well.
+    // The menu containers style their rows with higher-specificity selectors than
+    // the global [hidden] rule, so hide the item itself too.
     el.style.display = android ? 'none' : '';
     el.setAttribute('aria-hidden', String(android));
     if (el instanceof HTMLButtonElement) el.disabled = android;

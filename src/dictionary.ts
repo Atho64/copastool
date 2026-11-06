@@ -192,7 +192,6 @@ function renderHistoryUI() {
   });
 }
 
-// Initialize dictionary event listeners
 export function initDictionary() {
   initDrag();
   initHistoryUI();
@@ -256,7 +255,6 @@ function handleMouseUp(e: MouseEvent | TouchEvent) {
     clientY = (e as MouseEvent).clientY;
   }
 
-  // 1. Check for text selection first
   let selectedText = '';
   if (target instanceof HTMLTextAreaElement) {
     if (target.selectionStart !== target.selectionEnd) {
@@ -268,7 +266,7 @@ function handleMouseUp(e: MouseEvent | TouchEvent) {
       const range = sel.getRangeAt(0);
       const frag = range.cloneContents();
       
-      // Remove all <rt> and <rp> (Furigana reading and parentheses) elements from the cloned fragment
+      // Remove <rt> and <rp> (furigana reading and parentheses) from the clone.
       const furiganaTags = frag.querySelectorAll('rt, rp');
       furiganaTags.forEach(tag => tag.remove());
       
@@ -282,7 +280,7 @@ function handleMouseUp(e: MouseEvent | TouchEvent) {
     const container = target instanceof HTMLTextAreaElement ? target : target.closest('.original, .translated') as HTMLElement;
     const contextText = container instanceof HTMLTextAreaElement ? container.value : getCleanText(container);
     
-    // Fallback: don't extract word with Segmenter, just use the exact selected text!
+    // Fallback: skip the Segmenter and use the exact selected text.
     if (selectedText !== currentWord) {
       currentWord = selectedText;
       showPopup(clientX, clientY, selectedText, contextText, isOriginal || isEditorOriginal);
@@ -290,14 +288,13 @@ function handleMouseUp(e: MouseEvent | TouchEvent) {
     return;
   }
   
-  // 2. If no selection, fallback to point extraction (click)
-  // On mobile (touch), only trigger point extraction if it was a long press (> 400ms)
-  // to avoid conflicting with short taps that open the line editor.
+  // No selection: fall back to point extraction. On touch, only when it was a
+  // long press (> 400ms), so short taps that open the line editor still work.
   if (isTouch && Date.now() - touchStartTime < 400) {
     return;
   }
   
-  // Only trigger point extraction if it was a quick click, not a dragged selection that was empty
+  // Point extraction only for a quick click, not an empty dragged selection.
   if (target instanceof HTMLTextAreaElement) {
     processTextarea(target, clientX, clientY);
   } else {
@@ -353,7 +350,8 @@ function getGlobalOffsetAndText(container: HTMLElement, targetNode: Node, target
   let found = false;
 
   function traverse(currentNode: Node) {
-    // Ignore <rt> and <rp> (furigana reading and fallback parens) tags so they don't pollute the plain text
+    // Ignore <rt> and <rp> (furigana reading and fallback parens) so they do not
+    // pollute the plain text.
     if (currentNode.nodeName.toLowerCase() === 'rt' || currentNode.nodeName.toLowerCase() === 'rp') return;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -387,7 +385,7 @@ function processEventPoint(x: number, y: number) {
   const isOriginal = container.classList.contains('original');
   const lang = isOriginal ? 'ja-JP' : 'en-US';
   
-  // Use our robust traverser to build clean text (ignoring ruby <rt>) and calculate precise offset
+  // Build clean text (ignoring ruby <rt>) and the precise offset.
   const { globalOffset, fullText } = getGlobalOffsetAndText(container, node, offset);
   
   extractAndShowWord(fullText, globalOffset, lang, x, y, isOriginal, fullText);
@@ -432,7 +430,6 @@ async function showPopup(x: number, y: number, word: string, context: string, is
   popup.style.display = 'flex';
   popup.classList.add('show');
   
-  // Positioning logic
   const popupWidth = 350;
   let left = x + 15;
   if (left + popupWidth > window.innerWidth) {
@@ -441,7 +438,7 @@ async function showPopup(x: number, y: number, word: string, context: string, is
   
   let top = y + 20;
   
-  // Smart positioning to avoid covering the translation input box
+  // Avoid covering the translation input box.
   const editorModal = document.getElementById('lineEditorModal');
   const isEditorOpen = editorModal && editorModal.classList.contains('open');
   
@@ -463,7 +460,6 @@ async function showPopup(x: number, y: number, word: string, context: string, is
       }
     }
   } else {
-    // Normal positioning
     if (top + 300 > window.innerHeight) {
       top = Math.max(10, window.innerHeight - 300 - 10);
     }

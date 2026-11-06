@@ -1,5 +1,5 @@
-// @module xlsx.ts — Minimal XLSX (SpreadsheetML) codec.
-// Writes/reads a multi-sheet workbook with inline strings only, so the result
+// @module xlsx.ts: minimal XLSX (SpreadsheetML) codec.
+// Writes and reads a multi-sheet workbook with inline strings only, so the result
 // opens cleanly in Excel, LibreOffice and Google Sheets without shared-string
 // plumbing. ZIP packing reuses the app's JSZip dependency.
 
@@ -15,10 +15,8 @@ export interface SheetData {
   colWidths?: number[];
 }
 
-const MAX_CELL_CHARS = 32000; // Excel hard limit is 32767 — leave headroom.
+const MAX_CELL_CHARS = 32000; // Excel hard limit is 32767; leave headroom.
 const MAX_SHEET_NAME = 31;
-
-// ─── XML helpers ──────────────────────────────────────────────────────────────
 
 function escapeXml(value: string): string {
   return String(value)
@@ -75,8 +73,6 @@ function sanitizeSheetName(name: string, used: Set<string>): string {
   return candidate;
 }
 
-// ─── Writer ───────────────────────────────────────────────────────────────────
-
 function buildSheetXml(sheet: SheetData): string {
   const rowsXml: string[] = [];
   let rowIndex = 0;
@@ -122,8 +118,8 @@ ${colsXml}
 }
 
 /**
- * Build a .xlsx workbook. Every cell is written as an inline string/number, so
- * no styles or shared strings are needed. The first sheet is the active tab.
+ * Builds a .xlsx workbook. Every cell is an inline string/number, so no styles or
+ * shared strings are needed. The first sheet is the active tab.
  */
 export async function buildXlsx(sheets: SheetData[]): Promise<Blob> {
   if (!sheets.length) throw new Error('Workbook kosong.');
@@ -204,8 +200,6 @@ export async function buildXlsx(sheets: SheetData[]): Promise<Blob> {
   });
 }
 
-// ─── Reader ───────────────────────────────────────────────────────────────────
-
 /** Extract the text content of <t> runs inside one <si>/<is> element. */
 function readRuns(xml: string): string {
   let out = '';
@@ -285,7 +279,7 @@ export interface ParsedWorkbook {
 export async function readXlsx(file: Blob | ArrayBuffer, sheetNameHints: string[] = []): Promise<ParsedWorkbook> {
   const zip = await JSZip.loadAsync(file);
 
-  // Shared strings are optional — Google Sheets exports use them heavily.
+  // Shared strings are optional; Google Sheets exports use them heavily.
   const sharedStrings: string[] = [];
   const sstFile = zip.file('xl/sharedStrings.xml');
   if (sstFile) {

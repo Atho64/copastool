@@ -121,9 +121,9 @@ export async function readAndroidTreeFile(uri: string, documentId: string): Prom
   return raw;
 }
 
-/** Open a native Android folder picker and materialize its files for existing
- * browser import pipelines. `webkitRelativePath` is retained so per-file
- * matching for TL and parser imports keeps working on Android. */
+/** Open a native Android folder picker and materialize its files for the browser
+ * import pipelines. `webkitRelativePath` is kept so per-file matching for TL and
+ * parser imports works on Android. */
 export async function pickAndroidFolderFiles(
   extensions?: readonly string[],
   onProgress?: (current: number, total: number) => void,
@@ -159,9 +159,9 @@ export async function writeAndroidTreeFile(uri: string, name: string, base64: st
   }
 }
 
-/** ACTION_CREATE_DOCUMENT: picker "buat file" dengan kolom nama — user bisa
- * memilih lokasi dan mengganti nama. Bridge baru saja ada di APK terbaru;
- * di bridge lama ini melempar error agar pemanggil fallback ke jalur lama. */
+/** ACTION_CREATE_DOCUMENT: picker "buat file" dengan kolom nama, jadi user bisa
+ * memilih lokasi dan mengganti nama. Hanya ada di APK terbaru; di bridge lama
+ * ini melempar error agar pemanggil fallback ke jalur lama. */
 export async function createAndroidFile(defaultName: string, mime: string, base64: string): Promise<void> {
   const raw = await runFolderIo('createFileAsync', [defaultName, mime, base64], () => {
     throw new Error('Android create-document picker is unavailable in this app version.');

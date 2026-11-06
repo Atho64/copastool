@@ -1,4 +1,4 @@
-// @module context-menu.ts — Shared desktop, touch, and keyboard context menu
+// @module context-menu.ts: shared desktop, touch, and keyboard context menu.
 
 import * as RenderModule from './render';
 import { state, isTranslated } from './state';
@@ -172,8 +172,8 @@ function openMenu(target: HTMLElement, x: number, y: number): void {
   }
   menu.hidden = false;
   lastOpenAt = performance.now();
-  // Position in one layout pass. The menu is opaque on touch devices so this
-  // does not require a backdrop blur or a continuously composited overlay.
+  // Position in one layout pass. The menu is opaque on touch devices, so no
+  // backdrop blur or composited overlay is needed.
   const width = Math.min(280, window.innerWidth - 16);
   menu.style.width = `${width}px`;
   const height = Math.min(menu.scrollHeight, window.innerHeight - 16);

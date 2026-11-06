@@ -1,4 +1,4 @@
-// @module htl-mode.ts — HTL (Human Translation) mode toggle & reference language panel
+// @module htl-mode.ts: HTL (Human Translation) mode toggle and reference language panel.
 
 import { state, ui } from './state';
 import { parseJsonFromFileObject, parseJsonEntries } from './luca-engine';
@@ -15,8 +15,6 @@ const REFLANG_2 = 'ref_lang_2';
 function isHtl(): boolean {
   return state.translationMode === 'htl';
 }
-
-// ─── HTL visibility toggle ────────────────────────────────────────────────────
 
 export function applyHtlMode(): void {
   const htl = isHtl();
@@ -81,8 +79,6 @@ function updateHtlRefLangPanels(): void {
   }
 }
 
-// ─── Reference language import (JSON, position-matched) ──────────────────────
-
 async function applyRefJsonToLines(slot: number, json: any[]): Promise<number> {
   if (!Array.isArray(json)) throw new Error('File JSON harus berupa array of {name, message}.');
   if (json.length === 0) throw new Error('File JSON kosong.');
@@ -140,7 +136,7 @@ async function importRefJson(slot: number, file: File): Promise<void> {
     refreshAll();
     queueAutoSave();
     import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
-    flashHint(`Berhasil impor ${applied} baris Referensi ${slot} (${file.name}).`);
+    flashHint(`Impor ${applied} baris Referensi ${slot} (${file.name}).`);
   } catch (err: any) {
     alert(`Gagal impor Referensi ${slot}: ${err.message}`);
   }
@@ -197,7 +193,7 @@ async function importRefJsonFolder(slot: number, files: File[]): Promise<void> {
   refreshAll();
   queueAutoSave();
   import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
-  let msg = `Berhasil impor ${totalApplied} baris Referensi ${slot} dari ${matched.length} file.`;
+  let msg = `Impor ${totalApplied} baris Referensi ${slot} dari ${matched.length} file.`;
   if (unmatched.length) msg += ` (${unmatched.length} file tanpa pasangan, dilewati)`;
   flashHint(msg);
   const lines: string[] = [];
@@ -223,8 +219,6 @@ async function clearRefLang(slot: number): Promise<void> {
   import('./settings').then(m => m.updateReferenceLanguageCounts()).catch(() => {});
   flashHint(`Referensi ${slot} dihapus dari semua baris.`);
 }
-
-// ─── Public handler binders ───────────────────────────────────────────────────
 
 export function onImportRefLang1(): void { ui.refLang1Input.click(); }
 export function onImportRefLang2(): void { ui.refLang2Input.click(); }

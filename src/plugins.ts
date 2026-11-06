@@ -1,6 +1,4 @@
-// @module plugins.ts — Complete Plugin System ported from CSTL-Next with legacy support
-// Provides sandboxed plugin lifecycle, permissions, manifest validation, zip reading,
-// iframe RPC sandbox, settings (global/project/shared), copy/apply hooks, UI panels, and custom commands.
+// @module plugins.ts: plugin system with legacy parser support
 
 import * as ProjectModule from './project';
 import type {
@@ -112,13 +110,11 @@ export const Util = {
   validDataKey: validBlobKey
 };
 
-// Expose CSTL global early so that any plugins or tools executing can immediately access CSTL.util & CSTL.dialogs
+// Exposed early so plugin code can use CSTL.util
 if (typeof window !== 'undefined') {
   (window as any).CSTL = (window as any).CSTL || {};
   (window as any).CSTL.util = Util;
 }
-
-// ─── SHA-256 Digest ─────────────────────────────────────────────────────────
 
 const Sha256 = (() => {
   const K = new Uint32Array([
@@ -213,8 +209,6 @@ async function sha256HexOfBlob(blob: Blob): Promise<string> {
   }
   return s.hex();
 }
-
-// ─── Zip Reader (Streaming, Zip Bomb Protection) ────────────────────────────
 
 export interface ZipEntryMeta {
   name: string;
@@ -343,7 +337,7 @@ export const ZipReader = {
         const { done, value } = await reader.read();
         if (done) break;
         total += value.length;
-        if (total > budget) throw new Error(`"${e.name}" melebihi batas dekompresi aman (${humanBytes(budget)}) — paket kemungkinan rusak.`);
+        if (total > budget) throw new Error(`"${e.name}" melebihi batas dekompresi aman (${humanBytes(budget)}), paket kemungkinan rusak.`);
         chunks.push(value);
       }
     } catch (err) {
@@ -357,8 +351,6 @@ export const ZipReader = {
     return out;
   }
 };
-
-// ─── Theme CSS Sanitizer ───────────────────────────────────────────────────
 
 function sanitizeThemeCss(css: string): string {
   if (typeof css !== 'string' || !css) return '';
@@ -509,8 +501,6 @@ function sanitizeThemeCss(css: string): string {
   return out;
 }
 
-// ─── Permissions & Icons ────────────────────────────────────────────────────
-
 export const PERMISSIONS: Record<PluginPermission, { label: string; desc: string; icon: string }> = {
   project: {
     label: 'Baca project',
@@ -558,7 +548,7 @@ export const PERMISSIONS: Record<PluginPermission, { label: string; desc: string
     icon: '<circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 10 10c0-1-1-2-2-2h-2a2 2 0 0 1-2-2c0-.5.2-1 .5-1.5A10 10 0 0 0 12 2z"/>'
   },
   net: {
-    label: 'Akses Internet',
+    label: 'Akses internet',
     desc: 'Mengirim permintaan HTTP/HTTPS ke server mana pun.',
     icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>'
   },
@@ -576,8 +566,6 @@ export const permSvg = (perm: string, size?: number): string => {
   if (!p) return '';
   return `<svg viewBox="0 0 24 24" width="${size || 14}" height="${size || 14}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p.icon}</svg>`;
 };
-
-// ─── Manifest Validation & Normalization ────────────────────────────────────
 
 export const Manifest = {
   parse(text: string): { ok: boolean; data?: PluginManifestRaw; errors?: string[] } {
@@ -623,7 +611,7 @@ export const Manifest = {
 
     if (m.api !== undefined) {
       if (typeof m.api !== 'number' || !Number.isInteger(m.api) || m.api < 1 || m.api > PLUGIN_API_VERSION) {
-        errors.push(`"api" tidak valid, ditemukan ${JSON.stringify(m.api)} — versi API aplikasi ini adalah ${PLUGIN_API_VERSION}.`);
+        errors.push(`"api" tidak valid, ditemukan ${JSON.stringify(m.api)}; versi API aplikasi ini ${PLUGIN_API_VERSION}.`);
       }
     }
 
@@ -648,7 +636,7 @@ export const Manifest = {
       } else if (m.extensions.length > 0) {
         for (const e of m.extensions) {
           if (typeof e !== 'string' || !/^\.[a-z0-9]{1,16}$/i.test(e)) {
-            errors.push(`Ekstensi tidak valid: ${JSON.stringify(e)} — harus diawali titik lalu 1-16 karakter alfanumerik (contoh: ".ks").`);
+            errors.push(`Ekstensi tidak valid: ${JSON.stringify(e)}; harus diawali titik lalu 1-16 karakter alfanumerik (contoh: ".ks").`);
           }
         }
         const lower = m.extensions.map(e => String(e).toLowerCase());
@@ -715,7 +703,7 @@ export const Manifest = {
     if (!isPlainObject(raw)) return ['"settings" harus objek { global?, project?, shared? }.'];
     const errors: string[] = [];
     for (const k of Object.keys(raw)) {
-      if (!SETTING_SCOPES.includes(k as any)) errors.push(`Kunci "settings.${k}" tidak dikenal — hanya "global", "project", dan "shared".`);
+      if (!SETTING_SCOPES.includes(k as any)) errors.push(`Kunci "settings.${k}" tidak dikenal; hanya "global", "project", dan "shared".`);
     }
     let total = 0;
     const keysByScope = new Map<string, string>();
@@ -854,8 +842,6 @@ export const Manifest = {
   }
 };
 
-// ─── Modal Dialogs (Consent, Confirm, Info) ────────────────────────────────
-
 export const Dialogs = {
   _active: null as HTMLElement | null,
   _seq: 0,
@@ -899,7 +885,7 @@ export const Dialogs = {
         try {
           await navigator.clipboard.writeText(e.currentTarget.textContent.trim());
           const prev = e.currentTarget.title;
-          e.currentTarget.title = 'Tersalin!';
+          e.currentTarget.title = 'Tersalin';
           host.ui.flash('Sidik jari disalin.');
           setTimeout(() => { e.currentTarget.title = prev; }, 1500);
         } catch {}
@@ -1013,7 +999,7 @@ export const Dialogs = {
 
     const shaChanged = !!existing && existing.version === meta.version && existing.fingerprint !== meta.fingerprint;
     const upgradeNote = existing && !shaChanged
-      ? `<div class="consent-upgrade">Memperbarui plugin terpasang: v${esc(existing.version)} &rarr; v${esc(meta.version)}${existing.enabled === false ? ' (saat ini nonaktif)' : ''}${newPerms.length ? ' — <strong>meminta izin baru</strong>' : ''}</div>`
+      ? `<div class="consent-upgrade">Memperbarui plugin terpasang: v${esc(existing.version)} &rarr; v${esc(meta.version)}${existing.enabled === false ? ' (saat ini nonaktif)' : ''}${newPerms.length ? ', <strong>meminta izin baru</strong>' : ''}</div>`
       : '';
     const shaNote = shaChanged
       ? '<div class="consent-newnote">Paket ini berbeda dari yang terpasang meskipun versinya sama (SHA-256 tidak cocok). Tinjau sebelum melanjutkan.</div>'
@@ -1064,7 +1050,7 @@ export const Dialogs = {
     return Dialogs._create({
       title: review ? 'Setujui izin baru?' : 'Pasang plugin ini?',
       bodyHtml: body,
-      confirmLabel: review ? 'Setujui' : (existing ? 'Perbarui' : 'Pasang Plugin'),
+      confirmLabel: review ? 'Setujui' : (existing ? 'Perbarui' : 'Pasang plugin'),
       cancelLabel: 'Batal',
       wide: true
     });
@@ -1075,9 +1061,6 @@ if (typeof window !== 'undefined') {
   (window as any).CSTL = (window as any).CSTL || {};
   (window as any).CSTL.dialogs = Dialogs;
 }
-// ─── Direct Plugin Execution & Host API Bridge ──────────────────────────────
-
-// // ─── Sandbox Controller (Direct Execution & Host Bridge) ───────────────────
 
 export interface PluginInstance {
   meta: PluginMeta;
@@ -1102,7 +1085,7 @@ export const Sandbox = {
   _pendingHost: new Map<number, { resolve: (v: any) => void; reject: (err: any) => void }>(),
 
   listen() {
-    // Kept for backward compatibility; direct host execution no longer requires message listening
+    // Kept for backward compatibility; direct execution needs no message listening
   },
 
   _isPrivateHost(h: string): boolean {
@@ -1234,15 +1217,14 @@ export const Sandbox = {
       }
       return new Uint8Array(out);
     }
-    throw new Error('Encoding "' + enc + '" tidak didukung api.encode — gunakan utf-8 atau shift_jis.');
+    throw new Error('Encoding "' + enc + '" tidak didukung api.encode; gunakan utf-8 atau shift_jis.');
   },
 
   _buildDirectApi(inst: PluginInstance, parentEl?: HTMLElement): any {
     const meta = inst.meta;
     const perms = new Set<string>(meta.permissions || []);
     const need = (_perm: PluginPermission) => {
-      // Permissive check to match Aera frictionless runtime:
-      // Aera plugins run without declaring permissions in manifest.json.
+      // Permissive: Aera plugins run without declaring permissions in manifest.json.
     };
 
     const api: any = {
@@ -1778,7 +1760,7 @@ const WasmRunner = {
       }
       const timer = setTimeout(() => {
         worker.terminate();
-        reject(new Error(`runWasm melebihi batas waktu ${timeoutMs} ms — eksekusi dibatalkan.`));
+        reject(new Error(`runWasm melebihi batas waktu ${timeoutMs} ms; eksekusi dibatalkan.`));
       }, timeoutMs);
       worker.onmessage = ev => {
         clearTimeout(timer);
@@ -1803,8 +1785,6 @@ const WasmRunner = {
   }
 };
 
-// ─── Runtime & Store Manager ───────────────────────────────────────────────
-
 export const BUILTIN_LUCASYSTEM_META: PluginMeta = {
   schema: INDEX_SCHEMA,
   id: 'builtin-lucasystem',
@@ -1822,7 +1802,7 @@ export const BUILTIN_LUCASYSTEM_META: PluginMeta = {
     global: [
       {
         key: 'lucaProfile',
-        label: 'Profil Game Luca',
+        label: 'Profil game Luca',
         type: 'select',
         default: 'summer-pockets-steam',
         options: [
@@ -1835,7 +1815,7 @@ export const BUILTIN_LUCASYSTEM_META: PluginMeta = {
       },
       {
         key: 'lucaExportLang',
-        label: 'Slot Bahasa Ekspor',
+        label: 'Slot bahasa ekspor',
         type: 'select',
         default: 'en',
         options: [
@@ -1846,7 +1826,7 @@ export const BUILTIN_LUCASYSTEM_META: PluginMeta = {
       },
       {
         key: 'lucaMcDisplayName',
-        label: 'Nama Protagonis (CLANNAD / MC)',
+        label: 'Nama protagonis (CLANNAD / MC)',
         type: 'string',
         default: 'Tomoya',
         description: 'Nama yang digunakan saat menemukan placeholder @nama karakter utama.'
@@ -2001,7 +1981,6 @@ export const Runtime = {
     const rawSettings = await host.storage.readPluginSettings();
     Runtime._store = isPlainObject(rawSettings) ? rawSettings : {};
 
-    // Boot enabled plugins in parallel
     const bootPromises = Runtime._index.map(async p => {
       if (p.enabled && !Runtime._instances.has(p.id)) {
         try {
@@ -2024,14 +2003,13 @@ export const Runtime = {
 
   listMeta(): PluginMeta[] {
     const list = [...Runtime._index];
-    // Include Built-in Luca System parser
     const lucaEnabled = localStorage.getItem('cstl_builtin_lucasystem_enabled') !== 'false';
     list.unshift({
       ...BUILTIN_LUCASYSTEM_META,
       enabled: lucaEnabled
     });
 
-    // Include legacy custom parsers as virtual plugin entries for display/compatibility
+    // Legacy custom parsers appear as virtual plugin entries
     try {
       const legacyParsers = loadCustomParsers();
       for (const lp of legacyParsers) {
@@ -2194,7 +2172,7 @@ export const Runtime = {
   async install(blob: Blob): Promise<PluginMeta | null> {
     const zip = await ZipReader.open(blob);
     if (!zip.has(MANIFEST_FILE)) {
-      // Periksa apakah ini paket .zip parser custom legacy (berisi parser.json atau *.json di root)
+      // Paket parser custom legacy: parser.json atau *.json di root
       const jsonEntryName = zip.has('parser.json')
         ? 'parser.json'
         : zip.names().find(n => !n.includes('/') && n.toLowerCase().endsWith('.json'));
@@ -2214,7 +2192,6 @@ export const Runtime = {
           throw new Error('Tidak ada custom parser yang valid di dalam file ZIP.');
         }
 
-        // Ekstrak file aset dari folder assets/ jika ada
         const assetMap: Record<string, string> = {};
         for (const name of zip.names()) {
           if (name.startsWith('assets/') && name.length > 7) {
@@ -2236,7 +2213,7 @@ export const Runtime = {
         }
 
         host.ui.onPluginsChanged();
-        host.ui.flash(`Parser custom "${valid.map(v => v.name).join(', ')}" berhasil dipasang!`);
+        host.ui.flash(`Parser custom "${valid.map(v => v.name).join(', ')}" dipasang.`);
         return Runtime.getMeta(lastId);
       }
 
@@ -2267,22 +2244,18 @@ export const Runtime = {
 
     meta.granted = Array.from(new Set([...(existing?.granted || []), ...meta.permissions]));
 
-    // Kill old instance if exists
     if (Runtime._instances.has(meta.id)) {
       Runtime._instances.get(meta.id)!.destroy();
     }
     Runtime._destroyPanelInstance(meta.id);
 
-    // Save package stream to storage
     await host.storage.savePluginZipStream(meta.id, blob);
 
-    // Update index
     const idx = Runtime._index.findIndex(p => p.id === meta.id);
     if (idx >= 0) Runtime._index[idx] = meta;
     else Runtime._index.push(meta);
     await Runtime._saveIndex();
 
-    // Boot sandbox
     try {
       await Sandbox.boot(meta, zip);
     } catch (e: any) {
@@ -2299,7 +2272,7 @@ export const Runtime = {
       const legacy = loadCustomParsers().find(lp => lp.id === id);
       if (legacy) {
         const ok = await Dialogs.confirm({
-          title: 'Hapus Custom Parser',
+          title: 'Hapus custom parser',
           bodyHtml: `<p class="hint m-0">Hapus custom parser "<strong>${esc(legacy.name)}</strong>" secara permanen?</p>`,
           confirmLabel: 'Hapus',
           danger: true
@@ -2313,7 +2286,7 @@ export const Runtime = {
       return false;
     }
     const ok = await Dialogs.confirm({
-      title: 'Hapus Plugin',
+      title: 'Hapus plugin',
       bodyHtml: `<p class="hint m-0">Hapus plugin "<strong>${esc(p.name)}</strong>" secara permanen?</p>`,
       confirmLabel: 'Hapus',
       danger: true
@@ -2468,15 +2441,12 @@ export const Runtime = {
       return withDot === ext;
     });
 
-    // Check active sandboxed plugins
     const found = Runtime._index.find(p => p.enabled === true && matchExt(p.extensions));
     if (found) return found;
 
-    // Check legacy custom parsers
     const legacy = loadCustomParsers().find(lp => lp.enabled !== false && matchExt(lp.extensions));
     if (legacy) return Runtime.getMeta(legacy.id);
 
-    // Check built-in parsers (like Luca System)
     const builtin = Runtime.listMeta().find(p => p.isBuiltin && p.enabled !== false && matchExt(p.extensions));
     if (builtin) return builtin;
 
@@ -2501,7 +2471,6 @@ export const Runtime = {
       }
     }
 
-    // Check legacy custom parsers
     const legacy = loadCustomParsers().find(lp => lp.enabled !== false && matchCustomParser(lp, '', head));
     if (legacy) return Runtime.getMeta(legacy.id);
 
@@ -2622,7 +2591,7 @@ export const Runtime = {
   },
 
   _assertGranted(_meta: PluginMeta): void {
-    // Permissive by default to match Aera frictionless runtime
+    // Permissive: the Aera runtime does not enforce declared permissions
   },
 
   async _ensureInstance(meta: PluginMeta): Promise<PluginInstance | null> {
@@ -2853,8 +2822,6 @@ export const Runtime = {
   }
 };
 
-// ─── Plugin UI Manager ──────────────────────────────────────────────────────
-
 let currentFilter: 'all' | 'plugin' | 'parser' = 'all';
 
 let uiEls: {
@@ -3048,7 +3015,7 @@ export const PluginUI = {
         <div class="plugin-empty">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
           <span>${esc(emptyLabel)}</span>
-          <span class="plugin-empty-sub">Impor .zip atau klik "+ Tulis Parser" untuk membuat parser baru.</span>
+          <span class="plugin-empty-sub">Impor .zip atau klik "+ Tulis parser" untuk membuat parser baru.</span>
         </div>`;
       return;
     }
@@ -3075,10 +3042,10 @@ export const PluginUI = {
     }).join('');
 
     const kindBadge = p.isBuiltin
-      ? '<span class="plugin-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;font-weight:600;">Parser Bawaan</span>'
+      ? '<span class="plugin-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;font-weight:600;">Parser bawaan</span>'
       : p.isLegacy
-      ? `<span class="plugin-badge" style="background:rgba(99,102,241,0.12);color:var(--primary,#6366f1);font-weight:600;">Parser Script (${p.author || 'JS/Python'})</span>`
-      : '<span class="plugin-badge" style="background:rgba(16,185,129,0.12);color:var(--success,#10b981);font-weight:600;">Paket Plugin</span>';
+      ? `<span class="plugin-badge" style="background:rgba(99,102,241,0.12);color:var(--primary,#6366f1);font-weight:600;">Parser script (${p.author || 'JS/Python'})</span>`
+      : '<span class="plugin-badge" style="background:rgba(16,185,129,0.12);color:var(--success,#10b981);font-weight:600;">Paket plugin</span>';
 
     const parserBadge = (p.extensions?.length || p.magic?.length)
       ? `<span class="plugin-badge plugin-badge-parser" title="Menangani import/export format khusus">Format ${esc(p.extensions.join(' '))}${p.magic?.length ? ' +magic' : ''}</span>`
@@ -3097,7 +3064,7 @@ export const PluginUI = {
       <div class="plugin-detail">
         <div class="plugin-detail-grid">
           <div>
-            <div class="plugin-detail-label">Izin &amp; Kemampuan</div>
+            <div class="plugin-detail-label">Izin &amp; kemampuan</div>
             ${(p.permissions || []).length
               ? p.permissions.map(perm => `
                   <div class="plugin-detail-perm">
@@ -3108,7 +3075,7 @@ export const PluginUI = {
           </div>
           <div>
             <div class="plugin-detail-label">Informasi paket</div>
-            <div class="plugin-detail-kv"><span>Tipe</span><span>${p.isBuiltin ? 'Parser Inti Bawaan (CSTL Core)' : p.isLegacy ? 'Custom Parser (Legacy)' : 'CSTL Plugin v' + esc(String(p.api))}</span></div>
+            <div class="plugin-detail-kv"><span>Tipe</span><span>${p.isBuiltin ? 'Parser inti bawaan (CSTL Core)' : p.isLegacy ? 'Custom parser (legacy)' : 'CSTL Plugin v' + esc(String(p.api))}</span></div>
             <div class="plugin-detail-kv"><span>Ukuran</span><span>${p.isBuiltin ? 'Built-in' : esc(humanBytes(p.size))}</span></div>
             <div class="plugin-detail-kv"><span>Dipasang</span><span>${esc(new Date(p.updatedAt || Date.now()).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
             ${p.fingerprint ? `<div class="plugin-detail-kv"><span>SHA-256</span></div><code style="font-size:10px;word-break:break-all;color:var(--muted);display:block;margin-top:4px;">${esc(p.fingerprint)}</code>` : ''}
@@ -3133,7 +3100,7 @@ export const PluginUI = {
         ${p.author ? `<span class="plugin-author">by ${esc(p.author)}</span>` : ''}
         ${p.description ? `<span class="plugin-desc-inline">${esc(p.description)}</span>` : ''}
       </div>` : ''}
-      ${lockConsent ? `<div class="plugin-consent-note">Versi baru meminta izin yang belum disetujui — plugin nonaktif sampai kamu menyetujuinya.</div>` : ''}
+      ${lockConsent ? `<div class="plugin-consent-note">Versi baru meminta izin yang belum disetujui; plugin nonaktif sampai kamu menyetujuinya.</div>` : ''}
       <div class="plugin-badges">${[kindBadge, consentBadge, parserBadge, panelBadge, settingsBadges, assetsBadge, permBadges].filter(Boolean).join('')}</div>
       <div class="plugin-actions">
         <button type="button" class="btn btn-ghost btn-xs btn-plugin-details" aria-expanded="false">
@@ -3141,15 +3108,15 @@ export const PluginUI = {
           <span>Detail</span>
         </button>
         <span class="grow" style="flex:1;"></span>
-        ${p.isLegacy ? `<button type="button" class="btn btn-ghost btn-xs btn-plugin-edit" title="Edit Script Parser">
+        ${p.isLegacy ? `<button type="button" class="btn btn-ghost btn-xs btn-plugin-edit" title="Edit script parser">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           <span>Edit</span>
         </button>` : ''}
         ${lockConsent ? `<button type="button" class="btn btn-primary btn-xs btn-plugin-consent" title="Tinjau izin baru">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Setujui Izin</span>
+          <span>Setujui izin</span>
         </button>` : ''}
-        ${(p.settings?.global?.length || p.settings?.shared?.length) ? `<button type="button" class="btn btn-ghost btn-xs btn-plugin-settings-global" title="Setelan Global">
+        ${(p.settings?.global?.length || p.settings?.shared?.length) ? `<button type="button" class="btn btn-ghost btn-xs btn-plugin-settings-global" title="Setelan global">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span>Setelan</span>
         </button>` : ''}
@@ -3181,7 +3148,7 @@ export const PluginUI = {
     row.querySelector('.btn-plugin-export')?.addEventListener('click', () => Runtime.exportPlugin(p.id));
     row.querySelector('.btn-plugin-delete')?.addEventListener('click', async () => {
       if (p.isLegacy) {
-        if (!await cstlConfirm(`Hapus custom parser "${p.name}"?`, { danger: true, title: 'Hapus Parser' })) return;
+        if (!await cstlConfirm(`Hapus custom parser "${p.name}"?`, { danger: true, title: 'Hapus parser' })) return;
         deleteCustomParser(p.id);
         deleteParserSettingValues(p.id);
         await Runtime.sync();
@@ -3214,7 +3181,7 @@ export const PluginUI = {
 
     let html = '';
     if (projectSettingsPlugins.length) {
-      html += `<div class="dropdown-header">Pengaturan Plugin</div>`;
+      html += `<div class="dropdown-header">Pengaturan plugin</div>`;
       for (const p of projectSettingsPlugins) {
         html += `<button type="button" class="dropdown-item" data-plugin-settings="${esc(p.id)}">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -3225,7 +3192,7 @@ export const PluginUI = {
 
     if (cmds.length) {
       if (html) html += `<div class="divider my-1"></div>`;
-      html += `<div class="dropdown-header">Perintah Plugin</div>`;
+      html += `<div class="dropdown-header">Perintah plugin</div>`;
       for (const c of cmds) {
         html += `<button type="button" class="dropdown-item" data-cmd="${esc(c.id)}">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -3237,7 +3204,7 @@ export const PluginUI = {
     if (html) html += `<div class="divider my-1"></div>`;
     html += `<button type="button" class="dropdown-item" id="btnMenuOpenPluginManager">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
-      <span>Kelola Plugin & Parser…</span>
+      <span>Kelola plugin & parser…</span>
     </button>`;
 
     menu.innerHTML = html;
@@ -3248,7 +3215,6 @@ export const PluginUI = {
     let ownFields = scope === 'global' ? meta.settings.global : meta.settings.project;
     const sharedFields = meta.settings.shared;
 
-    // Fallback if requested scope has no fields but other scope does
     if (!ownFields.length && !sharedFields.length && meta.settings.project.length > 0) {
       scope = 'project';
       ownFields = meta.settings.project;
@@ -3360,12 +3326,11 @@ export const PluginUI = {
       groupHead.style.fontWeight = '700';
       groupHead.style.fontSize = '11.5px';
       groupHead.style.color = 'var(--primary)';
-      groupHead.textContent = 'SETELAN BERSAMA (GLOBAL & SEMUA PROJECT)';
+      groupHead.textContent = 'Setelan bersama (global & semua project)';
       form.append(groupHead);
       for (const s of sharedFields) form.appendChild(buildFieldRow(s, sharedMerged));
     }
 
-    // Dynamic reactivity for Built-in Luca System Engine profile
     if (meta.id === 'builtin-lucasystem') {
       const profileSel = form.querySelector('[name="lucaProfile"]') as HTMLSelectElement | null;
       const langSel = form.querySelector('[name="lucaExportLang"]') as HTMLSelectElement | null;
@@ -3377,12 +3342,11 @@ export const PluginUI = {
         const profId = profileSel?.value || 'summer-pockets-steam';
         const prof = getLucaProfile(profId);
 
-        // 1. Dynamic visibility of Protagonist Name field (only for games that use @name format like CLANNAD)
+        // Protagonist name only applies to @name profiles (e.g. CLANNAD)
         if (mcRow) {
           mcRow.style.display = prof.nameAtFormat ? '' : 'none';
         }
 
-        // 2. Dynamic options for Export Slot language based on selected profile
         if (langSel) {
           const opts = getLucaExportSlotOptions(prof);
           const curVal = langSel.value;
@@ -3396,7 +3360,6 @@ export const PluginUI = {
           const match = opts.find((o: any) => o.value === curVal);
           langSel.value = match ? curVal : opts[0].value;
           if (langRow) {
-            // Show only if profile actually has multiple language slots or multi-lang references
             langRow.style.display = opts.length > 1 || prof.hasMultiLangRef ? '' : 'none';
           }
         }
@@ -3424,10 +3387,10 @@ export const PluginUI = {
         <div class="modal-head"><h3>Setelan ${scopeLabel}: ${esc(meta.name)}</h3></div>
         <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding: 12px 2px;"></div>
         <div class="modal-actions" style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
-          <button type="button" class="btn btn-outline btn-reset">Reset Bawaan</button>
+          <button type="button" class="btn btn-outline btn-reset">Reset bawaan</button>
           <span class="grow" style="flex: 1;"></span>
           <button type="button" class="btn btn-outline btn-cancel">Batal</button>
-          <button type="button" class="btn btn-primary btn-save">Simpan Setelan</button>
+          <button type="button" class="btn btn-primary btn-save">Simpan setelan</button>
         </div>
       </div>`;
     overlay.querySelector('.modal-body')!.appendChild(form);

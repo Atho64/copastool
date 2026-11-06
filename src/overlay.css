@@ -1,9 +1,8 @@
-/* @module overlay.css — Visual Novel floating HUD
+/* @module overlay.css: Visual Novel floating HUD.
  *
- * Design constraints, in priority order:
- *   1. Never compete with the game underneath. Opaque chrome, no blur, no glow.
- *   2. Translated text is the loudest thing on screen; everything else recedes.
- *   3. Structure comes from hairline rules and spacing, not from boxes-in-boxes.
+ * Design constraints, in priority order: never compete with the game underneath
+ * (opaque chrome, no blur, no glow); translated text is the loudest thing on
+ * screen; structure comes from hairline rules and spacing, not boxes-in-boxes.
  * The window is transparent, so the card itself carries the background.
  */
 
@@ -31,7 +30,7 @@
   --ov-font: 'Segoe UI', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
   --ov-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
-  /* Radii kept small on purpose — big rounding reads as a web widget, not a HUD. */
+  /* Radii stay small on purpose: big rounding reads as a web widget, not a HUD. */
   --ov-r: 6px;
   --ov-r-sm: 3px;
 }
@@ -66,8 +65,6 @@ body {
   /* One soft edge so the card separates from bright VN art without a glow. */
   box-shadow: 0 4px 18px rgb(0 0 0 / 0.42);
 }
-
-/* ── Drag bar ─────────────────────────────────────────────────────────── */
 
 .ov-bar {
   display: flex;
@@ -186,9 +183,8 @@ body {
   color: #f0a49d;
 }
 
-/* Interaction toggle. Off = click-through (the default), on = the HUD accepts
-   mouse input. Kept visually quiet when off so it reads as a status, not a call
-   to action. */
+/* Interaction toggle: off means click-through (the default), on means the HUD
+   accepts mouse input. Quiet when off so it reads as status, not a call to action. */
 .ov-btn-pin.is-on {
   background: var(--ov-accent-dim);
   color: var(--ov-accent);
@@ -198,8 +194,6 @@ body {
   background: rgb(88 182 240 / 0.24);
   color: var(--ov-accent);
 }
-
-/* ── Body ─────────────────────────────────────────────────────────────── */
 
 .ov-body {
   flex: 1 1 auto;
@@ -252,8 +246,6 @@ body {
   color: var(--ov-fg-2);
   font-weight: 600;
 }
-
-/* ── Active line ──────────────────────────────────────────────────────── */
 
 .ov-active {
   flex-shrink: 0;
@@ -324,7 +316,7 @@ body {
   fill: var(--ov-star);
 }
 
-/* The translation is the reason the overlay exists — give it the weight. */
+/* The translation is the reason the overlay exists: give it the weight. */
 .ov-trans {
   font-size: 15px;
   font-weight: 600;

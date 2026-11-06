@@ -6,21 +6,21 @@ type StepId = 'dashboard' | 'create' | 'open-import' | 'import-sample' | 'select
 type TutorialStep = { id: StepId; title: string; text: string; target?: string; audio?: string };
 
 const STEPS: TutorialStep[] = [
-  { id: 'dashboard', title: 'Mulai dari dashboard', text: 'Tekan tombol Dashboard untuk kembali ke halaman proyek. Setelah itu kita akan membuat proyek latihan baru.', target: '#btnBackToDashboard', audio: '01-project.mp3' },
-  { id: 'create', title: 'Buat proyek latihan', text: 'Klik Buat Project dan beri nama “Latihan Tutorial”. Proyek ini akan menjadi tempat aman untuk mencoba alur kerja.', target: '#btnNewProject', audio: '01-project.mp3' },
-  { id: 'open-import', title: 'Buka menu Impor', text: 'Sekarang praktikkan cara memasukkan sumber. Klik menu Impor di toolbar proyek.', target: '#btnDropdownImport', audio: '02-import.mp3' },
-  { id: 'import-sample', title: 'Impor contoh latihan', text: 'Pilih Impor Contoh Latihan di menu. Ini menjalankan alur impor JSON biasa dengan satu dialog contoh, tanpa perlu mencari berkas di perangkat.', target: '#btnTutorialSampleImport', audio: '02-import.mp3' },
+  { id: 'dashboard', title: 'Mulai dari dashboard', text: 'Tekan tombol Dashboard untuk kembali ke halaman proyek. Lalu kita buat proyek latihan baru.', target: '#btnBackToDashboard', audio: '01-project.mp3' },
+  { id: 'create', title: 'Buat proyek latihan', text: 'Klik Buat Project dan beri nama “Latihan Tutorial”. Proyek ini jadi tempat aman untuk mencoba alur kerja.', target: '#btnNewProject', audio: '01-project.mp3' },
+  { id: 'open-import', title: 'Buka menu Impor', text: 'Klik menu Impor di toolbar proyek untuk memasukkan sumber.', target: '#btnDropdownImport', audio: '02-import.mp3' },
+  { id: 'import-sample', title: 'Impor contoh latihan', text: 'Pilih Impor Contoh Latihan. Ini menjalankan alur impor JSON biasa dengan satu dialog contoh, tanpa perlu mencari berkas di perangkat.', target: '#btnTutorialSampleImport', audio: '02-import.mp3' },
   { id: 'select-line', title: 'Pilih baris', text: 'Klik kotak centang di samping baris contoh. Tombol Copy akan aktif setelah baris dipilih.', target: '.preview-row:not(.separator) input[type="checkbox"]', audio: '03-select.mp3' },
-  { id: 'copy-prompt', title: 'Salin prompt', text: 'Klik Copy. Prompt dan teks sumber sekarang masuk ke clipboard, sama seperti saat kamu menyiapkan permintaan untuk AI.', target: '#btnCopyForAi', audio: '04-copy.mp3' },
-  { id: 'copy-answer', title: 'Siapkan jawaban AI', text: 'Dalam praktik ini kita tidak perlu berpindah ke layanan AI. Klik Salin Jawaban Contoh untuk menaruh hasil contoh di clipboard, seperti menyalin balasan AI.', audio: '05-paste.mp3' },
-  { id: 'paste-answer', title: 'Tempel sendiri hasilnya', text: 'Klik kotak terjemahan lalu tekan Ctrl+V (atau tempel dari menu). Tutorial menunggu sampai teks contoh benar-benar masuk ke kotak.', target: '#pasteArea', audio: '05-paste.mp3' },
+  { id: 'copy-prompt', title: 'Salin prompt', text: 'Klik Copy. Prompt dan teks sumber masuk ke clipboard, sama seperti saat menyiapkan permintaan untuk AI.', target: '#btnCopyForAi', audio: '04-copy.mp3' },
+  { id: 'copy-answer', title: 'Siapkan jawaban AI', text: 'Tidak perlu berpindah ke layanan AI. Klik Salin Jawaban Contoh untuk menaruh hasil contoh di clipboard, seperti menyalin balasan AI.', audio: '05-paste.mp3' },
+  { id: 'paste-answer', title: 'Tempel sendiri hasilnya', text: 'Klik kotak terjemahan lalu tekan Ctrl+V (atau tempel dari menu). Tutorial menunggu sampai teks contoh masuk ke kotak.', target: '#pasteArea', audio: '05-paste.mp3' },
   { id: 'apply-answer', title: 'Terapkan terjemahan', text: 'Klik Terapkan. CopasTool akan mencocokkan nomor baris hasil dengan sumber dan memperbarui terjemahannya.', target: '#btnApply', audio: '06-apply.mp3' },
-  { id: 'open-settings', title: 'Buka pengaturan proyek', text: 'Klik Pengaturan Proyek. Kita akan melihat tab umum dan mencoba mengubah prompt untuk proyek latihan.', target: '#btnSettingsGeneral', audio: '08-settings.mp3' },
+  { id: 'open-settings', title: 'Buka pengaturan proyek', text: 'Klik Pengaturan Proyek. Kita lihat tab umum dan coba mengubah prompt proyek latihan.', target: '#btnSettingsGeneral', audio: '08-settings.mp3' },
   { id: 'general-settings', title: 'Kenali pengaturan umum', text: 'Klik tab Umum. Di sini kamu dapat memeriksa bahasa sumber dan tujuan, tampilan, konteks, serta pemeriksaan kualitas.', target: '#btnTabSettingsGeneral', audio: '08-settings.mp3' },
   { id: 'prompt-settings', title: 'Buka pengaturan prompt', text: 'Klik tab Prompt untuk melihat instruksi yang disalin bersama teks sumber.', target: '#btnTabSettingsPrompts', audio: '07-prompt.mp3' },
   { id: 'edit-prompt', title: 'Coba ubah prompt', text: 'Klik kotak prompt dan tambahkan satu petunjuk singkat, misalnya “Gunakan bahasa Indonesia yang alami.” Perubahan teks akan membuka langkah berikutnya.', target: '#settingsPromptInput', audio: '07-prompt.mp3' },
   { id: 'save-settings', title: 'Simpan perubahan', text: 'Klik Simpan Pengaturan untuk menyimpan prompt pada proyek latihan.', target: '#btnSettingsSave', audio: '08-settings.mp3' },
-  { id: 'finish', title: 'Latihan selesai!', text: 'Kamu sudah mempraktikkan membuat proyek, impor, memilih baris, copy prompt, paste manual, menerapkan hasil, dan mengubah prompt. Proyek Latihan Tutorial tersimpan di dashboard. Tekan ✦ Tutorial untuk mengulang latihan.' , audio: '09-done.mp3' },
+  { id: 'finish', title: 'Latihan selesai', text: 'Kamu sudah mempraktikkan membuat proyek, impor, memilih baris, copy prompt, paste manual, menerapkan hasil, dan mengubah prompt. Proyek Latihan Tutorial tersimpan di dashboard. Tekan ✦ Tutorial untuk mengulang.' , audio: '09-done.mp3' },
 ];
 
 const STORAGE_KEY = 'copastool-tutorial-v3-completed';
@@ -101,8 +101,8 @@ function drawArrow(): void {
 function renderStep(): void {
   const step = STEPS[stepIndex];
   const overlay = document.getElementById('tutorialOverlay')!;
-  // Reveal the practice menu item before resolving the step target. Otherwise
-  // findVisibleTarget sees display:none and the arrow/spotlight have no target.
+  // Reveal the practice menu item first; while display:none, findVisibleTarget
+  // misses it and the arrow/spotlight have no target.
   const sampleImport = document.getElementById('btnTutorialSampleImport') as HTMLButtonElement | null;
   if (sampleImport) sampleImport.style.display = step.id === 'import-sample' ? 'flex' : 'none';
   if (lastTarget) lastTarget.classList.remove('tutorial-target');

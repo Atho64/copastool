@@ -1,4 +1,4 @@
-// @module auto-translate.ts — API Integration for Automated AI Translation
+// Automated AI translation pipeline (auto translate, glossary, AI check).
 
 import * as CopasUiModule from './auto-copas/ui';
 import * as RenderModule from './render';
@@ -175,8 +175,6 @@ export function onOpenApiSettings(): void {
   if (ui.apiSettingsModal) openModal(ui.apiSettingsModal as HTMLElement);
 }
 
-// ─── API Profiles Management ──────────────────────────────────────────────────
-
 const PROFILES_STORAGE_KEY = 'cstl_api_profiles';
 
 export type ApiProfileData = {
@@ -314,7 +312,7 @@ export function onSaveProfile(): void {
   renderProfileSelect();
   if (select) select.value = name;
   updateProfileButtonsState();
-  flashHint(`Profil "${name}" berhasil disimpan.`);
+  flashHint(`Profil "${name}" disimpan.`);
 }
 
 export function onDeleteProfile(): void {
@@ -326,10 +324,8 @@ export function onDeleteProfile(): void {
   saveProfiles(profiles);
   renderProfileSelect();
   updateProfileButtonsState();
-  flashHint(`Profil "${name}" telah dihapus.`);
+  flashHint(`Profil "${name}" dihapus.`);
 }
-
-// ─── Model Fetcher ────────────────────────────────────────────────────────────
 
 function appendQueryParams(rawUrl: string, values: Record<string, string>, overwrite = false): string {
   const hashIndex = rawUrl.indexOf('#');
@@ -383,7 +379,7 @@ export async function onFetchModels(): Promise<void> {
         .filter(Boolean)
         .sort();
     } else {
-      // OpenAI + Anthropic-compatible gateways usually expose GET /v1/models
+      // OpenAI and Anthropic-compatible gateways usually expose GET /v1/models.
       let url = apiUrl || 'https://api.openai.com/v1/models';
       url = url.replace(/\/chat\/completions\/?$/, '');
       url = url.replace(/\/messages\/?$/, '');
@@ -417,7 +413,6 @@ export async function onFetchModels(): Promise<void> {
       return;
     }
 
-    // Populate the select dropdown
     select.textContent = '';
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
@@ -431,11 +426,9 @@ export async function onFetchModels(): Promise<void> {
       select.appendChild(opt);
     }
 
-    // Show dropdown, hide text input
     select.style.display = '';
     modelInput.style.display = 'none';
 
-    // Sync selected model back to the text input
     select.onchange = () => {
       modelInput.value = select.value;
     };
@@ -558,9 +551,8 @@ export async function onAutoTranslate(): Promise<void> {
 
   if (isAutoTranslating) {
     isAutoTranslating = false;
-    // Flag only stops the *next* request. Abort whatever is in flight right now,
-    // otherwise a slow or hung request keeps running (and burning quota) after
-    // the user pressed Stop.
+    // The flag only stops the *next* request, so abort what is in flight: a hung
+    // request would keep running (and burning quota) after Stop.
     const aborted = abortActiveRequests();
     flashHint(aborted > 0 ? 'Auto Translate dihentikan (request dibatalkan).' : 'Auto Translate dihentikan.');
     btn.textContent = 'Menghentikan...';
@@ -570,7 +562,7 @@ export async function onAutoTranslate(): Promise<void> {
   }
 
   if (!state.aiApiKey) {
-    alert('API Key belum diisi! Klik tombol robot di pojok kanan bawah untuk mengatur.');
+    alert('API Key belum diisi. Klik tombol robot di pojok kanan bawah untuk mengatur.');
     onOpenApiSettings();
     return;
   }
@@ -595,25 +587,20 @@ export async function onAutoTranslate(): Promise<void> {
 
   try {
     while (isAutoTranslating) {
-      // Find untranslated lines from top
       const untranslatedLines = targetLines.filter(l => !isTranslated(l) && !l._hidden);
       if (untranslatedLines.length === 0) {
       flashHint('Auto Translate selesai.');
-        alert('Selesai! Semua baris target telah diterjemahkan.');
+        alert('Semua baris target sudah diterjemahkan.');
         break;
       }
 
-      // Take batch size from settings
       const batchSize = state.selectionBatchSize || 100;
       const batch = untranslatedLines.slice(0, batchSize);
 
-      // Select them in UI
       state.selectedLines.clear();
       for (const l of batch) {
         state.selectedLines.add(l.line_num);
       }
-      
-      // Update UI selection
       Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
       Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batch[0].line_num));
 
@@ -651,9 +638,9 @@ export async function onAutoTranslate(): Promise<void> {
 
         const joinedText = buildSelectedTranslationExport(false);
         const glossaryBlock = getGlossaryPrompt(joinedText);
-        // The prompt header says "return exactly {{lineCount}} lines"; without this
-        // it interpolates the *last manual Copy for AI* count (or 0 in a fresh
-        // session), so the model was told the wrong batch size.
+        // The header says "return exactly {{lineCount}} lines"; without this it
+        // interpolates the last manual Copy for AI count, so the model was told
+        // the wrong batch size.
         state._lastExportedLineCount = sel.length;
         const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
@@ -698,17 +685,15 @@ export async function onAutoTranslate(): Promise<void> {
             if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
             repeatAttempt++;
             const waitMs = getRepeatDelayMs();
-            btn.textContent = `Gagal: ${msg.slice(0, 80)} — coba lagi ke-${repeatAttempt} dalam ${Math.round(waitMs / 1000)}s... (Klik Stop)`;
+            btn.textContent = `Gagal: ${msg.slice(0, 80)}. Coba lagi ke-${repeatAttempt} dalam ${Math.round(waitMs / 1000)}s... (Klik Stop)`;
             await delay(waitMs, () => !isAutoTranslating);
             if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
           }
         }
 
-        // RPM pacing is enforced by the shared limiter in ai-client (request
-        // starts are spaced by 60000/RPM); no extra sleep here — it would stack
-        // with the limiter's interval and double every wait.
+        // RPM pacing comes from the shared limiter in ai-client (request starts are
+        // spaced by 60000/RPM). An extra sleep here would double every wait.
       } else {
-        // Parallel mode: split batch into sub-batches and send concurrently
         const subBatchSize = Math.ceil(sel.length / parallelSize);
         const subBatches: typeof sel[] = [];
         for (let i = 0; i < sel.length; i += subBatchSize) {
@@ -721,8 +706,8 @@ export async function onAutoTranslate(): Promise<void> {
 
         const buildSubPrompt = (subBatch: typeof sel): string => {
           const subText = buildSelectedTranslationExport(false, new Set(subBatch.map(l => l.line_num)));
-          // Each sub-batch is its own request, so the header must describe that
-          // sub-batch's line count rather than the whole run's.
+          // Each sub-batch is its own request, so the header describes that
+          // sub-batch's line count, not the whole run's.
           state._lastExportedLineCount = subBatch.length;
           const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
@@ -809,12 +794,11 @@ export async function onAutoTranslate(): Promise<void> {
           if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
           parallelRepeatAttempt++;
           const waitMs = getRepeatDelayMs();
-          btn.textContent = `Paralel gagal: ${lastErr.slice(0, 60)} — coba lagi ke-${parallelRepeatAttempt} dalam ${Math.round(waitMs / 1000)}s... (Klik Stop)`;
+          btn.textContent = `Paralel gagal: ${lastErr.slice(0, 60)}. Coba lagi ke-${parallelRepeatAttempt} dalam ${Math.round(waitMs / 1000)}s... (Klik Stop)`;
           await delay(waitMs, () => !isAutoTranslating);
           if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
         }
 
-        // RPM pacing handled by the shared limiter in ai-client (see above).
       }
     }
   } catch (err: any) {
@@ -832,17 +816,15 @@ export async function onAutoTranslate(): Promise<void> {
 
 export type { ApiConfig } from './ai-client';
 
-// Key parsing, the retry policy and thinking-tag stripping moved to ai-client.ts so
-// this pipeline and the agent share ONE implementation instead of drifting copies.
-// Re-exported here for callers that still import them from this module.
+// Key parsing, retry policy and thinking-tag stripping live in ai-client.ts so this
+// pipeline and the agent share one implementation. Re-exported for existing importers.
 export { parseBackupKeys, shuffleArray, shouldTryNextKey, stripThinkingTags } from './ai-client';
 
 export async function fetchApiResult(prompt: string, opts: { rateLimited?: boolean } = {}): Promise<string> {
   try {
     return await chatCompletionText(prompt, {
       // Automated pipelines go through the shared RPM limiter so parallel
-      // sub-batches also respect the configured request rate. Interactive
-      // callers (dictionary popup) pass rateLimited: false.
+      // sub-batches respect the request rate. Interactive callers pass false.
       rateLimited: opts.rateLimited !== false,
       log: (title, detail) => appendProjectLog(title, detail),
       onDelta: (_delta, fullText) => updateStreamingLog(fullText),
@@ -871,14 +853,14 @@ export async function onAutoGlossary(): Promise<void> {
   }
 
   if (!state.aiApiKey) {
-    alert('API Key belum diisi! Klik tombol robot di pojok kanan bawah untuk mengatur.');
+    alert('API Key belum diisi. Klik tombol robot di pojok kanan bawah untuk mengatur.');
     onOpenApiSettings();
     return;
   }
 
   const targetLines = getDisplayOrderedLines().filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l));
   if (targetLines.length === 0) {
-    alert('Selesai! Semua baris telah diekstrak glossary-nya.');
+    alert('Semua baris sudah diekstrak glossary-nya.');
     return;
   }
 
@@ -891,7 +873,7 @@ export async function onAutoGlossary(): Promise<void> {
       const untranslatedLines = getDisplayOrderedLines().filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l));
       if (untranslatedLines.length === 0) {
       flashHint('Auto Glossary selesai.');
-        alert('Selesai! Semua baris telah diekstrak glossary-nya.');
+        alert('Semua baris sudah diekstrak glossary-nya.');
         break;
       }
 
@@ -932,7 +914,6 @@ export async function onAutoGlossary(): Promise<void> {
 
       for (const l of batchLines) l._glossary_extracted = true;
 
-      // RPM pacing handled by the shared limiter in ai-client.
     }
   } catch (err: any) {
     if (isAutoGlossary) {
@@ -966,19 +947,19 @@ export async function onAutoAiCheck(): Promise<void> {
   }
 
   if (!state.aiApiKey) {
-    alert('API Key belum diisi! Klik tombol robot di pojok kanan bawah untuk mengatur.');
+    alert('API Key belum diisi. Klik tombol robot di pojok kanan bawah untuk mengatur.');
     onOpenApiSettings();
     return;
   }
 
-  // Skip confirmed lines and QC-flagged lines (if QC results exist)
+  // Skip confirmed lines and QC-flagged lines when QC results exist.
   const targetLines = getDisplayOrderedLines().filter(l => isTranslated(l) && !l._ai_checked && !l._ai_confirmed && !l._hidden);
   if (targetLines.length === 0) {
-    alert('Selesai! Semua baris terjemahan telah di-cek AI.');
+    alert('Semua baris terjemahan sudah dicek AI.');
     return;
   }
 
-  // Check if review mode is enabled (per-project setting, see Settings → Prompt AI Check)
+  // Per-project setting, see Settings > Prompt AI Check.
   const reviewMode = state.aiCheckReviewMode === true;
 
   isAutoAiCheck = true;
@@ -990,10 +971,9 @@ export async function onAutoAiCheck(): Promise<void> {
     while (isAutoAiCheck) {
       const uncheckedLines = getDisplayOrderedLines().filter(l => isTranslated(l) && !l._ai_checked && !l._ai_confirmed && !l._hidden);
       if (uncheckedLines.length === 0) {
-        // Show summary
       flashHint('Auto AI Check selesai.');
         const catSummary = Array.from(autoAiCheckStats.byCategory.entries()).map(([k, v]) => `${k}: ${v}`).join(', ');
-        alert(`Selesai! AI Check selesai.\n\nTotal dicek: ${autoAiCheckStats.totalChecked}\nKoreksi ditemukan: ${autoAiCheckStats.totalCorrections}\nKoreksi diterapkan: ${autoAiCheckStats.totalApplied}${catSummary ? `\n\nKategori: ${catSummary}` : ''}`);
+        alert(`AI Check selesai.\n\nTotal dicek: ${autoAiCheckStats.totalChecked}\nKoreksi ditemukan: ${autoAiCheckStats.totalCorrections}\nKoreksi diterapkan: ${autoAiCheckStats.totalApplied}${catSummary ? `\n\nKategori: ${catSummary}` : ''}`);
         break;
       }
 
@@ -1009,15 +989,14 @@ export async function onAutoAiCheck(): Promise<void> {
 
       btn.textContent = `Cek Batch (${batchLines.length} baris)... (Klik Stop)`;
 
-      // One undo must cover every mutation of this batch — local lint fixes,
-      // both Deep Check passes, the corrections and the checked flags — so the
-      // snapshot is taken before anything writes to these lines.
-      // Snapshot only this batch's lines — O(batch) instead of O(project).
+      // One undo must cover every mutation of this batch (lint fixes, both Deep
+      // Check passes, corrections, checked flags), so snapshot before any write.
+      // Scoped to the batch: O(batch) instead of O(project).
       const { pushUndoSnapshot } = await Promise.resolve(RenderModule);
       pushUndoSnapshot(true, batchLines.map(l => l.line_num));
 
-      // Local lint pass (deterministic, no AI): auto-fixable findings are
-      // applied directly, the rest become prompt hints for this batch.
+      // Local lint pass (deterministic, no AI): auto-fixable findings apply
+      // directly, the rest become prompt hints for this batch.
       const { lintTranslatedLines, buildLintHintBlock } = await Promise.resolve(AiCheckLinterModule);
       const findings = lintTranslatedLines(batchLines);
       let autoFixed = 0;
@@ -1041,9 +1020,8 @@ export async function onAutoAiCheck(): Promise<void> {
       }
       const lintBlock = buildLintHintBlock(findings);
 
-      // Deep Check mode: two specialized passes (accuracy → naturalness).
-      // Pass 1 (accuracy): high-confidence corrections apply immediately (same
-      // tiered gate); the rest is kept and merged with pass 2 results below.
+      // Deep Check mode: two passes, accuracy then naturalness. Pass 1 applies
+      // high-confidence corrections; the rest merges with pass 2 results below.
       const { buildAiCheckPrompt } = await import('./ai-check');
       const { DEFAULT_AI_CHECK_ACCURACY_PROMPT, DEFAULT_AI_CHECK_NATURALNESS_PROMPT } = await import('./constants');
       let rawResult = '';
@@ -1057,12 +1035,11 @@ export async function onAutoAiCheck(): Promise<void> {
           (ui.pasteAiCheckArea as HTMLTextAreaElement).value = accRaw;
           const { onParseAiCheck: parsePass, onApplyAiCheckCorrections: applyPass } = await import('./ai-check');
           if (parsePass(new Set(batchLines.map(l => l.line_num)), { silent: true })) {
-            // Keep the full pass-1 result: `applyPass` filters
-            // state.aiCheckCorrections down to the applied subset, so the
-            // leftover queue must be derived from this snapshot instead.
+            // `applyPass` filters state.aiCheckCorrections down to the applied
+            // subset, so the leftover queue must come from this snapshot.
             const pass1All = state.aiCheckCorrections;
-            // Review mode is absolute: nothing auto-applies, everything is
-            // queued for manual review (same contract as the main tiered gate).
+            // Review mode is absolute: nothing auto-applies, everything queues
+            // for manual review (same contract as the main tiered gate).
             const applyable = (state.aiCheckAutoApplyHigh !== false && !state.aiCheckReviewMode)
               ? pass1All.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
               : [];
@@ -1074,13 +1051,13 @@ export async function onAutoAiCheck(): Promise<void> {
                 autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
               }
             }
-            // Non-applied pass-1 corrections merge into the pass-2 review queue
-            // (dedup by line number — pass 2 wins, it sees the freshest text).
+            // Non-applied pass-1 corrections merge into the pass-2 review queue,
+            // deduped by line number (pass 2 wins, it sees the freshest text).
             deepPass1Queue = pass1All.filter(c => !applyable.includes(c));
             state.aiCheckCorrections = [];
           }
         }
-        // Pass 2: naturalness specialist on the (possibly corrected) text.
+        // Pass 2: naturalness specialist on the possibly corrected text.
         const natPrompt = buildAiCheckPrompt(batchLines, { basePrompt: DEFAULT_AI_CHECK_NATURALNESS_PROMPT, deepPassFormat: true, lintBlock });
         rawResult = await fetchWithRetry(() => fetchApiResult(natPrompt), (retry) => {
           btn.textContent = `${formatRetryLabel(retry)} (naturalness)... (Klik Stop)`;
@@ -1104,8 +1081,8 @@ export async function onAutoAiCheck(): Promise<void> {
         isAutoAiCheck = false;
         break;
       }
-      // Deep Check: merge pass-1 leftovers into the pass-2 results (pass 2 wins
-      // on duplicate line numbers since it reviewed the freshest text).
+      // Merge pass-1 leftovers into the pass-2 results; pass 2 wins on duplicate
+      // line numbers since it reviewed the freshest text.
       if (deepPass1Queue.length) {
         const pass2Nums = new Set(state.aiCheckCorrections.map(c => c.num));
         const pass1Leftover = deepPass1Queue.filter(c => !pass2Nums.has(c.num));
@@ -1116,14 +1093,10 @@ export async function onAutoAiCheck(): Promise<void> {
 
       if (!isAutoAiCheck) break;
 
-      // Tiered auto-apply:
-      // - aiCheckAutoApplyHigh ON (default): high-confidence corrections without
-      //   review flags apply immediately; the rest goes to review.
-      // - aiCheckAutoApplyHigh OFF ("high tetap manual"): NOTHING auto-applies —
-      //   every correction (high included) must pass manual review.
-      // - reviewMode ON: pause every batch that still has unapplied corrections.
-      // - reviewMode OFF + autoApplyHigh ON: medium/low stay queued in the AI
-      //   Check tab for manual inspection without pausing the loop.
+      // Tiered auto-apply: with aiCheckAutoApplyHigh ON (default) high-confidence
+      // corrections without review flags apply immediately; with it OFF nothing
+      // auto-applies. reviewMode pauses any batch that still has unapplied
+      // corrections; otherwise medium/low stay queued in the AI Check tab.
       const autoApplyHigh = state.aiCheckAutoApplyHigh !== false && !reviewMode;
       const autoApplyable = autoApplyHigh
         ? state.aiCheckCorrections.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)
@@ -1141,7 +1114,7 @@ export async function onAutoAiCheck(): Promise<void> {
 
       const shouldPauseReview = restCorrections.length > 0 && (reviewMode || !autoApplyHigh);
       if (shouldPauseReview) {
-        // Pause for review — show remaining corrections, wait for apply or skip.
+        // Pause for review: show remaining corrections, wait for apply or skip.
         state.aiCheckCorrections = restCorrections;
         renderAiCheckCorrections();
         btn.textContent = `Review ${restCorrections.length} koreksi... (Klik Stop untuk batalkan)`;
@@ -1160,7 +1133,7 @@ export async function onAutoAiCheck(): Promise<void> {
             autoAiCheckStats.byCategory.set(cat, (autoAiCheckStats.byCategory.get(cat) || 0) + count);
           }
         } else if (reviewResult === 'skip') {
-          // Skipped corrections count as rejections — remember them.
+          // Skipped corrections count as rejections, so remember them.
           const remaining = state.aiCheckCorrections.filter(c => !c.checked);
           if (remaining.length) {
             const { recordAiCheckRejections } = await import('./ai-check');
@@ -1171,8 +1144,7 @@ export async function onAutoAiCheck(): Promise<void> {
         btn.classList.remove('btn-success');
         btn.classList.add('btn-danger');
       } else {
-        // No review pause: medium/low corrections stay queued in the AI Check
-        // tab for manual inspection.
+        // No review pause: medium/low corrections stay queued in the AI Check tab.
         state.aiCheckCorrections = restCorrections;
         if (restCorrections.length) {
           Promise.resolve(RenderModule).then(m => m.updateButtonStates()).catch(() => {});
@@ -1181,8 +1153,6 @@ export async function onAutoAiCheck(): Promise<void> {
 
       for (const l of batchLines) l._ai_checked = true;
       autoAiCheckStats.totalChecked += batchLines.length;
-
-      // RPM pacing handled by the shared limiter in ai-client.
     }
     if (isAutoAiCheck) {
       flashHint('Auto AI Check selesai.');
@@ -1206,14 +1176,12 @@ export async function onAutoAiCheck(): Promise<void> {
   }
 }
 
-// ─── Review mode helpers ───────────────────────────────────────────────────────
-
 let reviewResolve: ((value: string) => void) | null = null;
 
 function waitForReviewAction(): Promise<string> {
   return new Promise((resolve) => {
     reviewResolve = resolve;
-    // Auto-resolve after 5 minutes (timeout safety)
+    // Auto-resolve after 5 minutes so a forgotten review cannot hang the loop.
     setTimeout(() => {
       if (reviewResolve === resolve) {
         reviewResolve = null;
@@ -1242,7 +1210,7 @@ async function fetchWithRetry(runAttempt: () => Promise<string>, onRetry: (retry
       return await runAttempt();
     } catch (err: any) {
       // `emptyResponse` comes from ai-client when a request completed but
-      // carried no text — some gateways do this intermittently, so retry.
+      // carried no text; some gateways do this intermittently, so retry.
       const retryable = err?.retryable || err?.emptyResponse;
       if (retryable) {
         attempt++;

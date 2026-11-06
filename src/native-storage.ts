@@ -1,5 +1,5 @@
-// @module native-storage.ts — Native filesystem storage for Tauri (Windows & Android)
-// Bypasses browser localStorage / OPFS quota limits entirely when running in Tauri
+// @module native-storage.ts: native filesystem storage for Tauri (Windows and
+// Android), bypassing localStorage / OPFS quota limits.
 
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && (
@@ -25,7 +25,7 @@ async function getInvoke() {
 }
 
 // Binary travels over IPC as base64 (see native_save_file / native_read_file in
-// lib.rs). Chunked encode avoids blowing the argument cap on multi-MB payloads.
+// lib.rs); chunked encode avoids the argument cap on multi-MB payloads.
 const B64_CHUNK = 0x8000;
 
 function u8ToBase64(u8: Uint8Array): string {
@@ -80,7 +80,7 @@ export class TauriFileHandle {
       try {
         const textContent: string = await invoke('native_read_file_text', { name: this.path });
         const f = new File([textContent], this.name, { type: 'application/json' });
-        // Override text() to return the already retrieved string immediately
+        // Reuse the fetched string instead of re-reading the file.
         f.text = async () => textContent;
         return f;
       } catch (err: any) {

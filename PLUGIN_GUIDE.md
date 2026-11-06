@@ -1,26 +1,25 @@
-# CSTL Plugin & Parser Development Guide (Official Reference)
+# CSTL plugin & parser development guide (official reference)
 
-> 📖 **Panduan Resmi Pembuatan Plugin & Custom Parser CSTL (Copas Tool)**
-> Dokumen ini dirancang sebagai referensi tunggal dan lengkap, baik untuk developer manusia maupun **AI Assistant (ChatGPT, Claude, Gemini, Cursor, dll.)** untuk membuat plugin format game visual novel, tema tampilan, utilitas, atau parser skrip tunggal yang langsung berfungsi.
+> **Panduan resmi pembuatan plugin & custom parser CSTL (Copas Tool)**
 
-> ✅ **Diperbarui 2 Oktober 2026** — disinkronkan dengan `src/plugins.ts`, `src/plugin-types.ts`, dan `src/plugin-host-bridge.ts`. Versi Host API: **1**.
+> **Diperbarui 2 Oktober 2026**, disinkronkan dengan `src/plugins.ts`, `src/plugin-types.ts`, dan `src/plugin-host-bridge.ts`. Versi Host API: **1**.
 
 ---
 
-## 🤖 Prompt Template untuk AI (Copy-Paste ke ChatGPT / Claude / Gemini)
+## Prompt template untuk AI (copy-paste ke ChatGPT / Claude / Gemini)
 
 Cara pakai: **Lampirkan file contoh** (atau tempel potongan isinya), isi bagian referensi bila ada, dan minta AI membaca panduan ini. Jawaban yang diharapkan berupa kode paket plugin atau parser siap pakai lengkap dengan simulasi uji coba.
 
-Panduan lengkap: **https://github.com/Atho64/cstl** — `PLUGIN_GUIDE.md` di root repo.
+Panduan lengkap: **https://github.com/Atho64/cstl**, `PLUGIN_GUIDE.md` di root repo.
 
 ---
 
-### 1. Prompt Template: Paket Plugin Modern (`.zip` / `manifest.json` + `plugin.js`)
+### 1. Prompt template: paket plugin modern (`.zip` / `manifest.json` + `plugin.js`)
 
 ```text
 Buatkan paket Plugin CSTL (Copas Tool) untuk format file naskah visual novel di bawah ini.
 
-REFERENSI WAJIB — baca dulu panduannya:
+REFERENSI WAJIB, baca dulu panduannya:
 PLUGIN_GUIDE.md dari repo https://github.com/Atho64/cstl
 (Patuhi seluruh spesifikasi manifest.json, daftar permissions, dan siklus hidup CommonJS module.exports.)
 
@@ -29,20 +28,20 @@ INPUT DARI SAYA:
 2. Ekstensi/Magic: <misal: .dat, .bin, .ks, atau signature byte biner>
 3. Tool referensi: <link repo / tool parser serupa jika ada, boleh kosong>
 4. File pendamping (key.bin / tabel karakter / font.dat, jika butuh): <lampirkan file aslinya>
-5. Catatan khusus: <opsional — misal: "dialog bisa multi-baris word-wrap", "file biner Shift-JIS">
+5. Catatan khusus: <opsional, misal: "dialog bisa multi-baris word-wrap", "file biner Shift-JIS">
 
 OUTPUT YANG SAYA BUTUHKAN:
 1. File "manifest.json" lengkap dan valid (manifest_version: 1, api: 1, id, permissions, extensions/magic, settings).
 2. File "plugin.js" menggunakan modul CommonJS murni (module.exports = { ... }), BUKAN export default.
 3. Penjelasan singkat struktur file (header, offset table, string table, encoding) dan hasil simulasi round-trip.
 
-SYARAT FITUR PLUGIN — WAJIB TERPENUHI:
+SYARAT FITUR PLUGIN, WAJIB TERPENUHI:
 - Sandbox & Modul: Gunakan module.exports = { async init, async extract, async pack, ... }. Jangan gunakan import/export ESM.
 - Ekstraksi (extract):
   • Input: { fileName, buffer, settings, globalSettings, sharedSettings, api }
   • Gunakan api.decode(buffer, ['shift_jis', 'cp932', 'utf-8']) untuk membaca teks biner.
   • Return: { lines: [{ file, name, message, raw, index }] }
-  • Field "message" WAJIB berisi teks dialog dan TIDAK BOLEH kosong — baris tanpa message akan
+  • Field "message" WAJIB berisi teks dialog dan TIDAK BOLEH kosong: baris tanpa message akan
     dibuang oleh host. (Alias yang juga diterima: original, original_text, text.)
   • Simpan baris mentah utuh di "raw" dan offset byte / nomor indeks di "index" sebagai anchor patch.
 - Pengemasan (pack):
@@ -58,15 +57,15 @@ SYARAT FITUR PLUGIN — WAJIB TERPENUHI:
 - Error Handling:
   • Berikan pesan error yang jelas jika file corrupt atau signature byte tidak cocok.
 
-ROUND-TRIP TEST & SELF-CHECK — lakukan SIMULASI mental pada 2 baris contoh sebelum menjawab, dan tuliskan hasilnya setelah kode:
+ROUND-TRIP TEST & SELF-CHECK: lakukan SIMULASI mental pada 2 baris contoh sebelum menjawab, dan tuliskan hasilnya setelah kode:
 1. extract(): Tampilkan entri baris hasil ekstraksi.
 2. translate: Anggap translation = "Halo, selamat pagi!" dan trans_name (bila ada).
-3. pack()   : Tampilkan baris hasil akhir karakter-per-karakter — pastikan tidak ada byte/tag lain yang rusak atau bergeser.
+3. pack()   : Tampilkan baris hasil akhir karakter-per-karakter, pastikan tidak ada byte/tag lain yang rusak atau bergeser.
 ```
 
 ---
 
-### 2. Prompt Template: Custom Parser Skrip Tunggal (JavaScript / Python)
+### 2. Prompt template: custom parser skrip tunggal (JavaScript / Python)
 
 Gunakan template ini jika ingin membuat parser skrip untuk editor **Custom Parser** CSTL:
 
@@ -79,17 +78,17 @@ PLUGIN_GUIDE.md dari repo https://github.com/Atho64/cstl
 INPUT DARI SAYA:
 1. File contoh   : <lampirkan file asli, atau tempel 10–30 baris pertamanya verbatim>
 2. Bahasa script : <"js" (default Web Worker) atau "python" (Pyodide)>
-3. Catatan khusus: <opsional — misal: "format Nama: dialog">
+3. Catatan khusus: <opsional, misal: "format Nama: dialog">
 
 OUTPUT YANG SAYA BUTUHKAN:
 Kode fungsi parse(ctx) dan serialize(ctx) yang siap ditempel ke editor Custom Parser CSTL.
 
 KONTRAK PARSER:
-1. parse(ctx) — Impor:
+1. parse(ctx), impor:
    • ctx: { fileName, text, bytes, startLineNum, options, assets, progress }
-   • Return: array of { name, message, raw, index } — message wajib dan tidak boleh kosong.
+   • Return: array of { name, message, raw, index }, message wajib dan tidak boleh kosong.
    • Lewati baris komentar / dekorasi (cukup jangan dimasukkan ke array).
-2. serialize(ctx) — Ekspor round-trip:
+2. serialize(ctx), ekspor round-trip:
    • ctx: { fileName, text, bytes, lines, options, assets }
    • lines: array of { name, message, trans_name, trans_message, is_translated, raw, index }
    • Gunakan trans_message jika is_translated true, atau fallback ke message asli.
@@ -99,7 +98,7 @@ KONTRAK PARSER:
 
 ---
 
-## 1. Arsitektur Berkas Paket Plugin (`.zip`)
+## 1. Arsitektur berkas paket plugin (`.zip`)
 
 Plugin CSTL didistribusikan dalam format arsip `.zip` standar:
 
@@ -118,7 +117,6 @@ nama-plugin.zip
 ### Cara plugin dimuat
 
 Kode `plugin.js` dibungkus dan dijalankan dengan `new Function('module', 'exports', 'CSTL', 'document', 'window', code)`.
-Artinya di dalam `plugin.js` tersedia: `module`, `exports`, `CSTL`, `document`, `window`.
 
 > ⚠️ Meski `document` dan `window` tersedia, **jangan memanipulasi DOM global secara langsung.**
 > Gunakan API resmi (`api.ui()`, `api.createModal()`, `api.injectStyle()`) agar panel plugin bisa
@@ -129,7 +127,7 @@ Artinya di dalam `plugin.js` tersedia: `module`, `exports`, `CSTL`, `document`, 
 
 ---
 
-## 2. Spesifikasi Lengkap `manifest.json` (v1)
+## 2. Spesifikasi lengkap `manifest.json` (v1)
 
 File `manifest.json` mendefinisikan identitas plugin, deklarasi izin, ekstensi file yang didukung, dan skema pengaturan form.
 
@@ -187,12 +185,12 @@ File `manifest.json` mendefinisikan identitas plugin, deklarasi izin, ekstensi f
 }
 ```
 
-### Tabel Atribut `manifest.json`
+### Tabel atribut `manifest.json`
 
 | Atribut | Tipe | Wajib | Aturan Validasi |
 |---|---|---|---|
 | `manifest_version` | `number` | ✅ | Harus `1`. Alias lama `manifestVersion` (camelCase) juga diterima, tapi **snake_case yang dianjurkan**. |
-| `id` | `string` | ✅ | Regex `^[a-z0-9][a-z0-9_-]{0,63}$` — **huruf kecil**, angka, `_`, `-`. 1–64 karakter, diawali alfanumerik. |
+| `id` | `string` | ✅ | Regex `^[a-z0-9][a-z0-9_-]{0,63}$`: **huruf kecil**, angka, `_`, `-`. 1–64 karakter, diawali alfanumerik. |
 | `name` | `string` | ✅ | 1–120 karakter. |
 | `version` | `string` | ✅ | 1–32 karakter (disarankan semver, contoh: `"1.0.0"`). |
 | `author` | `string` | ➖ | Maks 120 karakter. |
@@ -200,9 +198,9 @@ File `manifest.json` mendefinisikan identitas plugin, deklarasi izin, ekstensi f
 | `api` | `number` | ➖ | Bila diisi, harus bilangan bulat `1`–`1` (versi API aplikasi). |
 | `permissions` | `string[]` | ➖ | Harus dari daftar §3. Nama izin tak dikenal → manifest ditolak. |
 | `extensions` | `string[]` | ➖ | Maks 64 entri. Tiap entri cocok `^\.[a-z0-9]{1,16}$` (contoh `.ks`). **Tidak boleh** mengklaim `.copas` atau `.cstl` (format bawaan). |
-| `magic` | `object[]` | ➖ | Maks 32 entri. Tiap entri punya `hex` **atau** `text` — **tidak keduanya**. `offset` opsional, bilangan bulat 0–8192. |
+| `magic` | `object[]` | ➖ | Maks 32 entri. Tiap entri punya `hex` **atau** `text`, **tidak keduanya**. `offset` opsional, bilangan bulat 0–8192. |
 | `ui` | `object` | ➖ | `{ "title": string (1–200), "height": number }`. **`height` valid 60–2000 px.** |
-| `settings` | `object` | ➖ | `{ global?, project?, shared? }` — lihat §4. |
+| `settings` | `object` | ➖ | `{ global?, project?, shared? }`, lihat §4. |
 
 ### Detail `magic`
 
@@ -211,15 +209,15 @@ File `manifest.json` mendefinisikan identitas plugin, deklarasi izin, ekstensi f
 { "offset": 4, "text": "SCRIP" }
 ```
 
-- `hex` — heksadesimal, jumlah digit **genap**, maks **128 byte** (256 digit). Spasi diabaikan.
-- `text` — string tidak kosong, maks **128 byte** setelah UTF-8.
-- `offset` — 0–8192, default `0`.
+- `hex`: heksadesimal, jumlah digit **genap**, maks **128 byte** (256 digit). Spasi diabaikan.
+- `text`: string tidak kosong, maks **128 byte** setelah UTF-8.
+- `offset`: 0–8192, default `0`.
 
 ---
 
 ## 3. Izin (Permissions)
 
-Plugin mendeklarasikan izin di manifest. Deklarasikan hanya yang benar-benar dipakai — daftar ini tampil di UI Plugin Manager sebagai informasi bagi pengguna.
+Deklarasikan hanya izin yang benar-benar dipakai; daftar ini tampil di UI Plugin Manager sebagai informasi bagi pengguna.
 
 | Izin | Label UI | API / Fitur yang Berkaitan |
 |---|---|---|
@@ -235,15 +233,15 @@ Plugin mendeklarasikan izin di manifest. Deklarasikan hanya yang benar-benar dip
 | `net` | Akses Internet | `api.fetch(url, options)` |
 | `hooks` | Copy/paste | `onCopy` dan `onApply` |
 
-> ⚠️ **Penting — izin bersifat deklaratif, bukan penggerbang.**
+> ⚠️ **Penting: izin bersifat deklaratif, bukan penggerbang.**
 > Runtime saat ini **tidak menolak** pemanggilan API yang izinnya belum dideklarasikan
 > (`_assertGranted` sengaja permisif agar plugin Aera bisa berjalan tanpa deklarasi).
-> Jadi jangan mengandalkan `permissions` sebagai sandbox keamanan — ia adalah
+> Jadi jangan mengandalkan `permissions` sebagai sandbox keamanan; ia adalah
 > **kontrak kepercayaan dan informasi bagi pengguna**. Tetap deklarasikan dengan jujur.
 
 ---
 
-## 4. Tipe Input Form Setelan (Settings Spec)
+## 4. Tipe input form setelan (settings spec)
 
 CSTL membuatkan antarmuka form pengaturan otomatis berdasarkan skema `settings`:
 
@@ -267,7 +265,7 @@ CSTL membuatkan antarmuka form pengaturan otomatis berdasarkan skema `settings`:
 |---|---|---|
 | `"string"` | Kotak teks satu baris | `placeholder` |
 | `"number"` | Input angka | `min`, `max`, `step` (semua harus angka) |
-| `"boolean"` | Checkbox / switch | — |
+| `"boolean"` | Checkbox / switch | - |
 | `"select"` | Dropdown | `options` **wajib**, min 1, maks 100 pilihan |
 | `"textarea"` | Area teks multi-baris | `placeholder` |
 
@@ -277,7 +275,7 @@ CSTL membuatkan antarmuka form pengaturan otomatis berdasarkan skema `settings`:
 
 | Field | Aturan |
 |---|---|
-| `key` | **Wajib.** Harus nama variabel JS valid: `^[a-zA-Z_$][a-zA-Z0-9_$]*$` (contoh `maxDepth`). **Unik lintas scope** — tidak boleh sama di `global` dan `project`. |
+| `key` | **Wajib.** Harus nama variabel JS valid: `^[a-zA-Z_$][a-zA-Z0-9_$]*$` (contoh `maxDepth`). **Unik lintas scope**: tidak boleh sama di `global` dan `project`. |
 | `label` | **Wajib.** 1–200 karakter. |
 | `description` | Maks 600 karakter. |
 | `placeholder` | Maks 400 karakter. |
@@ -295,14 +293,14 @@ CSTL membuatkan antarmuka form pengaturan otomatis berdasarkan skema `settings`:
 
 ---
 
-## 5. Host API Reference (`api`)
+## 5. Host API reference (`api`)
 
 Objek `api` dioperkan ke semua lifecycle method dan selalu tersedia sebagai `pluginObj.api`.
 
-### Identitas & Setelan
+### Identitas & setelan
 
 ```javascript
-api.version        // 1 — versi Host API
+api.version        // 1, versi Host API
 api.pluginId       // "my-plugin"
 api.settings       // setelan aktif untuk plugin ini (scope project)
 api.globalSettings // setelan scope global
@@ -310,11 +308,11 @@ api.sharedSettings // setelan scope shared
 api.getPluginMeta()  // { id, name, version, author, description, permissions, extensions, ... }
 ```
 
-### Membaca & Menulis Baris
+### Membaca & menulis baris
 
 ```javascript
 const info = await api.getProject();   // { name, type, fileCount, lineCount, translatedCount, rawLineCount }
-const lines = await api.getLines();    // baris MENTAH proyek — bentuknya lihat §7-C
+const lines = await api.getLines();    // baris MENTAH proyek, bentuknya lihat §7-C
 const line = api.getLine(42);          // satu baris berdasarkan line_num, atau null
 
 api.updateLine(42, { trans_message: 'Halo', is_translated: true }); // true bila berhasil
@@ -325,13 +323,12 @@ api.markTranslated(42, 'Halo', 'Budi');  // tandai diterjemahkan + isi terjemaha
 const snap = api.getState();           // { projectId, projectName, projectType, files, lineCount, translatedCount, selected, bookmarks }
 ```
 
-> ℹ️ `getProject()`, `getLines()`, dan `getLine()` adalah **sinkron** (bukan Promise) —
-> tapi tetap aman di-`await`.
+> ℹ️ `getProject()`, `getLines()`, dan `getLine()` **sinkron** (bukan Promise), tapi tetap aman di-`await`.
 
-### Seleksi & Clipboard
+### Seleksi & clipboard
 
 ```javascript
-const sel = api.getSelection();        // [1, 2, 3] — nomor baris terpilih
+const sel = api.getSelection();        // [1, 2, 3], nomor baris terpilih
 api.selectRange(1, 50);                // isi form rentang + picu seleksi (1 ≤ from ≤ to)
 api.clearSelection();
 api.copySelection();                   // picu copy-untuk-AI (menghormati hook onCopy)
@@ -341,7 +338,7 @@ await api.copy('teks');                // salin langsung ke clipboard sistem
 
 `api.selectRange()` melempar error bila rentang tidak valid (`from < 1`, `to < from`, atau rentang > 1.000.000 baris).
 
-### Feedback & Dialog
+### Feedback & dialog
 
 ```javascript
 api.toast('Ekstraksi selesai!');
@@ -350,7 +347,7 @@ await api.confirm('Hapus data?', 'Tidak bisa dibatalkan.');  // → boolean | nu
 await api.alert('Selesai', 'Tersimpan.');      // → void
 ```
 
-### Enkoding & Biner
+### Enkoding & biner
 
 ```javascript
 const text = api.decode(uint8Array, ['shift_jis', 'utf-8', 'windows-31j']);
@@ -360,13 +357,13 @@ const buffer = api.encode('Halo dunia!', 'shift_jis');   // → Uint8Array
 > ℹ️ **`api.encode`**: mendukung `utf-8` (default) dan **Shift_JIS/CP932 penuh**
 > (label: `shift_jis`, `sjis`, `cp932`, `windows-31j`; termasuk varian Windows seperti
 > fullwidth tilde U+FF5E dan wave dash U+301C). Encoding lain, atau karakter yang tidak
-> ada di tabel Shift_JIS (mis. emoji), akan **melempar error** — bukan diam-diam
+> ada di tabel Shift_JIS (mis. emoji), akan **melempar error**, bukan diam-diam
 > dikodekan sebagai UTF-8.
 >
 > `api.decode` mencoba tiap encoding berurutan dengan `fatal: true`; bila semua gagal,
 > jatuh ke UTF-8 non-fatal. Default urutan: `utf-8`, `shift_jis`, `windows-31j`, `cp932`.
 
-### Aset Paket Plugin
+### Aset paket plugin
 
 ```javascript
 const names = api.listAssets();                        // daftar SEMUA file di dalam zip
@@ -374,7 +371,7 @@ const bytes = await api.asset('assets/tbl.bin');       // Uint8Array
 const text  = await api.assetText('assets/dict.txt');  // string
 ```
 
-### Penyimpanan Persisten (Storage)
+### Penyimpanan persisten (storage)
 
 Disimpan per project + per plugin (OPFS).
 
@@ -388,20 +385,20 @@ const has   = await api.blobExists('cache.bin'); // boolean
 
 Alias `Data` (nama lama, masih didukung): `saveData`, `loadData`, `deleteData`, `listData`, `dataExists`.
 
-> ℹ️ `key` harus nama berkas polos — maks 255 karakter, tanpa `/`, `\`, karakter kontrol,
+> ℹ️ `key` harus nama berkas polos: maks 255 karakter, tanpa `/`, `\`, karakter kontrol,
 > dan bukan `.` atau `..`.
 
-### Jaringan — `api.fetch(url, options)` (butuh izin `net`)
+### Jaringan: `api.fetch(url, options)` (butuh izin `net`)
 
 Permintaan jaringan **diproxikan oleh host** dengan batasan keamanan:
 
 - Hanya protokol **http/https**. Target ke localhost / IP privat / loopback **diblokir** (anti-SSRF), termasuk pada URL hasil redirect.
 - Hanya method `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.
 - `credentials: 'omit'`, `redirect: 'follow'`, `cache: 'no-store'`, `referrerPolicy: 'no-referrer'`.
-- `options.timeoutMs` / `options.timeout` — 1000–120000 ms, default **30000**.
+- `options.timeoutMs` / `options.timeout`: 1000–120000 ms, default **30000**.
 - `options.body` berupa object otomatis di-JSON-kan.
 - **`options.asBytes: true`** (alias `options.binary: true`) → `body` dikembalikan sebagai `Uint8Array` alih-alih string.
-- **Return**: `{ ok, status, statusText, url, headers, body, buffer }` — `buffer` selalu `ArrayBuffer` mentah.
+- **Return**: `{ ok, status, statusText, url, headers, body, buffer }`, `buffer` selalu `ArrayBuffer` mentah.
 
 ```javascript
 const res = await api.fetch('https://example.com/api', {
@@ -417,9 +414,9 @@ await api.saveBlob('font.dat', bin.body);
 ```
 
 > ⚠️ **Tidak ada rate limit** yang ditegakkan saat ini (`_rateOk()` selalu mengembalikan `true`).
-> Tetap batasi permintaan di sisi plugin — jangan membanjiri server pihak ketiga.
+> Tetap batasi permintaan di sisi plugin, jangan membanjiri server pihak ketiga.
 
-### Dialog File & Unduhan
+### Dialog file & unduhan
 
 ```javascript
 const file = await api.pickFile('.dat,.bin');   // { name, buffer: ArrayBuffer } | null
@@ -448,7 +445,7 @@ const zip = new api.JSZip();
 const gpu = api.gpu;   // navigator.gpu, atau undefined bila tak tersedia
 ```
 
-### UI: Menu, Toolbar, Modal, Kartu Dashboard
+### UI: menu, toolbar, modal, kartu dashboard
 
 ```javascript
 const menuBtn = api.addMenuItem('import', 'Impor dari XYZ', () => { /* ... */ });
@@ -477,7 +474,7 @@ api.removeSettingsSection(section);
 
 `addMenuItem` menerima nama menu (`'import'`, `'export'`, atau id elemen). `addSettingsSection` menerima target `'settings'`/`'plugins'`/`'glossary'`/`'summary'` atau selector CSS.
 
-### UI: Akses Region
+### UI: akses region
 
 ```javascript
 const panel = api.ui('panel');         // elemen panel plugin sendiri
@@ -492,7 +489,7 @@ Region bernama yang tersedia:
 `dashboardContent`, `lineEditorModal`, `lineEditorBody`, `proofreadModal`, `pasteArea`,
 `progressOverlay`, `progressText`
 
-### Tema & Gaya
+### Tema & gaya
 
 ```javascript
 api.setTheme({ '--primary': '#0284c7', '--accent': '#38bdf8' });  // set variabel CSS di :root
@@ -500,10 +497,10 @@ const styleEl = api.injectStyle('/* css */', 'my-plugin-style');
 api.removeStyle('my-plugin-style');
 ```
 
-### Sistem Hook & Event
+### Sistem hook & event
 
 ```javascript
-// Hook bernama — lihat §8 untuk daftar nama yang benar-benar dipanggil host
+// Hook bernama, lihat §8 untuk daftar nama yang benar-benar dipanggil host
 const token = api.hook('lineOpen', (num, line) => { /* ... */ });
 api.unhook(token);
 
@@ -514,7 +511,7 @@ api.off('projectOpen');   // hapus semua listener event itu
 api.emit('myEvent', { a: 1 });   // kirim event kustom ke plugin lain
 ```
 
-### Registrasi Importer / Exporter / Shortcut
+### Registrasi importer / exporter / shortcut
 
 ```javascript
 api.registerImporter('xyz', (input) => { /* ... */ });
@@ -536,7 +533,7 @@ await api.getStorage();    // FileSystemDirectoryHandle root OPFS (async)
 
 ---
 
-## 6. Siklus Hidup & Penulisan `plugin.js`
+## 6. Siklus hidup & penulisan `plugin.js`
 
 > ⚠️ **Aturan Kritis Penulisan Kode**:
 > - Gunakan **CommonJS (`module.exports`)**. Jangan gunakan `export default` / `import`.
@@ -557,18 +554,18 @@ await api.getStorage();    // FileSystemDirectoryHandle root OPFS (async)
 | `onCopy` | Teks akan dicopy untuk AI | `onCopy({ text, ctx, api })` → string |
 | `onApply` | Terjemahan akan diterapkan | `onApply({ text, ctx, api })` → string |
 | `onEvent` | Setiap event host dipancarkan | `onEvent(event, payload, api)` |
-| `commands` | Daftar perintah shortcut | Array atau objek — lihat di bawah |
+| `commands` | Daftar perintah shortcut | Array atau objek, lihat di bawah |
 
 > ⚠️ **`onMount` dan `onUnmount` TIDAK dikenali.** Nama yang benar adalah **`panel`**
 > (atau `mount`) dan **`unmount`**. Kalau kamu memakai nama lama, panelmu tidak akan
-> pernah dipasang — tanpa pesan error apa pun.
+> pernah dipasang, tanpa pesan error apa pun.
 
 ### Bentuk `commands`
 
 Host menerima **dua** bentuk. Keduanya memakai nama fungsi sebagai kunci:
 
 ```javascript
-// Bentuk 1 — objek. Paling jelas, direkomendasikan.
+// Bentuk 1: objek. Paling jelas, direkomendasikan.
 module.exports = {
   commands: {
     formatTags(api) { api.toast('Tag diformat.'); },
@@ -578,7 +575,7 @@ module.exports = {
 ```
 
 ```javascript
-// Bentuk 2 — array. WAJIB menyertakan fungsi top-level dengan nama = `key`.
+// Bentuk 2: array. WAJIB menyertakan fungsi top-level dengan nama = `key`.
 module.exports = {
   commands: [
     { key: 'formatTags', label: 'Format Tag Karakter' },
@@ -590,7 +587,7 @@ module.exports = {
 ```
 
 > ❌ **Jangan pakai `{ id, label, run }`.** Host hanya membaca `key` dan `label`.
-> Field `id` dan `run` diabaikan sepenuhnya — perintahnya akan muncul di daftar shortcut
+> Field `id` dan `run` diabaikan sepenuhnya: perintahnya akan muncul di daftar shortcut
 > tapi tidak melakukan apa pun saat dijalankan.
 
 ### Contoh lengkap
@@ -672,7 +669,7 @@ module.exports = {
     `;
     rootElement.querySelector('#btnQuickCheck').onclick = async () => {
       const lines = await api.getLines();
-      // PENTING: getLines() mengembalikan baris MENTAH proyek — teks terjemahan
+      // PENTING: getLines() mengembalikan baris MENTAH proyek; teks terjemahan
       // ada di `trans_message`, BUKAN `translation` (lihat §7-C).
       const empty = lines.filter(l => !l.trans_message);
       api.toast(`Sisa baris belum diterjemahkan: ${empty.length}`);
@@ -695,9 +692,9 @@ module.exports = {
 
 ---
 
-## 7. Format Data: Baris Naskah & Tipe Return
+## 7. Format data: baris naskah & tipe return
 
-Ada **tiga bentuk objek baris yang berbeda** — perhatikan masing-masing dipakai di mana:
+Ada **tiga bentuk objek baris yang berbeda**, perhatikan masing-masing dipakai di mana:
 
 ### A. Baris yang di-RETURN dari `extract()` (plugin → host)
 
@@ -705,8 +702,8 @@ Ada **tiga bentuk objek baris yang berbeda** — perhatikan masing-masing dipaka
 |---|---|---|
 | `file` | `string` | Nama file sumber. Bila kosong, diisi `fileName` otomatis. |
 | `name` | `string \| null` | Nama karakter / pembicara asli. Alias: `character_name`. |
-| `message` | `string` | **Wajib — inilah teks dialognya.** Alias: `original`, `original_text`, `text`. |
-| `raw` | `string \| null` | Potongan baris asli utuh — anchor saat patch ekspor. |
+| `message` | `string` | **Wajib: inilah teks dialognya.** Alias: `original`, `original_text`, `text`. |
+| `raw` | `string \| null` | Potongan baris asli utuh, anchor saat patch ekspor. |
 | `index` | `number \| null` | Offset byte / indeks unik entri biner. Alias: `number`. |
 
 > ⚠️ Baris dengan `message` kosong **dibuang** oleh host. Pastikan hanya baris dialog
@@ -725,7 +722,7 @@ Berisi field internal **plus** alias praktis:
 | `character_name` | Alias dari `trans_name \|\| name`. |
 | `raw`, `index` | Anchor dari hasil `extract()`. |
 
-> ⚠️ Bentuk ini **tidak punya field `number`** — gunakan `line_num`.
+> ⚠️ Bentuk ini **tidak punya field `number`**: gunakan `line_num`.
 
 ### C. Baris yang di-RETURN dari `api.getLines()` (host → plugin, mentah)
 
@@ -749,15 +746,15 @@ Semua bentuk berikut diterima:
 | `Blob` | Dipakai langsung. |
 | `{ blob: Blob }` | Dipakai langsung. |
 | `{ buffer: Uint8Array \| ArrayBuffer }` | Dibungkus jadi blob biner. |
-| `{ files: [...] }` | **Multi-file** — lihat di bawah. |
+| `{ files: [...] }` | **Multi-file**, lihat di bawah. |
 
 Bentuk lain → host melempar `tidak mengembalikan output pack yang valid`.
 
-**Multi-file** — bila `files` berisi entri valid, ia **diprioritaskan** di atas `buffer`:
+**Multi-file**: bila `files` berisi entri valid, ia **diprioritaskan** di atas `buffer`:
 
 ```javascript
 return {
-  fileName: "hasil_ekspor",        // opsional — hanya fallback, lihat catatan nama di bawah
+  fileName: "hasil_ekspor",        // opsional, hanya fallback, lihat catatan nama di bawah
   files: [
     { name: "script01.dat", buffer: file1Bytes },   // Uint8Array / ArrayBuffer
     { name: "sub/script02.dat", content: "teks" }   // atau content: string
@@ -776,7 +773,7 @@ return {
 
 ---
 
-## 8. Hook & Event
+## 8. Hook & event
 
 ### Hook lifecycle (method di `module.exports`)
 
@@ -784,8 +781,8 @@ Hanya **dua** yang dipanggil host:
 
 | Hook | Kapan | Signature | Return |
 |---|---|---|---|
-| `onCopy` | Sebelum teks dikopy untuk AI | `onCopy({ text, ctx, api })` | `string` — teks hasil modifikasi |
-| `onApply` | Sebelum terjemahan diterapkan | `onApply({ text, ctx, api })` | `string` — teks hasil modifikasi |
+| `onCopy` | Sebelum teks dikopy untuk AI | `onCopy({ text, ctx, api })` | `string`, teks hasil modifikasi |
+| `onApply` | Sebelum terjemahan diterapkan | `onApply({ text, ctx, api })` | `string`, teks hasil modifikasi |
 
 `ctx` berisi `{ projectName, lineCount, selectedLines }`. Bila hook melempar error, host mencatatnya ke console dan **melanjutkan dengan teks asli**.
 
@@ -794,9 +791,9 @@ Hanya **dua** yang dipanggil host:
 | Nama | Kapan | Signature |
 |---|---|---|
 | `lineOpen` | Editor baris dibuka | `(lineNum, line) => void` |
-| `lineSave` | Baris disimpan dari editor | `(lineNum, line, before) => void` — `before` = `{ trans_message, trans_name, is_translated }` sebelum perubahan |
+| `lineSave` | Baris disimpan dari editor | `(lineNum, line, before) => void`, `before` = `{ trans_message, trans_name, is_translated }` sebelum perubahan |
 
-Keduanya sinkron (`runHooksSync`). `api.hook()` menerima nama apa pun, tapi hanya dua di atas yang benar-benar dipanggil host — nama lain terdaftar tanpa pernah terpicu.
+Keduanya sinkron (`runHooksSync`). `api.hook()` menerima nama apa pun, tapi hanya dua di atas yang benar-benar dipanggil host; nama lain terdaftar tanpa pernah terpicu.
 
 ### Event
 
@@ -810,9 +807,9 @@ Keduanya sinkron (`runHooksSync`). `api.hook()` menerima nama apa pun, tapi hany
 
 ---
 
-## 9. Panduan Tema Visual (`theme.css`)
+## 9. Panduan tema visual (`theme.css`)
 
-Plugin tema visual mengontrol palet warna CSTL dan dapat menyertakan background art. Tema default CSTL adalah **gelap** — timpa variabel yang perlu saja.
+Plugin tema visual mengontrol palet warna CSTL dan dapat menyertakan background art. Tema default CSTL adalah **gelap**; timpa variabel yang perlu saja.
 
 ### Variabel inti
 
@@ -881,8 +878,8 @@ body::after {
 Tema diterapkan otomatis saat proyek dibuka/ditutup, dan hanya bila `theme.css` ada **dan** izin `theme` dideklarasikan.
 
 > ⚠️ **`theme.css` disanitasi sebelum diterapkan.** Yang diblokir:
-> - **`@import`** — dihapus seluruhnya.
-> - **`url()` ke sumber eksternal** — hanya `data:` URI dan fragmen `#` yang diizinkan.
+> - **`@import`**: dihapus seluruhnya.
+> - **`url()` ke sumber eksternal**: hanya `data:` URI dan fragmen `#` yang diizinkan.
 >   Jadi background art **wajib** memakai base64 (`url("data:image/jpeg;base64,...")`) atau SVG inline;
 >   `url("https://...")` akan dibuang.
 >
@@ -890,13 +887,13 @@ Tema diterapkan otomatis saat proyek dibuka/ditutup, dan hanya bila `theme.css` 
 
 ---
 
-## 10. Integrasi Pintasan Keyboard (Shortcuts)
+## 10. Integrasi pintasan keyboard (shortcuts)
 
 Perintah yang didaftarkan di `commands` pada `plugin.js` akan otomatis muncul di **Shortcut Keyboard Manager** (grup **Plugin**). ID internalnya berbentuk `plugin.<id-plugin>.<key>`.
 
 Selain itu, plugin dapat mendaftarkan shortcut sendiri kapan saja lewat `api.registerShortcut(id, label, combo, handler, opts)`.
 
-### Pintasan Bawaan CSTL
+### Pintasan bawaan CSTL
 
 | Scope | Aksi | Shortcut Default |
 |---|---|---|
@@ -933,42 +930,42 @@ Aksi ber-scope `dashboard` hanya aktif di dashboard, `workspace` hanya di dalam 
 
 ---
 
-## 11. Checklist Pemecahan Masalah (Troubleshooting)
+## 11. Checklist pemecahan masalah (troubleshooting)
 
-- ❌ **`manifest_version` wajib diisi (gunakan 1)**
+- **`manifest_version` wajib diisi (gunakan 1)**
   &rarr; Tambahkan `"manifest_version": 1`. `manifestVersion` (camelCase) masih diterima sebagai alias, tapi pakai snake_case.
-- ❌ **`"id" wajib: huruf kecil/angka/garisbawah/tanda hubung…`**
+- **`"id" wajib: huruf kecil/angka/garisbawah/tanda hubung…`**
   &rarr; `id` harus **huruf kecil semua**. `"MyPlugin"` ditolak; pakai `"my-plugin"`.
-- ❌ **`Izin tidak dikenal: "…"`**
+- **`Izin tidak dikenal: "…"`**
   &rarr; Cek daftar 11 izin di §3. Typo sekecil apa pun membuat manifest ditolak.
-- ❌ **`Ekstensi .copas adalah format bawaan CSTL dan tidak boleh diklaim plugin`**
+- **`Ekstensi .copas adalah format bawaan CSTL dan tidak boleh diklaim plugin`**
   &rarr; Hapus `.copas` / `.cstl` dari `extensions`.
-- ❌ **`Unexpected token 'export'`**
+- **`Unexpected token 'export'`**
   &rarr; Sandbox memakai CommonJS. Gunakan `module.exports = { ... }`, bukan `export default` / `import`.
-- ❌ **`Plugin "…" tidak mengekspor objek (module.exports)`**
+- **`Plugin "…" tidak mengekspor objek (module.exports)`**
   &rarr; `module.exports` harus objek. Kalau kamu menulis `module.exports = function`, host menolaknya.
-- ❌ **Panel plugin tidak muncul, tapi tidak ada error**
+- **Panel plugin tidak muncul, tapi tidak ada error**
   &rarr; Kemungkinan besar kamu memakai `onMount`. Nama yang benar adalah **`panel`** (atau `mount`). Untuk pembersihan gunakan **`unmount`**, bukan `onUnmount`.
-- ❌ **Perintah muncul di daftar shortcut tapi tidak melakukan apa pun**
+- **Perintah muncul di daftar shortcut tapi tidak melakukan apa pun**
   &rarr; Kamu memakai `{ id, label, run }`. Host hanya membaca `{ key, label }` dan mencari fungsi dengan nama `key` tersebut. Pakai bentuk objek `commands: { namaku(api) {…} }` agar tidak salah.
-- ❌ **`Plugin "…" tidak mengembalikan array baris teks`**
-  &rarr; `extract()` harus mengembalikan `{ lines: [...] }` (atau array langsung). Pastikan setiap baris punya `message` **tidak kosong** — baris kosong dibuang.
-- ❌ **`Plugin "…" tidak mengembalikan output pack yang valid`**
+- **`Plugin "…" tidak mengembalikan array baris teks`**
+  &rarr; `extract()` harus mengembalikan `{ lines: [...] }` (atau array langsung). Pastikan setiap baris punya `message` **tidak kosong**; baris kosong dibuang.
+- **`Plugin "…" tidak mengembalikan output pack yang valid`**
   &rarr; Kembalikan salah satu bentuk di §7: `Uint8Array`, `string`, `Blob`, `{ buffer }`, atau `{ files }`.
-- ❌ **`Karakter tidak tersedia di Shift_JIS/CP932: "…"`**
+- **`Karakter tidak tersedia di Shift_JIS/CP932: "…"`**
   &rarr; `api.encode` sengaja melempar error, bukan diam-diam beralih ke UTF-8. Buang karakter yang tak ada di tabel (emoji, simbol eksotis) atau ubah ke UTF-8.
-- ❌ **Warna tema tidak berubah saat dipasang**
+- **Warna tema tidak berubah saat dipasang**
   &rarr; Pastikan manifest menyertakan `"permissions": ["theme"]` dan ada file `theme.css` di root zip.
-- ❌ **`Host lokal/private tidak diperbolehkan`**
+- **`Host lokal/private tidak diperbolehkan`**
   &rarr; `api.fetch` memblokir localhost dan IP privat (anti-SSRF). Gunakan host publik.
-- ❌ **File biner menghasilkan teks acak/karakter aneh**
+- **File biner menghasilkan teks acak/karakter aneh**
   &rarr; Gunakan `api.decode(buffer, ['shift_jis', 'cp932'])` untuk game bahasa Jepang jadul.
-- ❌ **`ui.height` ditolak**
+- **`ui.height` ditolak**
   &rarr; Rentang valid **60–2000** px, bukan 120–600.
 
 ---
 
-## 12. Catatan Versi
+## 12. Catatan versi
 
 | Item | Nilai |
 |---|---|
@@ -981,4 +978,4 @@ Aksi ber-scope `dashboard` hanya aktif di dashboard, `workspace` hanya di dalam 
 | Timeout WASM | 1000–60000 ms (default 10000) |
 | Timeout jaringan | 1000–120000 ms (default 30000) |
 
-Dokumen ini disinkronkan dengan kode pada **2 Oktober 2026**. Bila menemukan ketidaksesuaian antara panduan ini dan perilaku aplikasi, **kode di `src/plugins.ts` yang berlaku** — silakan buka issue agar panduan diperbarui.
+Bila menemukan ketidaksesuaian antara panduan ini dan perilaku aplikasi, **kode di `src/plugins.ts` yang berlaku**, silakan buka issue agar panduan diperbarui.

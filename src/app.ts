@@ -1,8 +1,8 @@
-// @module app.ts — Entry point: bootstraps the application on DOMContentLoaded
-// All business logic lives in the other modules in this directory.
+// @module app.ts: entry point, bootstraps the app on DOMContentLoaded. Business
+// logic lives in the other modules.
 
 window.onerror = function(message, source, lineno, colno, error) {
-  // ResizeObserver loop is a benign browser warning — ignore it
+  // ResizeObserver loop is a benign browser warning, ignore it.
   if (typeof message === 'string' && message.includes('ResizeObserver')) return true;
   const errDiv = document.createElement('div');
   errDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999;padding:10px;font-family:monospace;white-space:pre-wrap;cursor:pointer;';
@@ -26,14 +26,14 @@ import { initGlobalDialogs } from './dialog';
 import { initTutorial } from './tutorial';
 import JSZip from 'jszip';
 
-// EPUB import, restore, and image rendering use the shared JSZip global.
-// Initialize it synchronously before the UI becomes interactive so these
-// paths do not race the plugin bridge's lazy JSZip loader.
+// EPUB import, restore, and image rendering use the shared JSZip global. Set it
+// synchronously before the UI is interactive so these paths do not race the
+// plugin bridge's lazy JSZip loader.
 (window as any).JSZip = JSZip;
 
 initGlobalDialogs();
 
-// Inject critical dynamic CSS that Vite may strip from external stylesheet
+// Dynamic CSS that Vite may strip from the external stylesheet.
 (function injectDynamicStyles() {
   const style = document.createElement('style');
   style.id = 'cstl-dynamic-styles';
@@ -44,11 +44,9 @@ initGlobalDialogs();
   document.head.appendChild(style);
 })();
 
-// ─── Stale-build self-heal ────────────────────────────────────────────────────
 // The webview data directory survives an in-place install/update, so a service
-// worker or cache left behind by an older build can keep serving the previous
-// app shell. That used to leave the app unusable until the user pressed
-// Ctrl+Shift+R. Detect the leftover state and repair it automatically.
+// worker or cache left behind by an older build can keep serving the previous app
+// shell, leaving the app unusable until Ctrl+Shift+R. Detect and repair it.
 
 /** Cache Storage buckets that hold downloaded data, not app assets. */
 const KEEP_CACHE_NAMES = new Set(['cstl-pyodide-v1', 'copastool-kuromoji-dict']);
@@ -65,9 +63,9 @@ async function invokeNative(command: string): Promise<any | null> {
 }
 
 /**
- * Unregisters service workers and drops every Cache Storage bucket. Only ever
- * called from the Tauri build — a stale service worker left behind by an older
- * release is what made the app require Ctrl+Shift+R after an update.
+ * Unregisters service workers and drops every Cache Storage bucket. Only called
+ * from the Tauri build, where a stale service worker from an older release used
+ * to make the app require Ctrl+Shift+R after an update.
  */
 async function purgeWebCaches(): Promise<boolean> {
   let changed = false;
@@ -84,9 +82,8 @@ async function purgeWebCaches(): Promise<boolean> {
   try {
     if (typeof caches !== 'undefined') {
       for (const key of await caches.keys()) {
-        // These two hold downloaded runtime data (Pyodide ~10 MB, Kuromoji
-        // dictionary) rather than app-shell assets — re-downloading them would
-        // be a real cost, so they stay.
+        // These hold downloaded runtime data (Pyodide ~10 MB, Kuromoji
+        // dictionary), not app-shell assets; re-downloading them is a real cost.
         if (KEEP_CACHE_NAMES.has(key)) continue;
         try {
           if (await caches.delete(key)) changed = true;
@@ -98,21 +95,20 @@ async function purgeWebCaches(): Promise<boolean> {
 }
 
 /**
- * Makes sure the running frontend matches the installed native build.
- * Returns false when a reload was triggered (the caller must not continue).
+ * Makes sure the running frontend matches the installed native build. Returns
+ * false when a reload was triggered (the caller must not continue).
  */
 async function ensureFreshBuild(): Promise<boolean> {
   // Only the native build needs repairing: its webview data directory survives
-  // in-place updates. The web/PWA build *wants* its service worker and cache.
+  // in-place updates. The web/PWA build wants its service worker and cache.
   if (!isTauri()) return true;
 
   const rustStamp = await invokeNative('get_build_stamp');
   if (rustStamp == null) {
-    // Older native builds do not expose a stamp, so retain the one-time
-    // service-worker cleanup fallback for those installs.
+    // Older native builds do not expose a stamp, so keep the one-time
+    // service-worker cleanup fallback; a leftover worker is the only detectable
+    // leftover, so reload once when one was removed.
     const leftOverState = await purgeWebCaches();
-    // Older native build without the stamp command: a leftover service worker is
-    // the only thing we can detect, so reload once when we removed one.
     if (leftOverState) {
       window.location.reload();
       return false;
@@ -126,17 +122,16 @@ async function ensureFreshBuild(): Promise<boolean> {
     return true;
   }
 
-  // The app shell is current on the common path. Only inspect/remove caches
-  // when the native and frontend versions disagree and a repair is needed.
+  // Caches are only inspected when the native and frontend versions disagree.
   const leftOverState = await purgeWebCaches();
 
-  console.warn(`[Boot] frontend ${APP_VERSION} does not match native ${rustStamp} — repairing.`);
+  console.warn(`[Boot] frontend ${APP_VERSION} does not match native ${rustStamp}, repairing.`);
 
   if (sessionStorage.getItem('cstl_stale_reload') === '1') {
     // A plain reload did not fix it, so the webview itself is serving the old
     // assets: drop the main window's browsing data once and reload again.
     if (sessionStorage.getItem('cstl_stale_purge') === '1') {
-      console.error('[Boot] Frontend still stale after full purge — continuing anyway.');
+      console.error('[Boot] Frontend still stale after full purge, continuing anyway.');
       return true;
     }
     sessionStorage.setItem('cstl_stale_purge', '1');

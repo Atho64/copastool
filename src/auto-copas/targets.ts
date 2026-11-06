@@ -1,10 +1,8 @@
-// @module auto-copas/targets.ts — per-site automation table for Auto Copas.
-//
+// @module auto-copas/targets.ts: per-site automation table for Auto Copas.
 // Selectors and timing are ported from the cstl-extension reference
-// (src/shared/targets-config.ts + per-target content scripts), which were
-// battle-tested against each site's markup — including Indonesian locale
-// labels ("Kirim", "Salin", "Hentikan"). Sites drift constantly; keep the
-// fallback chains broad.
+// (src/shared/targets-config.ts + per-target content scripts), including
+// Indonesian locale labels ("Kirim", "Salin", "Hentikan"). Sites drift
+// constantly, so keep the fallback chains broad.
 
 export type CopasTargetId = 'gemini' | 'chatgpt' | 'deepseek' | 'arena';
 
@@ -19,15 +17,15 @@ export interface CopasTargetConfig {
   composer: string[];
   /** Send button candidates (fallback when Enter does not start a run). */
   sendButton: string[];
-  /** "Stop generating" indicators — visible => still streaming. */
+  /** "Stop generating" indicators: visible means still streaming. */
   stop: string[];
   /** Assistant message containers, ordered; the LAST visible match is ours. */
   assistant: string[];
   /**
    * true  => only a visible Stop control means "generating" (the site keeps its
-   *          send button enabled while streaming — DeepSeek, Arena).
-   * false => an ENABLED send button also counts as idle (Gemini, ChatGPT
-   *          hide/disable send while streaming).
+   *          send button enabled while streaming: DeepSeek, Arena).
+   * false => an enabled send button also counts as idle (Gemini, ChatGPT
+   *          hide or disable send while streaming).
    */
   preferStop: boolean;
   /** Consecutive idle samples required before a response counts as done. */
@@ -36,11 +34,11 @@ export interface CopasTargetConfig {
   stableMs: number;
   /** Sleep after Enter before polling starts (lets the request register). */
   preSendSettleMs: number;
-  /** Extra composer-attachment recovery (ChatGPT turns long pastes into a
-   * document card with a "show in text field" button). */
+  /** Extra composer-attachment recovery (ChatGPT turns long pastes into a document
+   * card with a "show in text field" button). */
   attachmentRecovery: boolean;
-  /** Accessible-label text of the sidebar "New chat" control (lowercase,
-   * EN + ID). Used by the new-chat page script; navigation is the fallback. */
+  /** Accessible-label text of the sidebar "New chat" control (lowercase, EN + ID).
+   * Used by the new-chat page script; navigation is the fallback. */
   newChatLabels: string[];
 }
 
@@ -155,15 +153,14 @@ export const COPAS_TARGETS: Record<CopasTargetId, CopasTargetConfig> = {
       'button[type="submit"]',
       'button[aria-label*="Kirim" i]',
     ],
-    // DeepSeek keeps its send button usable while the stream is still writing,
-    // so send-state must be ignored (port of preferStop=true).
+    // DeepSeek keeps its send button usable while the stream is still writing, so
+    // send state must be ignored (port of preferStop=true).
     stop: GENERIC_STOP,
     assistant: [
       // DeepSeek's answer body. Keep the specific class first: a loose
-      // `[class*="markdown"]` also matches the tiny `.markdown-toolbar`
-      // chrome, and since the reader takes the LAST match, the toolbar's
-      // 4-char text would win — freezing response length and stalling
-      // completion detection until the 180s timeout.
+      // `[class*="markdown"]` also matches the tiny `.markdown-toolbar` chrome,
+      // and since the reader takes the last match, the toolbar's 4-char text would
+      // win and stall completion detection until the 180s timeout.
       '.ds-markdown',
       '.ds-markdown--block',
       '[class*="ds-markdown"]',
@@ -176,8 +173,8 @@ export const COPAS_TARGETS: Record<CopasTargetId, CopasTargetConfig> = {
     idleNeeded: 8,
     stableMs: 2500,
     preSendSettleMs: 1800,
-    // DeepSeek converts long pastes into attachment cards with a
-    // "Paste original" link — same recovery flow as ChatGPT.
+    // DeepSeek converts long pastes into attachment cards with a "Paste original"
+    // link, same recovery flow as ChatGPT.
     attachmentRecovery: true,
     newChatLabels: ['new chat', 'chat baru', 'obrolan baru', 'mulai obrolan baru'],
   },

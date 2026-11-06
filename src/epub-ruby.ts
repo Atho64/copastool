@@ -1,4 +1,4 @@
-// @module epub-ruby.ts — EPUB ruby annotation extractor for glossary name collection
+// @module epub-ruby.ts: EPUB ruby annotation extractor for glossary name collection.
 
 import { state, ui } from './state';
 import { addNameGlossaryEntry, mergeGlossaryEntries, hasKanji, isLikelyRubyNameCandidate, parseGlossaryToMap, serializeGlossaryMap } from './glossary';

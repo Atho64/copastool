@@ -1,5 +1,4 @@
-// @module opfs-explorer.ts — Built-in File Manager / OPFS Explorer
-// Memungkinkan pengguna melihat, mengunduh, dan mengelola file di dalam Origin Private File System
+// @module opfs-explorer.ts: file manager untuk melihat, mengunduh, dan menghapus file di OPFS.
 
 import { getOpfsRoot } from './state';
 import { escapeHtml, openModal, closeModal } from './project';
@@ -259,7 +258,6 @@ export const OpfsExplorer = {
       </div>
     `;
 
-    // Click to open folder
     if (item.isDir) {
       const info = row.querySelector('.opfs-item-info');
       info?.addEventListener('click', () => {
@@ -268,14 +266,12 @@ export const OpfsExplorer = {
       });
     }
 
-    // Download action
     const btnDl = row.querySelector('[data-action="download"]');
     btnDl?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.download(item.name);
     });
 
-    // Delete action
     const btnDel = row.querySelector('[data-action="delete"]');
     btnDel?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -297,7 +293,7 @@ export const OpfsExplorer = {
   },
 
   async remove(name: string, isDir: boolean): Promise<void> {
-    const ok = await cstlConfirm(`Hapus "${name}" dari OPFS?\n\nTindakan ini permanen dan tidak bisa dibatalkan.`, { danger: true, title: 'Hapus File OPFS' });
+    const ok = await cstlConfirm(`Hapus "${name}" dari OPFS?\n\nPermanen, tidak bisa dibatalkan.`, { danger: true, title: 'Hapus File OPFS' });
     if (!ok) return;
 
     try {

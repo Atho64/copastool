@@ -1,4 +1,4 @@
-// @module qa.ts — Quality Control validation (Kana residue, Similarity, Glossary, Linebreak, Length, Language, Punctuation)
+// @module qa.ts: quality control validation (kana residue, similarity, glossary, linebreak, length, language, punctuation).
 
 import * as RenderModule from './render';
 import { state, ui, getQaScroller } from './state';
@@ -8,8 +8,6 @@ import { parseGlossaryToMap } from './glossary';
 import { openLineEditor } from './render';
 import { openModal, closeModal } from './project';
 import type { QaMatch } from './types';
-
-// ─── Helper functions for new QA checks ──────────────────────────────────────
 
 function countLinebreaks(text: string): number {
   const stored = (text.match(/\\n/g) || []).length;
@@ -21,8 +19,7 @@ function countGraphemes(text: string): number {
   return Array.from(text).length;
 }
 
-// Heuristic Indonesian vs English language detection.
-// Returns true if the text looks like English (not Indonesian).
+// Heuristic Indonesian vs English detection: true when the text looks English.
 function detectEnglishFallback(text: string): boolean {
   const words = text.toLowerCase().split(/[\s\p{P}]+/u).filter(w => w.length > 0);
   if (words.length < 3) return false;
@@ -61,17 +58,17 @@ function detectEnglishFallback(text: string): boolean {
   for (const word of words) {
     if (idMarkers.has(word)) idScore++;
     if (enMarkers.has(word)) enScore++;
-    // Indonesian morphological patterns
+    // Indonesian affixes.
     if (word.length >= 4) {
       if (/^(ber|men|meng|mem|meny|di|ter|ke|se|pe|peng|peny)/.test(word)) idScore++;
       if (/(nya|kan|lah|kah|an|i)$/.test(word)) idScore++;
     }
-    // English patterns
+    // English suffixes.
     if (/(ing|ed|tion|ment|ness|ful|less|able|ible)$/.test(word) && word.length >= 5) enScore++;
     if (/(don't|can't|won't|isn't|aren't|wasn't|weren't|didn't|doesn't|wouldn't|couldn't|shouldn't|i'm|you're|he's|she's|it's|we're|they're)/.test(word)) enScore++;
   }
 
-  // Conservative: only flag if English markers found, no Indonesian markers
+  // Conservative: flag only when English markers appear and no Indonesian ones.
   return enScore > 0 && idScore === 0;
 }
 
@@ -88,8 +85,6 @@ function findJpPunctuation(text: string): string[] {
   }
   return found;
 }
-
-// ─── QA Modal functions ───────────────────────────────────────────────────────
 
 export function onOpenQa(): void {
   openModal(ui.qaModal);
@@ -160,7 +155,7 @@ export function runQaCheck(): void {
     const transRawName = unescapeStoredNewlines(l.trans_name || '');
 
     const errors: string[] = [];
-    // Kana (hiragana/katakana, termasuk ー dan tanda iterasi) + Kanji (termasuk 々〆〇) — TANPA simbol (・ ゛ ゜ ゠)
+    // Kana (hiragana/katakana, termasuk ー dan tanda iterasi) + Kanji (termasuk 々〆〇), tanpa simbol (・ ゛ ゜ ゠)
     const kanaRegex = /[\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u4E00-\u9FFF\u3005-\u3007]/;
 
     if (checkKana) {
@@ -303,13 +298,10 @@ export function runQaCheck(): void {
   if (btn) btn.style.display = state.qaMatches.length > 0 ? '' : 'none';
 }
 
-// ─── Retranslate Flagged ──────────────────────────────────────────────────────
-
 export async function onRetranslateFlagged(): Promise<void> {
   if (state.qaMatches.length === 0) return;
   const nums = state.qaMatches.map(m => m.num);
 
-  // Clear translations for flagged lines
   for (const num of nums) {
     const l = state.lineByNum.get(num);
     if (l) {
@@ -320,7 +312,6 @@ export async function onRetranslateFlagged(): Promise<void> {
   }
 
 
-  // Close QA modal, select flagged lines, trigger auto-translate
   closeModal(ui.qaModal as HTMLElement);
   state.selectedLines.clear();
   for (const num of nums) state.selectedLines.add(num);
@@ -370,7 +361,7 @@ export function renderQaRow(r: QaMatch): HTMLElement {
 
   contentWrap.appendChild(titleEl);
   contentWrap.appendChild(buildNodes(r.origName, r.origMsg));
-  // get updated translation dynamically
+  // Prefer the live line over the match snapshot.
   const l = state.lineByNum.get(r.num);
   const tName = l ? l.trans_name : r.transName;
   const tMsg = l ? l.trans_message : r.transMsg;

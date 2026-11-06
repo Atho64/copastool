@@ -1,10 +1,8 @@
-// @module spreadsheet.ts — Google Spreadsheet (.xlsx) round-trip for projects.
-//
-// Export  : project → workbook with Lines / Glossary / Info tabs, formatted so
-//           Google Sheets renders it nicely (frozen header, column widths).
-// Import  : workbook → project. Always manual: the user picks the file, then
-//           chooses "new project" or "merge into the open project". Nothing is
-//           imported behind their back on project open.
+// @module spreadsheet.ts: Google Spreadsheet (.xlsx) round-trip for projects.
+// Export: project -> workbook with Lines / Glossary / Info tabs, formatted for
+// Google Sheets (frozen header, column widths). Import: workbook -> project,
+// always manual: the user picks the file, then chooses "new project" or "merge
+// into the open project". Nothing is imported on project open.
 
 import { state } from './state';
 import { normalizeLineDict, isTranslated } from './state';
@@ -20,15 +18,13 @@ import { cstlConfirm } from './dialog';
 import { APP_VERSION } from './constants';
 import type { Line } from './types';
 
-// ─── Format metadata ──────────────────────────────────────────────────────────
-
 const SHEET_LINES = 'Lines';
 const SHEET_GLOSSARY = 'Glossary';
 const SHEET_INFO = 'Info';
 const FORMAT_VERSION = 1;
 
-/** Columns written to the Lines sheet, in order. Import reads them by header
- *  name so the user can reorder or hide columns without breaking anything. */
+/** Columns written to the Lines sheet, in order. Import reads them by header name,
+ *  so the user can reorder or hide columns without breaking anything. */
 const LINE_COLUMNS = [
   'line_num',
   'file',
@@ -58,8 +54,8 @@ const STRUCT_KEYS: (keyof Line)[] = [
   '_hidden', '_glossary_extracted', '_ai_checked', '_ai_confirmed',
 ];
 
-/** Internal UI flags: only worth a cell when true, otherwise every row would
- *  carry a noisy `{"_hidden":false}` blob. */
+/** Internal UI flags: only worth a cell when true, otherwise every row carries a
+ *  noisy `{"_hidden":false}` blob. */
 const FALSY_SKIPPED_KEYS = new Set<keyof Line>([
   '_hidden', '_glossary_extracted', '_ai_checked', '_ai_confirmed', 'bookmarked', 'luca_heavy_quotes',
 ]);
@@ -87,13 +83,11 @@ const INFO_KEYS = [
   'imported_files', 'file_order',
 ] as const;
 
-/** Keys that cannot survive a spreadsheet round-trip because they point at
- *  binary sidecars in OPFS of the source device. */
+/** Keys that cannot survive a spreadsheet round-trip: they point at binary
+ *  sidecars in OPFS of the source device. */
 const DROPPED_ON_IMPORT = new Set([
   'epubSourceId', 'lucaRawFiles', 'lucaRawBuffers', 'customRawFiles', 'customRawBuffers',
 ]);
-
-// ─── Export ───────────────────────────────────────────────────────────────────
 
 function boolCell(value: unknown): 'TRUE' | 'FALSE' {
   return value ? 'TRUE' : 'FALSE';
@@ -104,8 +98,8 @@ async function snapshotCurrentProject(): Promise<Record<string, any>> {
   const projectId = state.currentProjectId;
   if (!projectId) throw new Error('Tidak ada proyek yang sedang dibuka.');
 
-  // Persisted file is the source of truth for every setting that autosave
-  // writes; the live state only adds fields that never get persisted.
+  // The persisted file is the source of truth for every setting autosave writes;
+  // live state only adds fields that never get persisted.
   flushAutoSaveNow();
   const stored = await fetchProjectData(projectId);
 
@@ -219,9 +213,7 @@ export async function exportProjectToSpreadsheet(): Promise<void> {
   }
 }
 
-// ─── Import: parsing ─────────────────────────────────────────────────────────
-
-/** Case-insensitive, order-independent header → column index lookup. */
+/** Case-insensitive, order-independent header to column index lookup. */
 function headerIndex(header: string[], names: string[]): number {
   const lower = header.map(h => h.trim().toLowerCase());
   for (const name of names) {
@@ -308,7 +300,7 @@ function parseLinesRows(rows: string[][]): { lines: Line[]; warnings: string[] }
   const idxStatus = headerIndex(header, ['status']);
   const idxExtra = headerIndex(header, ['extra', 'raw_json', 'structural']);
 
-  if (idxMessage === -1) warnings.push('Kolom "message" tidak ditemukan — tidak ada baris yang diimpor.');
+  if (idxMessage === -1) warnings.push('Kolom "message" tidak ditemukan, tidak ada baris yang diimpor.');
 
   const lines: Line[] = [];
   let autoNum = 0;
@@ -348,7 +340,7 @@ function parseLinesRows(rows: string[][]): { lines: Line[]; warnings: string[] }
           const extra = JSON.parse(extraRaw);
           if (extra && typeof extra === 'object') Object.assign(line, extra);
         } catch (_) {
-          warnings.push(`Baris ${r + 1}: kolom extra bukan JSON valid — diabaikan.`);
+          warnings.push(`Baris ${r + 1}: kolom extra bukan JSON valid, diabaikan.`);
         }
       }
     }
@@ -397,7 +389,7 @@ export async function parseSpreadsheetFile(file: File): Promise<ParsedSpreadshee
   const glossaryText = parseGlossaryRows(resolveNamedSheet(workbook, SHEET_GLOSSARY));
   const infoRows = resolveNamedSheet(workbook, SHEET_INFO);
   const info = infoRows ? parseInfoRows(infoRows) : {};
-  if (!infoRows) warnings.push('Sheet Info tidak ditemukan — pengaturan proyek memakai default.');
+  if (!infoRows) warnings.push('Sheet Info tidak ditemukan, pengaturan proyek memakai default.');
 
   const projectName = String(info.projectName || '').trim()
     || file.name.replace(/\.xlsx$/i, '')
@@ -413,8 +405,6 @@ export async function parseSpreadsheetFile(file: File): Promise<ParsedSpreadshee
     warnings,
   };
 }
-
-// ─── Import: apply ───────────────────────────────────────────────────────────
 
 function buildProjectDataFromSpreadsheet(parsed: ParsedSpreadsheet, name: string): Record<string, any> {
   const info = { ...parsed.info };
@@ -433,7 +423,7 @@ function buildProjectDataFromSpreadsheet(parsed: ParsedSpreadsheet, name: string
 
   merged.projectName = name;
   merged.projectType = projectType;
-  // Sidecar-backed payloads belong to the source device — a spreadsheet cannot
+  // Sidecar-backed payloads belong to the source device and a spreadsheet cannot
   // carry them back, so imports always start without raw sources.
   merged.epubSourceId = null;
   merged.custom_parser_id = info.custom_parser_id || null;
@@ -479,9 +469,9 @@ export async function mergeSpreadsheetIntoCurrentProject(parsed: ParsedSpreadshe
   for (const line of parsed.lines) {
     const existing = byNum.get(line.line_num);
     if (existing && existing.file === line.file) {
-      // Only translation-side fields and flags travel back from the sheet;
-      // the sheet never overwrites the source `message` of a live project,
-      // because that would desync the export from the original game files.
+      // Only translation-side fields and flags travel back from the sheet. It never
+      // overwrites the source `message` of a live project, which would desync the
+      // export from the original game files.
       existing.trans_message = line.trans_message;
       existing.trans_name = line.trans_name;
       existing.is_translated = line.is_translated;
@@ -523,8 +513,6 @@ export async function mergeSpreadsheetIntoCurrentProject(parsed: ParsedSpreadshe
   return { updated, added, glossaryAdded };
 }
 
-// ─── Import: orchestration (manual, user-triggered) ──────────────────────────
-
 export type SpreadsheetImportChoice = 'new' | 'merge' | 'cancel';
 
 async function chooseImportMode(parsed: ParsedSpreadsheet): Promise<SpreadsheetImportChoice> {
@@ -542,7 +530,7 @@ async function chooseImportMode(parsed: ParsedSpreadsheet): Promise<SpreadsheetI
     return ok ? 'new' : 'cancel';
   }
 
-  // Two-step, explicit: the first confirm means "merge into the open project",
+  // Two-step and explicit: the first confirm means "merge into the open project";
   // cancelling it falls through to "new project" or abort.
   const mergeOk = await cstlConfirm(
     `${summary}\n\nProyek "${state.projectName}" sedang terbuka.\n` +

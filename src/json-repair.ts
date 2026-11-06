@@ -1,12 +1,11 @@
-// @module json-repair.ts — Salvage readable fields from a damaged JSON project file
+// @module json-repair.ts: salvage readable fields from a damaged JSON project file.
 //
-// A .cstl project is one large JSON object. When the file is truncated or
-// damaged, JSON.parse rejects the whole document even though everything before
-// the damage point is intact. These scanners walk the text with proper
-// string/escape handling and keep every complete top-level field; inside
-// arrays, complete entries before the damage are kept and the partial tail is
-// dropped. Scanning always stops at the first unreadable region — never
-// re-sync past damage, that risks stitching mismatched data together.
+// A .cstl project is one large JSON object; when it is truncated, JSON.parse
+// rejects the whole document even though everything before the damage is intact.
+// These scanners walk the text with proper string/escape handling and keep every
+// complete top-level field, truncating arrays to their last complete entry.
+// Scanning always stops at the first unreadable region: never re-sync past damage,
+// that risks stitching mismatched data together.
 
 interface ReadResult { value: any; end: number; incomplete?: boolean }
 
@@ -20,7 +19,6 @@ function skipWs(s: string, i: number): number {
   return i;
 }
 
-/** Read a JSON string token starting at s[start] === '"'. */
 function readString(s: string, start: number): ReadResult | null {
   let i = start + 1;
   const len = s.length;
@@ -34,10 +32,9 @@ function readString(s: string, start: number): ReadResult | null {
     }
     i++;
   }
-  return null; // unterminated string
+  return null;
 }
 
-/** Read a bare token: number / true / false / null. */
 function readPrimitive(s: string, start: number): ReadResult | null {
   let i = start;
   const len = s.length;
@@ -53,7 +50,7 @@ function readPrimitive(s: string, start: number): ReadResult | null {
 }
 
 function readArray(s: string, start: number): ReadResult | null {
-  let i = start + 1; // past '['
+  let i = start + 1;
   const out: any[] = [];
   while (true) {
     i = skipWs(s, i);
@@ -72,7 +69,7 @@ function readArray(s: string, start: number): ReadResult | null {
 }
 
 function readObject(s: string, start: number): ReadResult | null {
-  let i = start + 1; // past '{'
+  let i = start + 1;
   const out: Record<string, any> = {};
   while (true) {
     i = skipWs(s, i);
@@ -86,8 +83,8 @@ function readObject(s: string, start: number): ReadResult | null {
     i = skipWs(s, i + 1);
     if (i >= s.length) return { value: out, end: i, incomplete: true };
     const v = readValue(s, i);
-    // Keep incomplete values (e.g. a truncated "lines" array is the salvage
-    // target); the outer level decides to stop after them.
+    // Keep incomplete values (a truncated "lines" array is the salvage target);
+    // the outer level decides to stop after them.
     if (!v) return { value: out, end: i, incomplete: true };
     out[k.value] = v.value;
     i = skipWs(s, v.end);
@@ -107,9 +104,8 @@ function readValue(s: string, start: number): ReadResult | null {
 }
 
 /**
- * Best-effort salvage of a damaged JSON document. Returns the object with
- * every field that parsed completely (arrays truncated to their last complete
- * entry), or null when nothing usable remains.
+ * Best-effort salvage: the object with every field that parsed completely (arrays
+ * truncated to their last complete entry), or null when nothing usable remains.
  */
 export function salvageJsonObject(text: string): Record<string, any> | null {
   const r = readValue(text, skipWs(text, 0));

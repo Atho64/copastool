@@ -1,4 +1,4 @@
-// @module ai-format.ts — AI translation format helpers: export, parse, detect
+// @module ai-format.ts: AI translation format helpers for export, parse, and detect.
 
 import { state } from './state';
 import {
@@ -196,8 +196,8 @@ export function detectTranslationPasteFormat(text: string): string {
 }
 
 export function parseTranslationXml(text: string): ParsedTranslationItem[] {
-  // Hanya strip baris code fence (```xml, ```), jangan hapus <lines> atau <?xml?>
-  // karena DOMParser butuh root element yang utuh.
+  // Only strip code-fence lines (```xml, ```); keep <lines> and <?xml?> because
+  // DOMParser needs an intact root element.
   const stripped = stripScrapedAiPreamble(String(text || '')
     .split(/\r?\n/)
     .filter(line => !/^\s*```(?:xml)?\s*$/i.test(line.trim()))
@@ -238,7 +238,7 @@ export function parseTranslationJsonArray(text: string): { parsed: ParsedTransla
         const cleanMsg = stripLeakedAiSections(String(arr[2]));
         parsed.push({ num: parseInt(arr[0]), name: String(arr[1]), msg: escapeStoredNewlines(cleanMsg), rawMsg: cleanMsg });
       } else if (Array.isArray(arr) && arr.length === 2) {
-        // [id, "text"] — no speaker name
+        // [id, "text"] without a speaker name
         const cleanMsg = stripLeakedAiSections(String(arr[1]));
         parsed.push({ num: parseInt(arr[0]), name: '', msg: escapeStoredNewlines(cleanMsg), rawMsg: cleanMsg });
       } else {
@@ -289,7 +289,7 @@ export function parseTranslationBlocks(text: string): ParsedTranslationItem[] {
   for (const rawLine of lines) {
     const trimmed = rawLine.trim();
     if (!trimmed || trimmed === '```' || trimmed === '```plaintext' || trimmed === '```text') continue;
-    // Stop parsing dialogue if summary/background header is encountered
+    // A summary/background header ends the dialogue block.
     if (/^(?:===+\s*(?:SUMMARY|BACKGROUND|RINGKASAN|STORY(?:_CONTEXT)?)\b|<\/?(?:summary|background|story_context)\b|#+\s*(?:Summary|Background|Ringkasan|Story Context)\b)/i.test(trimmed)) {
       inText = false;
       break;

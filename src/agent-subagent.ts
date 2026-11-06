@@ -1,27 +1,21 @@
-// @module agent-subagent.ts — ReAct subagent engine for the AI Agent chat.
-// A subagent spawned via delegateAgent has its own chat history and runs the
-// same tool-call loop shape as the main agent, with a restricted toolset.
-// It can talk to the user directly (askUser with clickable options) and send
-// live progress reports to the main agent (reportToMain).
+// @module agent-subagent.ts: ReAct subagent engine for the AI Agent chat.
+// A subagent spawned via delegateAgent has its own history and the main agent's
+// tool loop with a restricted toolset. It can ask the user directly (askUser,
+// clickable options) and report progress to the main agent (reportToMain).
 
 import { state, ui } from './state';
 import type { ChatMessage } from './ai-client';
-
-// ── Activity feed (shown in the main agent chat as system messages) ──────────
 
 export type SubagentActivity =
   | { kind: 'status'; message: string }
   | { kind: 'question'; id: string; question: string; options: string[] }
   | { kind: 'report'; message: string };
 
-// ── User interaction (question + clickable options) ──────────────────────────
-
 let pendingQuestion: {
   id: string;
   resolve: (answer: string) => void;
 } | null = null;
 
-/** Called by the UI when the user clicks one of the question options (or types a custom answer). */
 export function resolveSubagentQuestion(id: string, answer: string): void {
   if (pendingQuestion && pendingQuestion.id === id) {
     const q = pendingQuestion;
@@ -30,15 +24,14 @@ export function resolveSubagentQuestion(id: string, answer: string): void {
   }
 }
 
-/** True while a subagent question waits for the user — the main input should stay usable? No: block it. */
+/** True while a question waits for the user; the main input stays blocked. */
 export function hasPendingSubagentQuestion(): boolean {
   return !!pendingQuestion;
 }
 
 /**
- * askUser — the subagent pauses and asks the human a question with clickable
- * option buttons. Free-text input is also allowed via the main input box.
- * Rejects when the user cancels (Stop) so the subagent loop can bail out.
+ * Subagent asks the user a question with clickable options; free text is
+ * allowed via the main input. Rejects on cancel (Stop) so the loop can bail.
  */
 export function askUserSubagent(
   question: string,
@@ -72,9 +65,8 @@ export function askUserSubagent(
 }
 
 /**
- * askUserMainThread — the MAIN agent asks the human a question with clickable
- * options. Pauses the agent turn loop until the user answers (or cancels).
- * Uses the same question-card UI + pending-question plumbing as subagents.
+ * Main agent asks the user; pauses the turn loop until an answer or cancel.
+ * Same question card and pending-question plumbing as subagents.
  */
 export function askUserMainThread(
   question: string,
@@ -88,7 +80,6 @@ export function askUserMainThread(
     }
     const id = `q${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
     pendingQuestion = { id, resolve };
-    // Render directly into the chat via the shared card renderer.
     import('./ai-agent').then(({ showSubagentQuestion }) => showSubagentQuestion(id, question, options));
     const check = setInterval(() => {
       if (isCancelled()) {
@@ -105,20 +96,17 @@ export function askUserMainThread(
   });
 }
 
-// ── Subagent tool executor (subset of main agent tools) ─────────────────────
-
 export interface SubagentToolContext {
-  /** Forward a line to the main agent chat (system message). */
+  /** Forward a line to the main agent chat as a system message. */
   emit: (activity: SubagentActivity) => void;
   isCancelled: () => boolean;
-  /** Abort epoch captured at spawn — Stop must kill subagent turns too. */
+  /** Abort epoch captured at spawn; Stop must kill subagent turns too. */
   startEpoch: number;
 }
 
 /**
- * Tools the subagent may call. Delegation (delegate*) is intentionally
- * excluded — no recursive spawning; mutations go through the same helpers as
- * the main agent by importing them lazily to avoid cycles.
+ * Tools the subagent may call. Delegation is excluded (no recursive spawning);
+ * mutations reuse the main agent's helpers via lazy imports to avoid cycles.
  */
 const SUBAGENT_TOOL_NAMES = [
   'getProjectStats', 'getLines', 'getContext', 'searchLines', 'getCharacterNames',
@@ -127,8 +115,8 @@ const SUBAGENT_TOOL_NAMES = [
   'saveMemory', 'webSearch', 'searchVn', 'askUser', 'reportToMain',
 ] as const;
 
-// askUser is blocking/interactive — the subagent loop runs tools sequentially,
-// so no parallel-batch gating is needed here (unlike the main agent loop).
+// askUser is blocking and the subagent loop runs tools sequentially, so no
+// parallel-batch gating is needed here (unlike the main agent loop).
 
 async function executeSubagentTool(
   name: string,
@@ -140,7 +128,6 @@ async function executeSubagentTool(
     Promise.resolve().then(fn).catch((e: any) => `Error: ${e?.message || String(e)}`);
   const a = (args && typeof args === 'object') ? args : {};
 
-  // ── Subagent-only tools ──
   if (name === 'askUser') {
     const question = String(a.question ?? a.q ?? '').trim();
     if (!question) return 'Error: question tidak boleh kosong.';
@@ -159,7 +146,6 @@ async function executeSubagentTool(
     return 'Laporan terkirim ke main agent.';
   }
 
-  // ── Shared tools — reuse the main agent's executor ──
   const { executeTool } = await import('./ai-agent');
   return executeTool(name, args, onProgress);
 }
@@ -168,17 +154,14 @@ export function isSubagentToolAllowed(name: string): boolean {
   return (SUBAGENT_TOOL_NAMES as readonly string[]).includes(name);
 }
 
-// ── Subagent ReAct loop ──────────────────────────────────────────────────────
-
-// Subagents run unlimited turns by default (matching interactive coding-agent
-// CLIs); a cap can still be set per call via delegateAgent's max_turns argument.
+// Subagents run unlimited turns by default (like interactive coding-agent CLIs);
+// a cap can still be set per call via delegateAgent's max_turns argument.
 const SUBAGENT_RESULT_LIMIT = 8000;
 
 /**
- * Run a subagent turn loop. Returns the subagent's final answer text.
- * maxTurnsArg: hard turn cap — 0/undefined = unlimited (Stop is the only exit,
- * same philosophy as interactive coding-agent CLIs). When a cap IS set and
- * exhausted, one forced final turn asks the model to write its report.
+ * Run a subagent turn loop; returns the final answer text.
+ * maxTurnsArg: hard turn cap, 0/undefined = unlimited (Stop is the only exit).
+ * When a cap is set and exhausted, one forced final turn asks for the report.
  */
 export async function runSubagent(
   task: string,
@@ -202,7 +185,7 @@ export async function runSubagent(
   let turn = 0;
   let malformedRetries = 0;
   // Native function calling with the subagent's tool subset; falls back to
-  // JSON-in-text when the provider ignores the declaration.
+  // JSON-in-text when the provider ignores the tool declaration.
   let nativeToolsActive = false;
   const { AGENT_TOOL_SCHEMAS } = await import('./agent-tools-schema');
   const allowedSchemas = AGENT_TOOL_SCHEMAS.filter(t => isSubagentToolAllowed(t.name));
@@ -211,7 +194,7 @@ export async function runSubagent(
     turn++;
     onStatus?.(maxTurns > 0
       ? `Subagent turn ${turn}/${maxTurns}...`
-      : `Subagent turn ${turn}... (tanpa batas — Stop untuk menghentikan)`);
+      : `Subagent turn ${turn}... (tanpa batas, Stop untuk menghentikan)`);
 
     let responseText = '';
     let nativeToolCalls: { name: string; arguments: any }[] = [];
@@ -277,8 +260,8 @@ export async function runSubagent(
         return `Tool "${call.name}" result:\n${clipped}`;
       });
       history.push({ role: 'user', content: toolResults.join('\n\n'), _internal: true });
-      malformedRetries = 0; // successful tool round resets the counter
-      // Unlimited turns accumulate tool results — compact when the subagent's
+      malformedRetries = 0;
+      // Unlimited turns accumulate tool results; compact when the subagent's
       // own history grows past the model's context window.
       try {
         const { compactAgentContextIfNeeded } = await import('./agent-context');
@@ -286,11 +269,10 @@ export async function runSubagent(
           const { chatCompletion: cc } = await import('./ai-client');
           return cc(msgs, { rateLimited: true });
         });
-      } catch { /* compaction is best-effort — never kill the run for it */ }
+      } catch { /* compaction is best-effort, never kill the run for it */ }
       continue;
     }
 
-    // Plain text — the subagent's final answer.
     // Thinking tags are ALWAYS stripped here: a reasoning model's <think>
     // block is internal work, never part of the report (unlike the translation
     // pipelines, this is not gated on aiFilterThinkingOutput).
@@ -299,19 +281,17 @@ export async function runSubagent(
   }
 
   if (!finalText && maxTurns > 0) {
-    // Turn cap exhausted before the model produced a text reply (it kept
-    // calling tools). Force ONE final turn: no more tools, write the report
-    // from whatever has been gathered so far. This prevents the old failure
-    // mode where a big analysis task burned all turns and returned nothing.
-    onStatus?.('Subagent kehabisan turn — memaksa laporan final...');
+    // Turn cap exhausted before any text reply (the model kept calling tools).
+    // Force ONE final turn with no tools so a big analysis still returns a report.
+    onStatus?.('Subagent kehabisan turn, memaksa laporan final...');
     history.push({
       role: 'user',
-      content: 'KEHABISAN TURN. Kamu TIDAK boleh memanggil tool lagi. Berdasarkan SEMUA hasil tool yang sudah kamu terima di atas, tulis SEKARANG laporan/jawaban final dalam teks biasa (bukan JSON). Sertakan temuan yang sudah terkumpul — jangan mulai analisis baru.',
+      content: 'KEHABISAN TURN. Kamu TIDAK boleh memanggil tool lagi. Berdasarkan SEMUA hasil tool yang sudah kamu terima di atas, tulis SEKARANG laporan/jawaban final dalam teks biasa (bukan JSON). Sertakan temuan yang sudah terkumpul, jangan mulai analisis baru.',
       _internal: true,
     });
     try {
       const { chatCompletionStructured: ccStructured } = await import('./ai-client');
-      // No tools on the forced turn — the model must answer with text.
+      // No tools on the forced turn: the model must answer with text.
       const forcedRes = await ccStructured(history, { rateLimited: true });
       finalText = stripThinkingTagsForStream(forcedRes.text).trim();
     } catch (e: any) {

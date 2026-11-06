@@ -1,4 +1,4 @@
-// @module plugin-types.ts — Type definitions for CSTL Plugin System
+// @module plugin-types.ts: types for the CSTL plugin system.
 
 export type PluginPermission =
   | 'project'

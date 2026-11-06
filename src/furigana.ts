@@ -83,18 +83,14 @@ export function clearFuriganaCache(): void {
   furiganaCache.clear();
 }
 
-/**
- * Returns cached or immediately convertible Furigana HTML synchronously if possible.
- * If text contains no Japanese / Kanji or is already cached in memory, returns string.
- * Otherwise returns null to signal async conversion needed.
- */
+/** Cached or synchronous Furigana HTML, or null when async conversion is needed. */
 export function getCachedFurigana(text: string): string | null {
   if (!text) return text;
   // Every result is inserted as HTML, including text that needs no conversion.
   if (!JAPANESE_CHAR_REGEX.test(text)) return escapeFuriganaText(text);
 
   const fType = state.furiganaType || 'hiragana';
-  // For hiragana or katakana furigana, if text has no kanji, nothing needs ruby
+  // Hiragana/katakana furigana needs no ruby when there is no kanji.
   if ((fType === 'hiragana' || fType === 'katakana') && !KANJI_REGEX.test(text)) {
     return escapeFuriganaText(text);
   }
@@ -103,9 +99,7 @@ export function getCachedFurigana(text: string): string | null {
   return furiganaCache.get(cacheKey) ?? null;
 }
 
-/**
- * Initialize Kuroshiro with Kuromoji Analyzer in Web Worker
- */
+/** Load Kuroshiro + Kuromoji in the worker; the timeout covers the dictionary download. */
 export async function initFurigana(): Promise<void> {
   if (initPromise) return initPromise;
   
@@ -117,13 +111,9 @@ export async function initFurigana(): Promise<void> {
   return initPromise;
 }
 
-/**
- * Convert text to ruby HTML via Web Worker
- */
 export async function convertToFurigana(text: string): Promise<string> {
   if (!text) return text;
   
-  // Fast path: synchronous check
   const fast = getCachedFurigana(text);
   if (fast !== null) return fast;
 
@@ -162,9 +152,6 @@ function cleanRomajiPunctuation(raw: string): string {
     .trim();
 }
 
-/**
- * Returns cached or immediately convertible Romaji synchronously if possible.
- */
 export function getCachedRomaji(text: string): string | null {
   if (!text) return '';
   const cached = romajiCache.get(text);
@@ -177,15 +164,13 @@ export function getCachedRomaji(text: string): string | null {
   return null;
 }
 
-/**
- * Converts Japanese text (kanji + kana) to spaced Hepburn Romaji.
- */
+/** Converts Japanese text (kanji + kana) to spaced Hepburn Romaji. */
 export async function convertToRomaji(text: string): Promise<string> {
   if (!text) return '';
   const cached = romajiCache.get(text);
   if (cached !== undefined) return cached;
 
-  // Fast path: if text contains no Kanji, use synchronous kanaToRomaji
+  // No kanji: the synchronous kanaToRomaji is enough.
   if (!KANJI_REGEX.test(text)) {
     const fast = cleanRomajiPunctuation(kanaToRomaji(text));
     romajiCache.set(text, fast);

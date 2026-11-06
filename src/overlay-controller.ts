@@ -1,5 +1,5 @@
-// @module overlay-controller.ts — Coordinates LunaTranslator hook & VN Overlay window
-// Syncs matched dialogue with the floating overlay and optionally auto-scrolls the main editor.
+// @module overlay-controller.ts: coordinates the LunaTranslator hook and the VN overlay window.
+// Syncs matched dialogue to the floating overlay and optionally auto-scrolls the main editor.
 
 import { state, getMainScroller } from './state';
 import { isTauri } from './native-storage';
@@ -51,9 +51,8 @@ class OverlayController {
 
   constructor() {
     // Transport policy (must match the overlay window's): inside Tauri use native
-    // events only, because both webviews share an origin and BroadcastChannel
-    // would deliver every message twice. Outside Tauri the BroadcastChannel is
-    // the only bridge between the app and a popped-out overlay.html window.
+    // events only; both webviews share an origin, so BroadcastChannel would deliver
+    // every message twice. Outside Tauri it is the only bridge to overlay.html.
     this.usesNativeEvents = isTauri();
 
     try {
@@ -66,7 +65,7 @@ class OverlayController {
         }
       };
     } catch {
-      // BroadcastChannel not available in environment
+      // BroadcastChannel unavailable.
     }
   }
 
@@ -74,12 +73,10 @@ class OverlayController {
     if (this.initialized) return;
     this.initialized = true;
 
-    // Listen to incoming hooked dialogue from LunaTranslator
     lunaHooker.onText((rawText) => {
       this.handleIncomingHook(rawText);
     });
 
-    // Listen to status changes from LunaTranslator
     lunaHooker.onStatusChange((status, message) => {
       if (this.latestPayload) {
         this.latestPayload.lunaStatus = status;
@@ -102,7 +99,6 @@ class OverlayController {
       this.broadcastLatest();
     });
 
-    // Listen to operating mode changes (check vs tl)
     lunaHooker.onModeChange((mode) => {
       if (this.latestPayload) {
         this.latestPayload.mode = mode;
@@ -110,9 +106,8 @@ class OverlayController {
       this.broadcastLatest();
     });
 
-    // Listen to Tauri events from overlay window. Bookmark toggles arrive on
-    // exactly one transport: native events here, or the BroadcastChannel when
-    // running outside Tauri (see the constructor).
+    // Bookmark toggles arrive on exactly one transport: native events here, or
+    // the BroadcastChannel outside Tauri (see the constructor).
     if (this.usesNativeEvents) {
       import('@tauri-apps/api/event').then(({ listen }) => {
         listen<OverlayBookmarkMessage>(OVERLAY_EVENT_BOOKMARK, (event) => {
@@ -127,7 +122,6 @@ class OverlayController {
       });
     }
 
-    // Auto-connect if configured
     if (lunaHooker.getConfig().autoConnect) {
       lunaHooker.connect();
     }
@@ -187,12 +181,10 @@ class OverlayController {
         isTranslating: false,
       };
 
-      // Optional auto-scroll main editor scroller
       if (lunaHooker.getConfig().autoScrollMain) {
         this.scrollMainEditor(match.index);
       }
 
-      // If TL Mode is active and line is untranslated, trigger live AI translation
       if (mode === 'tl' && isUntranslated && !liveTranslator.isLineInFlight(cur.line_num)) {
         const engineLabel = state.liveTranslateEngine === 'copas' ? 'Auto Copas' : 'AI API';
         const batchN = Math.max(1, state.liveBatchSize || 1);
@@ -218,7 +210,7 @@ class OverlayController {
               }
               this.latestPayload.currentLine.is_translated = true;
               this.latestPayload.isTranslating = false;
-              this.latestPayload.lunaMessage = `TL Selesai #${cur.line_num} (${engineLabel})`;
+              this.latestPayload.lunaMessage = `TL selesai #${cur.line_num} (${engineLabel})`;
               this.broadcastLatest();
             }
           },
@@ -235,7 +227,6 @@ class OverlayController {
         this.broadcastLatest();
       }
 
-      // If romaji wasn't already cached, asynchronously fetch Romaji reading and broadcast update when ready
       if (cur.message && !sanitizedCur.romaji) {
         convertToRomaji(cur.message).then((romaji) => {
           if (this.latestPayload?.currentLine?.line_num === cur.line_num) {
@@ -246,7 +237,6 @@ class OverlayController {
       }
       return;
     } else {
-      // Unmatched line
       const mode = lunaHooker.getConfig().mode;
       this.latestPayload = {
         currentIndex: this.lastMatchedIndex,
@@ -298,9 +288,9 @@ class OverlayController {
     const target = state.lineByNum.get(lineNum) || state.lines.find((l) => l.line_num === lineNum);
     if (!target) return;
 
-    // Apply the requested state idempotently. toggleBookmark() flips the value
-    // and pushes an undo snapshot, so a redundant or stale click must not reach
-    // it — otherwise repeated clicks pile up undo entries that toggle each other.
+    // Apply the requested state idempotently. toggleBookmark() flips the value and
+    // pushes an undo snapshot, so a redundant click must not reach it; otherwise
+    // repeated clicks pile up undo entries that toggle each other.
     const desired = typeof bookmarked === 'boolean' ? bookmarked : !target.bookmarked;
     if (target.bookmarked !== desired) {
       toggleBookmark(lineNum);
@@ -333,7 +323,6 @@ class OverlayController {
     }
   }
 
-  // Window management commands
   async openOverlay(): Promise<void> {
     if (lunaHooker.getStatus().status !== 'connected') {
       lunaHooker.connect();
@@ -393,11 +382,9 @@ class OverlayController {
   }
 
   /**
-   * Switches the overlay between click-through and interactive.
-   *
-   * The overlay ships click-through so it can sit over a game without eating
-   * clicks. Because a click-through window cannot receive the click that would
-   * re-enable it, this has to be driven from the main window.
+   * Switches the overlay between click-through and interactive. The overlay ships
+   * click-through so it does not eat game clicks, and such a window cannot receive
+   * the click that would re-enable it, so the main window drives this.
    */
   async setInteractive(interactive: boolean): Promise<boolean> {
     if (!isTauri()) return false;
@@ -411,10 +398,9 @@ class OverlayController {
   }
 
   /**
-   * Collects overlay window state and re-asserts topmost.
-   *
-   * The re-assert is the fix for "overlay invisible over a fullscreen game";
-   * the report tells us *why* when it still fails, instead of guessing.
+   * Collects overlay window state and re-asserts topmost, the fix for an overlay
+   * that stays invisible over a fullscreen game. The report says why it still
+   * fails instead of guessing.
    */
   async diagnose(): Promise<OverlayDiagnostic | null> {
     if (!isTauri()) return null;

@@ -1,15 +1,12 @@
-// @module folder-backup.ts — Backup/pulihkan proyek langsung ke folder lokal
+// @module folder-backup.ts: backup/pulihkan proyek langsung ke folder lokal.
 //
-// Chrome/Edge desktop bisa diberi izin menulis ke SATU folder pilihan user
-// (File System Access API). File backup .cstl ditulis langsung ke folder itu —
-// tanpa download, tanpa login, tanpa bicara dengan layanan cloud apa pun.
-// Sinkronisasi ke Google Drive/Dropbox/rclone jadi urusan program terpisah
-// yang mengawasi folder tersebut.
-//
-// Aplikasi desktop Tauri (Windows) memakai folder yang sama lewat
-// native-save-folder.ts (tauri-plugin-dialog), Android lewat SAF tree URI.
-// Browser lain (mobile/Firefox/Safari) tombolnya disembunyikan
-// (lihat isFolderBackupSupported + wiring di ui-init).
+// Chrome/Edge desktop menulis ke SATU folder pilihan user (File System Access API),
+// tanpa download dan tanpa layanan cloud; sinkronisasi ke Drive/Dropbox/rclone
+// jadi urusan program terpisah yang mengawasi folder itu.
+// Tauri (Windows) memakai folder yang sama lewat native-save-folder.ts
+// (tauri-plugin-dialog), Android lewat SAF tree URI. Browser lain
+// (mobile/Firefox/Safari) menyembunyikan tombolnya (lihat isFolderBackupSupported
+// + wiring di ui-init).
 
 import { state } from './state';
 import { PROJECT_EXT, LEGACY_PROJECT_EXT } from './constants';
@@ -36,7 +33,7 @@ export function isFolderBackupSupported(): boolean {
   return typeof (window as any).showDirectoryPicker === 'function' || isDesktopTauriApp();
 }
 
-// ─── Penyimpanan handle folder (handle bisa di-clone ke IndexedDB) ───────────
+// Handle folder bisa di-clone ke IndexedDB.
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, 1);
@@ -76,9 +73,9 @@ async function getSavedDir(): Promise<FileSystemDirectoryHandle | null> {
 }
 
 /**
- * Folder yang dipakai: yang tersimpan, atau user dimilihkan lewat picker.
- * Permission readwrite diminta ulang kalau browser sudah restart — karena itu
- * fungsi ini harus dipanggil dari dalam click handler (user gesture).
+ * Folder yang dipakai: yang tersimpan, atau yang dipilih lewat picker.
+ * Permission readwrite diminta ulang setelah browser restart, jadi fungsi ini
+ * harus dipanggil dari dalam click handler (user gesture).
  */
 export async function ensureBackupDir(): Promise<FileSystemDirectoryHandle | null> {
   let dir = await getSavedDir();
@@ -319,7 +316,7 @@ function showFolderRestoreModal(backups: { name: string; file: File }[]): void {
   closeBtn.textContent = 'Tutup';
   closeBtn.addEventListener('click', () => {
     closeModal(backdrop);
-    setTimeout(() => backdrop.remove(), 240); // tunggu animasi closing selesai
+    setTimeout(() => backdrop.remove(), 240); // tunggu animasi closing
   });
   actions.appendChild(closeBtn);
 

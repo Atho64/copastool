@@ -1,4 +1,4 @@
-// @module export.ts — Project export: JSON, EPUB, dan LucaTxt formats
+// @module export.ts: project export for JSON, EPUB, and LucaTxt formats.
 
 import { state, ui } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
@@ -39,9 +39,8 @@ function writeTextNodeWithBreaks(node: Text, text: string): void {
 function replaceElementTextPreservingInlineStructure(el: Element, storedText: string): void {
   const text = unescapeStoredNewlines(storedText);
 
-  // Ruby readings belong to the original language. Keeping them attached to
-  // translated text produces incorrect annotations, so flatten ruby nodes to
-  // their base text before distributing the translation.
+  // Ruby readings belong to the original language, so flatten them to base text
+  // before distributing the translation.
   const rubyNodes = Array.from(el.querySelectorAll('ruby')).reverse();
   for (const ruby of rubyNodes) {
     const baseWalker = document.createTreeWalker(ruby, NodeFilter.SHOW_TEXT);
@@ -72,9 +71,8 @@ function replaceElementTextPreservingInlineStructure(el: Element, storedText: st
     return;
   }
 
-  // Keep the source's inline elements (em, ruby, links, etc.) and distribute
-  // the translated text across their original text-node proportions. This is
-  // only a best-effort mapping, but avoids flattening the inline structure.
+  // Distribute the translation across the original text-node proportions to keep
+  // inline elements (em, links) instead of flattening them. Best effort only.
   const sourceLength = textNodes.reduce((sum, textNode) => sum + textNode.data.length, 0);
   if (!sourceLength) {
     textNodes[0].data = text;
@@ -106,7 +104,7 @@ export function onCopyForAi(ctxLines: Line[]): void {
     }
   }
   navigator.clipboard.writeText(ctxOut.join('\n\n'));
-  flashHint('Teks disalin ke clipboard!');
+  flashHint('Teks disalin ke clipboard');
 }
 
 export async function confirmExportWithUntranslatedReport(): Promise<boolean> {
@@ -120,8 +118,8 @@ export async function confirmExportWithUntranslatedReport(): Promise<boolean> {
   }).join('\n');
   const rest = untranslated.length > 12 ? `\n...dan ${untranslated.length - 12} baris lainnya.` : '';
   return await cstlConfirm(`Masih ada ${untranslated.length} baris yang belum diterjemahkan.\n\n${preview}${rest}\n\nLanjut ekspor tetap?`, {
-    title: 'Peringatan Ekspor',
-    confirmLabel: 'Tetap Ekspor',
+    title: 'Peringatan ekspor',
+    confirmLabel: 'Tetap ekspor',
     cancelLabel: 'Batal',
   });
 }
@@ -143,8 +141,8 @@ export async function onExport(): Promise<void> {
       
       const linesByFile: Record<string, Line[]> = {};
       state.lines.forEach(l => {
-        // Illustration placeholder lines have no counterpart element in the XHTML —
-        // they must not consume a slot in the element<->line pairing below.
+        // Illustration placeholders have no XHTML counterpart, so they must not
+        // consume a slot in the element<->line pairing below.
         if (isIlustrasiLine(l)) return;
         if (!linesByFile[l.file]) linesByFile[l.file] = [];
         linesByFile[l.file].push(l);
@@ -201,7 +199,7 @@ export async function onExport(): Promise<void> {
       if (!exportStillActive()) return;
       const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
       await saveOrDownloadBlob(blob, `${safeName}_tl.epub`);
-      flashHint('Berhasil mengekspor EPUB!');
+      flashHint('EPUB berhasil diekspor');
     } catch (err: any) {
       alert('Gagal mengekspor EPUB: ' + err.message);
     } finally {
@@ -233,7 +231,7 @@ export async function onExport(): Promise<void> {
           const messageCount = state.lines.filter((l) => l.luca_command === 'MESSAGE' || l.luca_command === 'MESSAGE_WAIT').length;
           alert(
             'Tomoyo txt masih berisi byte prefix (c1 ff / U+FFFD) di dalam tanda kutip. ' +
-            'Itu format decompile lucksystem lama — bukan decompiled_clean yang sudah diperbaiki.\n\n' +
+            'Itu format decompile lucksystem lama, bukan decompiled_clean yang sudah diperbaiki.\n\n' +
             `CSTL ${APP_VERSION} | baris bermasalah: ${badEmbeddedPrefix}/${messageCount}\n` +
             'Jalankan ulang script decompile dengan lucksystem terbaru, atau strip_tomoyo_prefix.py.'
           );
@@ -344,21 +342,21 @@ export async function onExport(): Promise<void> {
         if (!exportStillActive()) return;
         const safeName = state.projectName.replace(/[<>:"\/\\|?*]/g, '_').trim() || 'export';
         await saveOrDownloadBlob(b, `${safeName}_luca_export.zip`);
-        flashHint('Berhasil mengekspor ZIP Luca!');
+        flashHint('ZIP Luca berhasil diekspor');
       } else {
         for (const f of res) {
           if (!exportStillActive()) return;
           const b = new Blob([f.content], { type: f.binary ? 'application/octet-stream' : 'text/plain;charset=utf-8' });
           await saveOrDownloadBlob(b, f.fn);
         }
-        flashHint('Berhasil mengekspor TXT Luca!');
+        flashHint('TXT Luca berhasil diekspor');
       }
     } finally {
       document.body.style.cursor = 'default';
     }
   } else {
-    // Fallback generik: satu baris JSON per file — dipakai proyek JSON, dan
-    // proyek parser custom yang tidak punya serialize()/parser-nya hilang.
+    // Fallback generik: satu baris JSON per file, dipakai proyek JSON dan
+    // proyek parser custom yang tidak punya serialize() atau parser-nya hilang.
     const exportLinesAsJson = async (): Promise<void> => {
       const g = new Map<string, Line[]>();
       for (const l of state.lines) {
@@ -405,7 +403,7 @@ export async function onExport(): Promise<void> {
       }
       const isPlugin = (parser as any).isPlugin || !(parser as any).serializeScript;
       if (!isPlugin && !(parser as any).serializeScript?.trim()) {
-        flashHint(`Parser "${parser.name}" tidak punya serialize() — ekspor memakai format JSON.`);
+        flashHint(`Parser "${parser.name}" tidak punya serialize(), ekspor memakai format JSON.`);
         await exportLinesAsJson();
         return;
       }
@@ -431,7 +429,7 @@ export async function onExport(): Promise<void> {
           g.get(groupKey)!.push(l);
         }
         // LAZY: deteksi file sumber yang benar-benar tidak ada (bukan sekadar
-        // belum ter-load di state) — tanya langsung ke lazy source / state.
+        // belum ter-load di state), tanya langsung ke lazy source / state.
         const missingSourcesList: string[] = [];
         for (const fn of g.keys()) {
           const inLazy = customLazySourceHas(fn);
@@ -540,7 +538,7 @@ export async function onExport(): Promise<void> {
             await saveOrDownloadBlob(b, f.fn);
           }
         }
-        flashHint(`Berhasil ekspor dengan parser "${parser.name}"!`);
+        flashHint(`Ekspor dengan parser "${parser.name}" berhasil`);
       } catch (err: any) {
         alert(`Gagal ekspor parser custom: ${err.message}\n\nMencoba ekspor JSON sebagai fallback...`);
         await exportLinesAsJson();

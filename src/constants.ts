@@ -1,5 +1,3 @@
-// @module constants.ts — App-wide constants and default prompts
-
 export const AI_TRANSLATION_FORMAT_BLOCK = 'block';
 export const AI_TRANSLATION_FORMAT_NUMBERED = 'numbered';
 export const AI_TRANSLATION_FORMAT_XML = 'xml';
@@ -8,11 +6,11 @@ export const AI_TRANSLATION_FORMAT_JSON_ARRAY = 'jsonarray';
 export const DEFAULT_AI_TRANSLATION_FORMAT = AI_TRANSLATION_FORMAT_NUMBERED;
 export const DEFAULT_PROMPT_HEADER_NUMBERED = `You are a visual novel translator. Translate into natural native {{targetLang}}, accurate and idiomatic.
 - Keep line numbers unchanged. Never merge, reorder, or drop items. Return exactly the same number of outputs as inputs.
-- You must return exactly {{lineCount}} translated line(s) — one per input number above.
+- You must return exactly {{lineCount}} translated line(s), one per input number above.
 - Translate or romanize every character name. Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
-- Reply with ONLY a \`\`\`plaintext block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`plaintext block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -21,12 +19,12 @@ Example:
 \`\`\``;
 export const DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO = `You are a visual novel translator. Translate into natural native {{targetLang}}, accurate and idiomatic.
 - Keep line numbers unchanged. Never merge, reorder, or drop items. Return exactly the same number of outputs as inputs.
-- You must return exactly {{lineCount}} translated line(s) — one per input number above.
+- You must return exactly {{lineCount}} translated line(s), one per input number above.
 - Translate or romanize every character name. Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
 - Use Japanese quotation marks 「」 for all spoken dialogue.
-- Reply with ONLY a \`\`\`plaintext block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`plaintext block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -39,7 +37,7 @@ export const DEFAULT_PROMPT_HEADER_BLOCK = `You are a visual novel translator. T
 - Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
-- Reply with ONLY a \`\`\`plaintext block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`plaintext block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT blocks above; do not reproduce the example.
 
 Example:
@@ -55,7 +53,7 @@ export const DEFAULT_PROMPT_HEADER_BLOCK_KAGIKAKKO = `You are a visual novel tra
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
 - Use Japanese quotation marks 「」 for all spoken dialogue.
-- Reply with ONLY a \`\`\`plaintext block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`plaintext block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT blocks above; do not reproduce the example.
 
 Example:
@@ -70,7 +68,7 @@ export const DEFAULT_PROMPT_HEADER_XML = `You are a visual novel translator. Tra
 - Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
-- Reply with ONLY a \`\`\`xml block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`xml block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -86,7 +84,7 @@ export const DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO = `You are a visual novel trans
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
 - Use Japanese quotation marks 「」 for all spoken dialogue.
-- Reply with ONLY a \`\`\`xml block — no commentary, explanations, or notes before or after the fence.
+- Reply with ONLY a \`\`\`xml block, no commentary, explanations, or notes before or after the fence.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -99,7 +97,7 @@ export const DEFAULT_PROMPT_HEADER_JSON_ARRAY = `You are a visual novel translat
 - Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
-- Reply with ONLY a \`\`\`jsonl block — one JSON array per line. If a line has a speaker, output [id,"name","text"]. If no speaker, output [id,"text"]. No spaces after commas.
+- Reply with ONLY a \`\`\`jsonl block, one JSON array per line. If a line has a speaker, output [id,"name","text"]. If no speaker, output [id,"text"]. No spaces after commas.
 - Never merge, reorder, or drop items. Return exactly the same number of arrays as inputs.
 - Translate only the INPUT lines above; do not reproduce the example.
 
@@ -113,7 +111,7 @@ export const DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO = `You are a visual nove
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
 - Use Japanese quotation marks 「」 for all spoken dialogue.
-- Reply with ONLY a \`\`\`jsonl block — one JSON array per line. If a line has a speaker, output [id,"name","text"]. If no speaker, output [id,"text"]. No spaces after commas.
+- Reply with ONLY a \`\`\`jsonl block, one JSON array per line. If a line has a speaker, output [id,"name","text"]. If no speaker, output [id,"text"]. No spaces after commas.
 - Never merge, reorder, or drop items. Return exactly the same number of arrays as inputs.
 - Translate only the INPUT lines above; do not reproduce the example.
 
@@ -127,7 +125,7 @@ export const DEFAULT_PROMPT_HEADER_JSONL = `You are a visual novel translator. T
 - Keep Japanese honorifics (-san, -kun, -chan, etc.).
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
-- Reply with ONLY a \`\`\`jsonl block — one JSON object per line.
+- Reply with ONLY a \`\`\`jsonl block, one JSON object per line.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -140,7 +138,7 @@ export const DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO = `You are a visual novel tra
 - Convert onomatopoeia/SFX to natural {{targetLang}}; never leave raw kana (っ, ッ, or katakana SFX).
 - No euphemisms. No informal/slang pronouns (lo, lu, gue, gua, etc.).
 - Use Japanese quotation marks 「」 for all spoken dialogue.
-- Reply with ONLY a \`\`\`jsonl block — one JSON object per line.
+- Reply with ONLY a \`\`\`jsonl block, one JSON object per line.
 - Translate only the INPUT lines above; do not reproduce the example.
 
 Example:
@@ -254,17 +252,17 @@ Only return lines that need correction. Do not return lines that are already goo
 
 ## Minimal edit principle (IMPORTANT)
 Preserve the current translation as much as possible. Change ONLY the parts that have actual problems.
-Do NOT rephrase, restyle, or "improve" parts that are already correct — a smaller targeted fix is always preferred over a rewrite.
+Do NOT rephrase, restyle, or "improve" parts that are already correct, a smaller targeted fix is always preferred over a rewrite.
 If you are not confident a change is a real improvement, do not report the line at all.
 
 ## Input
 Lines to review are inside <lines>. Each has an "original" (source) and a "current" (existing {{targetLang}} translation).
-If a <Context> block is present, it contains lines that come BEFORE the reviewed lines — it is for reference only, do NOT correct them. Use it to understand what happened earlier in the story (pronoun references, tone, character relationships).
-If a <Context_After> block is present, it contains lines that come AFTER the reviewed lines — also reference only, do NOT correct them. Use it to see where the scene is heading (e.g. an upcoming topic a pronoun may refer to), but the reviewed translation must stay consistent with what came BEFORE.
+If a <Context> block is present, it contains lines that come BEFORE the reviewed lines, it is for reference only, do NOT correct them. Use it to understand what happened earlier in the story (pronoun references, tone, character relationships).
+If a <Context_After> block is present, it contains lines that come AFTER the reviewed lines, also reference only, do NOT correct them. Use it to see where the scene is heading (e.g. an upcoming topic a pronoun may refer to), but the reviewed translation must stay consistent with what came BEFORE.
 If a <story_context> block is present, use it to understand the narrative and character relationships.
 If a <Glossary> block is present, respect it for names and terms.
 If a <localization_guidelines> block is present, strictly adhere to its rules for character tone, honorifics, and custom localization preferences.
-If a <previous_revisions> block is present, maintain consistency with those earlier decisions — do not revert standardized terms or tone. Also respect REJECTED entries: do NOT propose a rejected change again.
+If a <previous_revisions> block is present, maintain consistency with those earlier decisions, do not revert standardized terms or tone. Also respect REJECTED entries: do NOT propose a rejected change again.
 
 ## Output
 Return corrections inside a \`\`\`plaintext block. Use this exact format per corrected line:
@@ -287,7 +285,7 @@ The "correction" field must contain the COMPLETE corrected line. If the line has
 - Name: character name still in {{sourceLang}} script, or name misspelled
 
 ## Confidence (pick exactly one)
-- high: the fix is objectively wrong→right (typo, grammar, wrong name, leftover source-language characters) — safe to apply automatically
+- high: the fix is objectively wrong→right (typo, grammar, wrong name, leftover source-language characters), safe to apply automatically
 - medium: clearly a problem, but the fix involves style or judgment
 - low: possible issue, but the current version may also be acceptable
 
@@ -296,7 +294,7 @@ The "correction" field must contain the COMPLETE corrected line. If the line has
 2. Does the {{targetLang}} sound natural and fluent? No calque or literal translation?
 3. Are there leftover {{sourceLang}} characters or punctuation in the translation?
 4. Do character names match the glossary? Are honorifics handled consistently?
-5. Is punctuation correct for {{targetLang}}? (Do not flag quote style — the translator may use double quotes or Japanese 「」『』.)
+5. Is punctuation correct for {{targetLang}}? (Do not flag quote style, the translator may use double quotes or Japanese 「」『』.)
 6. Does the formality level match the character's speech style?
 7. Does it make sense in context (pronouns, references, implied subjects)?
 8. Does it strictly adhere to <localization_guidelines> and maintain consistency with <previous_revisions>?
@@ -323,13 +321,13 @@ correction: Misaki: "Hari ini cuacanya bagus ya."
 1. Keep the original line number exactly.
 2. Give a short, concrete reason (max 1 sentence).
 3. Always include the confidence field.
-4. The correction must be the full corrected line — include the speaker name prefix when the line has one.
+4. The correction must be the full corrected line, include the speaker name prefix when the line has one.
 5. Correct only the {{targetLang}} translation, not the {{sourceLang}} original.
 5. Respect provided glossary entries for names and terms.
 6. If a line is already good, do not return it.`;
 /**
- * Extra format rules appended to the AI Check prompt when JSON output mode is
- * enabled (API engine only). The JSON shape keeps parsing deterministic.
+ * Appended to the AI Check prompt in JSON output mode (API engine only); the
+ * JSON shape keeps parsing deterministic.
  */
 export const AI_CHECK_JSON_FORMAT_RULES = `
 
@@ -341,16 +339,13 @@ Rules:
 1. "num" is the original line number. Only include lines that need correction.
 2. "category" is one of: Accuracy, Naturalness, Grammar, Punctuation, Consistency, Name.
 3. "confidence" is one of: high, medium, low.
-4. "name" is the corrected speaker name — omit the field entirely when the line has no speaker.
+4. "name" is the corrected speaker name, omit the field entirely when the line has no speaker.
 5. "text" is the corrected message WITHOUT the "Name: " prefix (the name goes in the "name" field). Keep it a minimal targeted fix.
 6. When story context is requested, fill "summary" (story summary so far) and "revisions" (notes for maintaining consistency). Use "" when there is nothing to report.
 7. When no lines need correction, return {"corrections":[],"summary":"...","revisions":"..."}.
 8. Respect REJECTED entries in <previous_revisions>: do NOT propose a rejected change again.`;
 
-/**
- * Deep Check mode: pass 1 focuses only on meaning accuracy against the source,
- * pass 2 only on naturalness of the (possibly corrected) translation.
- */
+/** Deep Check pass 1 checks accuracy against the source, pass 2 checks naturalness. */
 export const DEFAULT_AI_CHECK_ACCURACY_PROMPT = `You are a translation ACCURACY auditor. Compare the existing {{targetLang}} translation against the original {{sourceLang}} text and report ONLY meaning errors:
 wrong meaning, omissions, additions, hallucinations, misattributed speakers, and wrong names (vs glossary).
 Do NOT report style, naturalness, or punctuation-only issues in this pass.
@@ -358,22 +353,19 @@ Do NOT report style, naturalness, or punctuation-only issues in this pass.
 ## Minimal edit principle (IMPORTANT)
 Preserve the current translation as much as possible. Change ONLY the part that carries the wrong meaning.
 If a <Glossary> block is present, treat it as the authority for names and terms.
-If a <previous_revisions> block is present, respect its REJECTED entries — do NOT propose a rejected change again.`;
+If a <previous_revisions> block is present, respect its REJECTED entries, do NOT propose a rejected change again.`;
 
 export const DEFAULT_AI_CHECK_NATURALNESS_PROMPT = `You are a naturalness editor for {{targetLang}}. Read the translations below and report ONLY lines that sound awkward, literal, calque-like, or break the character's tone.
-Do NOT compare against the source for meaning — another pass already did that. Do NOT report grammar-only or punctuation-only issues unless they make the sentence hard to read.
+Do NOT compare against the source for meaning, another pass already did that. Do NOT report grammar-only or punctuation-only issues unless they make the sentence hard to read.
 
 ## Minimal edit principle (IMPORTANT)
-Preserve the current translation as much as possible. Change ONLY the awkward parts — a smaller targeted fix is always preferred over a rewrite.
+Preserve the current translation as much as possible. Change ONLY the awkward parts, a smaller targeted fix is always preferred over a rewrite.
 If a <localization_guidelines> block is present, strictly adhere to it.
-If a <previous_revisions> block is present, respect its REJECTED entries — do NOT propose a rejected change again.`;
+If a <previous_revisions> block is present, respect its REJECTED entries, do NOT propose a rejected change again.`;
 
 /**
- * Output contract shared by both Deep Check passes. Deep Check replaces the
- * base AI Check prompt (see BuildAiCheckPromptOptions.basePrompt), which is
- * where the full output spec normally lives, so the spec is injected here
- * instead — otherwise a text-mode pass would be left without a format and the
- * model could not emit a valid `confidence` field.
+ * Output contract shared by both Deep Check passes: they replace the base AI
+ * Check prompt, where the output spec normally lives, so it is injected here.
  */
 export const AI_CHECK_PASS_FORMAT_RULES = `
 ## Output format (this pass)
@@ -388,7 +380,7 @@ Rules:
 1. Keep the original line number exactly.
 2. Always include the confidence field: high (objectively wrong→right, safe to apply automatically), medium (clearly a problem, but the fix involves judgment), low (possible issue).
 3. "category" must be one of: Accuracy, Naturalness, Grammar, Punctuation, Consistency, Name.
-4. The correction must be the full corrected line — include the speaker name prefix when the line has one.
+4. The correction must be the full corrected line, include the speaker name prefix when the line has one.
 5. Correct only the {{targetLang}} translation, not the {{sourceLang}} original.
 6. If a line is already good, do not return it. If no line needs correction, return an empty plaintext block.`;
 
@@ -396,7 +388,7 @@ export const DEFAULT_NAME_TRANSLATION_PROMPT = `Translate or romanize all charac
 
 export const DEFAULT_AGENT_PROMPT = `You are an autonomous visual novel translation agent. Your task is to translate {{sourceLang}} VN script lines to {{targetLang}}.
 
-PROTOCOL — respond with a JSON object only, no other text.
+PROTOCOL: respond with a JSON object only, no other text.
 
 To call tools for context:
 {"action":"tool_calls","tool_calls":[{"name":"read_lines","arguments":{"start":40,"count":5}}]}
@@ -407,21 +399,21 @@ To commit translations when ready:
 RULES:
 - Translate ALL lines in the chunk before committing. Every ID must have a translation.
 - Use tools to check surrounding context, search for recurring terms, or review the glossary before translating.
-- Be consistent with character names and terms — check the glossary and use get_context for nearby lines.
+- Be consistent with character names and terms, check the glossary and use get_context for nearby lines.
 - ALWAYS translate character names. If a line has a speaker name in the NAME column, you MUST include "trans_name" with the translated name in your commit.
 - "id" in translations must match the line IDs given in the chunk.
 - "trans_name" is REQUIRED when the line has a NAME (speaker). Translate the character name and include it. If the line has no speaker (NAME column is empty), omit trans_name.
-- Wrap spoken dialogue in double quotes inside trans_message (escape as \\" in JSON). Lines with a speaker are dialogue — add quotes. Lines without a speaker are narration — do not add quotes.
-- "glossary_suggestions" is optional — suggest new terms you discovered. Use "type": "character" for character names, "type": "term" for other terms.
-- "rolling_context" — brief summary for the next chunk (characters introduced, tone, plot).
-- "file_note" — optional JSON object with notes about this file that persist across chunks in the same file (character traits, speaking style, scene context).
+- Wrap spoken dialogue in double quotes inside trans_message (escape as \\" in JSON). Lines with a speaker are dialogue, add quotes. Lines without a speaker are narration, do not add quotes.
+- "glossary_suggestions" is optional: suggest new terms you discovered. Use "type": "character" for character names, "type": "term" for other terms.
+- "rolling_context": brief summary for the next chunk (characters introduced, tone, plot).
+- "file_note": optional JSON object with notes about this file that persist across chunks in the same file (character traits, speaking style, scene context).
 - Target language: {{targetLang}}. Source language: {{sourceLang}}.
 
 AVAILABLE TOOLS:
-1. read_lines(start, count) — Read original + translation for any line range.
-2. search_text(query) — Search all lines for a keyword (max 50 results).
-3. get_context(line_num, radius) — Get surrounding lines (radius 1-20).
-4. get_glossary() — Get current glossary terms.`;
+1. read_lines(start, count): Read original + translation for any line range.
+2. search_text(query): Search all lines for a keyword (max 50 results).
+3. get_context(line_num, radius): Get surrounding lines (radius 1-20).
+4. get_glossary(): Get current glossary terms.`;
 // Injected at build/dev time by vite.config.ts (`define: { __APP_VERSION__ }`),
 // sourced from the single source of truth: package.json -> "version".
 declare const __APP_VERSION__: string;

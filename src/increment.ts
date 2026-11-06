@@ -1,5 +1,5 @@
-// @module increment.ts — Auto-Increment Selection Batch
-// Automatically pre-fills and advances selection range based on the project's selectionBatchSize.
+// @module increment.ts: auto-increment selection batch. Pre-fills and advances the
+// selection range based on state.selectionBatchSize.
 
 import type { Line } from './types';
 import { state, ui } from './state';

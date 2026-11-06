@@ -1,6 +1,5 @@
-// @module ai-check-linter.ts — Deterministic local checks for AI Check.
-// No AI involved: leftover Japanese punctuation/kana detection, glossary name
-// mismatch hints, and no-op detection for parsed corrections.
+// @module ai-check-linter.ts: deterministic local checks for AI Check. No AI:
+// leftover JP punctuation/kana, glossary name mismatch hints, no-op detection.
 
 import { state } from './state';
 import { parseGlossaryToMap } from './glossary';
@@ -17,7 +16,6 @@ export interface LintFinding {
   detail: string;
   /** True when the fix is deterministic enough to auto-apply locally. */
   autoFixable: boolean;
-  /** Replacement text when autoFixable. */
   fixedText?: string;
   fixedName?: string;
 }
@@ -33,9 +31,8 @@ function stripSpeaker(text: string, name: string | undefined): string {
 }
 
 /**
- * Deterministic checks over already-translated lines. Cheap enough to run on
- * every batch — the result feeds both the correction filter (in ai-check.ts)
- * and the AI prompt hints (baris yang terindikasi bermasalah disorot).
+ * Deterministic checks over already-translated lines; cheap enough for every
+ * batch. Feeds the correction filter (ai-check.ts) and the AI prompt hints.
  */
 export function lintTranslatedLines(lines: Line[]): LintFinding[] {
   const findings: LintFinding[] = [];
@@ -47,7 +44,7 @@ export function lintTranslatedLines(lines: Line[]): LintFinding[] {
     const speaker = (line.trans_name || '').trim() || line.name || '';
     const body = stripSpeaker(raw, speaker || undefined);
 
-    // 1. Leftover JP punctuation — deterministic fix.
+    // Leftover JP punctuation, deterministic fix.
     if (JP_PUNCT_RE.test(body)) {
       JP_PUNCT_RE.lastIndex = 0;
       const fixed = body.replace(JP_PUNCT_RE, (ch) => {
@@ -70,7 +67,7 @@ export function lintTranslatedLines(lines: Line[]): LintFinding[] {
       JP_PUNCT_RE.lastIndex = 0;
     }
 
-    // 2. CJK residue — flag only (kanji can be legitimate in some settings).
+    // CJK residue, flag only (kanji can be legitimate in some settings).
     if (CJK_RE.test(body)) {
       const sample = body.match(new RegExp(CJK_RE.source, 'g'))?.slice(0, 12).join('') || '';
       findings.push({
@@ -81,7 +78,6 @@ export function lintTranslatedLines(lines: Line[]): LintFinding[] {
       });
     }
 
-    // 3. Glossary mismatch on speaker name — flag only.
     if (line.name && glossary.size) {
       const entry = glossary.get(line.name.trim());
       const currentTrans = (line.trans_name || '').trim();
@@ -96,7 +92,7 @@ export function lintTranslatedLines(lines: Line[]): LintFinding[] {
       }
     }
 
-    // 4. Double spaces in the message — deterministic fix.
+    // Double spaces, deterministic fix.
     if (/ {2,}(?=\S)/.test(body)) {
       const fixed = body.replace(/ {2,}(?=\S)/g, ' ');
       findings.push({
@@ -112,8 +108,7 @@ export function lintTranslatedLines(lines: Line[]): LintFinding[] {
 }
 
 /**
- * Build a short hint block appended to the AI Check prompt so the model pays
- * extra attention to lines the local linter flagged.
+ * Hint block appended to the AI Check prompt for lines the local linter flagged.
  */
 export function buildLintHintBlock(findings: LintFinding[]): string {
   const flagged = findings.filter(f => !f.autoFixable);
@@ -123,7 +118,7 @@ export function buildLintHintBlock(findings: LintFinding[]): string {
   return block;
 }
 
-/** Normalize for no-op comparison: collapse whitespace, trim quotes. */
+/** Normalize for no-op comparison: collapse whitespace and trim. */
 export function normalizeForNoopCheck(s: string): string {
   return String(s || '')
     .replace(/\r\n/g, '\n')

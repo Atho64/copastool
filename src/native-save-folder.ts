@@ -1,20 +1,17 @@
-// @module native-save-folder.ts — folder simpan bersama untuk backup & export di aplikasi native
+// @module native-save-folder.ts: folder simpan bersama untuk backup dan export di
+// aplikasi native. Folder DIPILIH SEKALI lewat picker native lalu dipersist, jadi
+// backup dan export berikutnya ditulis ke sana tanpa bertanya lagi (padanan
+// handle folder File System Access di browser).
 //
-// Di browser, "Backup ke Folder" (folder-backup.ts) memakai File System Access
-// API. Di aplikasi native API itu tidak ada, jadi modul ini memberi pengalaman
-// yang sama: folder simpan DIPILIH SEKALI lewat picker native, disimpan
-// permanen, lalu semua backup & export berikutnya ditulis ke sana tanpa
-// bertanya lagi — sama seperti handle folder yang dipersist di browser.
-//
-//   * Tauri desktop (Windows): folder absolut dipilih lewat tauri-plugin-dialog,
-//     file ditulis lewat command `native_write_file_to` (dijaga
-//     `ensure_main_window` di lib.rs).
+//   * Tauri desktop (Windows): folder absolut lewat tauri-plugin-dialog, file
+//     ditulis lewat command `native_write_file_to` (dijaga `ensure_main_window`
+//     di lib.rs).
 //   * Android: SAF tree URI lewat AndroidBridge.pickFolder, memakai kunci
-//     localStorage yang sama dengan folder-backup.ts supaya Backup, Export,
-//     dan Backup ke Folder mendarat di SATU folder yang sama.
+//     localStorage yang sama dengan folder-backup.ts supaya Backup, Export, dan
+//     Backup ke Folder mendarat di satu folder.
 //
-// Browser (PWA) tidak memakai modul ini — alur simpannya tetap seperti
-// sebelumnya (anchor download / Web Share).
+// Browser (PWA) tidak memakai modul ini; alur simpannya tetap anchor download /
+// Web Share.
 
 import { isAndroidNativeApp, createAndroidFile, pickAndroidFolder, writeAndroidTreeFile } from './android-files';
 import { isTauri } from './native-storage';
@@ -22,11 +19,11 @@ import { isTauri } from './native-storage';
 export type NativeSaveOutcome = 'saved' | 'cancelled' | 'failed' | 'unsupported';
 
 const DESKTOP_SAVE_DIR_KEY = 'copastool_native_save_dir';
-// Sengaja satu kunci dengan ANDROID_BACKUP_TREE_KEY di folder-backup.ts:
-// satu folder simpan untuk semua keluaran di Android.
+// Sengaja satu kunci dengan ANDROID_BACKUP_TREE_KEY di folder-backup.ts: satu
+// folder simpan untuk semua keluaran di Android.
 const ANDROID_SAVE_TREE_KEY = 'copastool_android_backup_tree_uri';
-// Preferensi global: mode "Selalu tanya lokasi simpan" (Save As per file,
-// seperti opsi Chrome "Ask where to save each file before downloading").
+// Mode "Selalu tanya lokasi simpan" (Save As per file), seperti opsi Chrome
+// "Ask where to save each file before downloading".
 const ASK_EVERY_TIME_KEY = 'cstl_save_ask_every_time';
 
 export function isSaveAskEveryTime(): boolean {
@@ -38,8 +35,8 @@ export function setSaveAskEveryTime(on: boolean): void {
   else localStorage.removeItem(ASK_EVERY_TIME_KEY);
 }
 
-/** Desktop Tauri (Windows/macOS/Linux) — Tauri mobile juga isTauri(), jadi
- * cabang Android harus dicek lebih dulu. */
+/** Desktop Tauri (Windows/macOS/Linux). Tauri mobile juga isTauri(), jadi cabang
+ * Android harus dicek lebih dulu. */
 export function isDesktopTauriApp(): boolean {
   return isTauri() && !isAndroidNativeApp();
 }
@@ -63,8 +60,6 @@ async function getTauriInvoke() {
   }
 }
 
-// ─── Desktop Tauri ────────────────────────────────────────────────────────────
-
 async function pickDesktopSaveDir(): Promise<string | null> {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
@@ -81,8 +76,8 @@ async function pickDesktopSaveDir(): Promise<string | null> {
 }
 
 /** Folder simpan desktop yang tersimpan, atau picker sekali lalu dipersist.
- * Harus dipanggil dari dalam click handler (user gesture) saat picker perlu
- * muncul — sama seperti ensureBackupDir di folder-backup.ts. */
+ * Saat picker perlu muncul, panggil dari dalam click handler (user gesture),
+ * sama seperti ensureBackupDir di folder-backup.ts. */
 export async function ensureNativeSaveDir(): Promise<string | null> {
   const saved = localStorage.getItem(DESKTOP_SAVE_DIR_KEY);
   if (saved) return saved;
@@ -91,8 +86,7 @@ export async function ensureNativeSaveDir(): Promise<string | null> {
   return picked;
 }
 
-/** Lupa folder simpan desktop — dipakai saat folder kedeteksi tidak
- * valid lagi agar picker muncul ulang pada aksi berikutnya. */
+/** Lupakan folder simpan desktop agar picker muncul lagi pada aksi berikutnya. */
 export function forgetNativeSaveDir(): void {
   localStorage.removeItem(DESKTOP_SAVE_DIR_KEY);
 }
@@ -125,8 +119,6 @@ export async function readNativeSaveDirFile(dir: string, name: string): Promise<
   return new Uint8Array(data || 0);
 }
 
-// ─── Android (SAF) ────────────────────────────────────────────────────────────
-
 export async function ensureAndroidSaveTree(): Promise<string | null> {
   const saved = localStorage.getItem(ANDROID_SAVE_TREE_KEY);
   if (saved) return saved;
@@ -134,8 +126,6 @@ export async function ensureAndroidSaveTree(): Promise<string | null> {
   if (picked) localStorage.setItem(ANDROID_SAVE_TREE_KEY, picked);
   return picked;
 }
-
-// ─── Entry point untuk download-helper ────────────────────────────────────────
 
 /** Coba tulis `base64` ke folder simpan native yang sudah dipersist. Urutan
  * cabang penting: di Android, isTauri() juga true. */
@@ -148,7 +138,7 @@ export async function saveBase64ToNativeFolder(filename: string, base64: string)
       return 'saved';
     } catch (err) {
       console.warn('[native-save-folder] Android folder save failed:', err);
-      // Izin persistable bisa kedaluwarsa/folder dipindah — buang kuncinya
+      // Izin persistable bisa kedaluwarsa atau folder dipindah; buang kuncinya
       // supaya picker muncul lagi di percobaan berikutnya.
       localStorage.removeItem(ANDROID_SAVE_TREE_KEY);
       return 'failed';
@@ -162,15 +152,13 @@ export async function saveBase64ToNativeFolder(filename: string, base64: string)
       return 'saved';
     } catch (err) {
       console.warn('[native-save-folder] desktop folder save failed:', err);
-      // Folder mungkin sudah tidak valid — reset agar dipilih ulang nanti.
+      // Folder mungkin tidak valid lagi; reset agar dipilih ulang nanti.
       localStorage.removeItem(DESKTOP_SAVE_DIR_KEY);
       return 'failed';
     }
   }
   return 'unsupported';
 }
-
-// ─── Mode "Selalu tanya lokasi simpan" (Save As per file) ─────────────────────
 
 function mimeForFilename(filename: string): string {
   const lower = filename.toLowerCase();
@@ -189,10 +177,10 @@ function desktopFiltersFor(filename: string): { name: string; extensions: string
   return [{ name: `${ext.toUpperCase()} (*.${ext})`, extensions: [ext] }];
 }
 
-/** Dialog Save As untuk SETIAP penyimpanan: pemilih lokasi + nama file bisa
- * diganti — persis seperti browser dengan "Ask where to save each file".
- *   * Desktop: dialog Save As native (tauri-plugin-dialog) → path hasil
- *     dipecah jadi folder+nama untuk `native_write_file_to`.
+/** Dialog Save As untuk setiap penyimpanan: lokasi dan nama file bisa diganti,
+ * seperti browser dengan "Ask where to save each file".
+ *   * Desktop: dialog native (tauri-plugin-dialog), path hasil dipecah jadi
+ *     folder+nama untuk `native_write_file_to`.
  *   * Android: ACTION_CREATE_DOCUMENT (juga punya kolom nama file). */
 export async function saveBase64WithSaveAs(filename: string, base64: string, mime: string): Promise<NativeSaveOutcome> {
   if (isDesktopTauriApp()) {

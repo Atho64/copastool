@@ -12,13 +12,8 @@ import { fetchVndbVnByName, fetchVndbCharacters, fetchAnilistMediaByName, fetchA
 import type { Line } from './types';
 import type { AgentMemory, MemoryCategory, MemoryScope } from './types';
 
-// ------------------------------------------------------------------
-// AI request layer — provided by ai-client.ts
-// ------------------------------------------------------------------
-// The provider implementations, SSE parser and key rotation used to live here.
-// They now live in ai-client.ts so the agent and the auto-translate pipeline
-// share ONE request path (idle timeout, cancellation, status-based key rotation).
-// Re-exported so existing importers keep working unchanged.
+// Providers, SSE parser and key rotation live in ai-client.ts so the agent and
+// auto-translate share one request path (idle timeout, cancellation, key rotation).
 
 import { chatCompletion, currentAbortEpoch, stripThinkingTagsForStream, type ChatMessage, type ChatRole } from './ai-client';
 import { salvageJsonObject } from './json-repair';
@@ -27,23 +22,14 @@ import { escapeStoredNewlines } from './string-utils';
 export { chatCompletion, type ChatMessage, type ChatRole };
 export type { StreamDeltaCallback } from './ai-client';
 
-// Token-based compaction lives in agent-context.ts (script-aware token
-// estimation + per-model context window). No legacy constant needed.
-const WELCOME_MSG = 'Halo! Saya CSTL Agent. Saya bisa menjawab pertanyaan seputar proyek ini atau membantu mengeksekusi terjemahan layaknya Vibecoding Agent.';
-
-// ------------------------------------------------------------------
-// Shared message content renderer
-// ------------------------------------------------------------------
+// Token-based compaction lives in agent-context.ts.
+const WELCOME_MSG = 'Halo, saya CSTL Agent. Tanya soal proyek ini atau minta saya mengerjakan terjemahan.';
 
 /**
- * Renders an agent message to safe HTML. Shared by the saved-history view and
- * the live streaming view so both always format identically (previously two
- * copies of this logic drifted apart).
- *
- * Escapes everything first, then re-introduces the small whitelist of
- * formatting: line breaks, bold, italic, inline code, and standalone
- * paragraph-level fenced code blocks. Line-number references ([line N] /
- * [Baris N] / [N]) become clickable jump links.
+ * Renders an agent message to safe HTML. Escapes everything first, then
+ * re-adds a whitelist: bold, italic, inline code, fenced blocks, line links.
+ * Shared by the saved-history view and the live streaming view so both format
+ * identically.
  */
 export function renderAgentMessageContent(content: string, opts: { linkLines?: boolean } = {}): string {
   const escaped = String(content ?? '')
@@ -59,7 +45,6 @@ export function renderAgentMessageContent(content: string, opts: { linkLines?: b
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
     .replace(/`([^`\n]+)`/g, '<code>$1</code>');
   if (opts.linkLines !== false) {
-    // Line references: [line 340], [Baris 340], [line 12–15], [#340].
     html = html.replace(
       /\[(?:line|baris|#)\s*(\d+)(?:\s*[–\-]\s*(\d+))?\]/gi,
       (m, a: string, b: string) => {
@@ -72,19 +57,15 @@ export function renderAgentMessageContent(content: string, opts: { linkLines?: b
 }
 
 /**
- * Applies renderAgentMessageContent into a DOM node. Throttled repaints while
- * streaming use the same path, so a streamed reply and its persisted render
- * stay byte-identical.
+ * Throttled streaming repaints use the same path, so a streamed reply and its
+ * persisted render stay byte-identical.
  */
 export function setAgentMessageHtml(el: HTMLElement, content: string, streaming: boolean): void {
   el.classList.toggle('streaming', !!streaming);
   el.innerHTML = renderAgentMessageContent(content);
 }
 
-/**
- * Jump to a preview line when the user clicks a [line N] reference in the
- * agent chat. Attached once to the chat history container (event delegation).
- */
+/** Attached once to the chat history container (event delegation). */
 export function attachLineLinkHandler(container: HTMLElement): void {
   if ((container as any)._lineLinkAttached) return;
   (container as any)._lineLinkAttached = true;
@@ -98,8 +79,7 @@ export function attachLineLinkHandler(container: HTMLElement): void {
 }
 
 /**
- * Minimal throttle for streaming repaints — repainting innerHTML on every SSE
- * delta is wasted work once replies get long.
+ * Repainting innerHTML on every SSE delta is wasted work once replies get long.
  */
 export function createStreamThrottle(): (fn: () => void) => void {
   let pending = false;
@@ -120,11 +100,7 @@ export function createStreamThrottle(): (fn: () => void) => void {
   };
 }
 
-// ------------------------------------------------------------------
-// Chat History Persistence (named sessions)
-// ------------------------------------------------------------------
-
-/** The active session id for the current project (persisted per project). */
+/** Active session id, persisted per project. */
 let activeSessionId: string = '';
 
 export function getActiveSessionId(): string {
@@ -145,11 +121,7 @@ function saveActiveSessionPointer(): void {
   try { localStorage.setItem(getActiveSessionNameKey(), activeSessionId); } catch { /* ignore */ }
 }
 
-/**
- * Serialize the current conversation (non-system, non-internal messages) and
- * persist it into the active session slot. Called after every turn-changing
- * mutation; no-ops while no session exists yet (created lazily).
- */
+/** Serializes the conversation into the active session slot; no-ops without a session. */
 function persistCurrentSession(): void {
   if (!activeSessionId) return;
   const toSave = chatHistory.filter(m => m.role !== 'system' && !m._internal);
@@ -163,21 +135,17 @@ function deriveSessionNameFromHistory(msgs: { role: string; content: string }[])
   return deriveSessionName(firstUser);
 }
 
-/** Create a new session id (not yet persisted until first message). */
+/** Not persisted until the first message. */
 export function createNewSession(): string {
   activeSessionId = `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
   saveActiveSessionPointer();
   return activeSessionId;
 }
 
-/**
- * Switch to a stored session: persist the current one, then load the target.
- * Returns the loaded messages (already normalized), or null when not found.
- */
+/** Persists the current session, then loads the target. Null when not found. */
 export function switchToSession(sessionId: string): { role: string; content: string }[] | null {
   const raw = getSessionData(sessionId);
   if (raw === null) return null;
-  // Persist current first.
   if (activeSessionId && activeSessionId !== sessionId) persistCurrentSession();
   activeSessionId = sessionId;
   saveActiveSessionPointer();
@@ -189,8 +157,7 @@ export function switchToSession(sessionId: string): { role: string; content: str
 
 export function saveChatHistory(): void {
   try {
-    // Legacy behavior kept for non-session fallback; the session-aware path
-    // (persistCurrentSession) runs alongside.
+    // Non-session fallback for projects without a session pointer.
     const toSave = chatHistory.filter(m => m.role !== 'system' && !m._internal);
     if (activeSessionId) {
       persistCurrentSession();
@@ -206,7 +173,6 @@ export function loadChatHistory(): void {
   try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
   chatHistory.length = 0;
   chatHistory.push({ role: 'system', content: buildSystemPrompt() });
-  // Initialize the session pointer for this project (lazy first session).
   loadActiveSessionPointer();
   try {
     let raw: string | null = null;
@@ -224,7 +190,7 @@ export function loadChatHistory(): void {
           }
           createNewSession();
           persistCurrentSession();
-          localStorage.removeItem(legacyChatKey(state.currentProjectId)); // migrated
+          localStorage.removeItem(legacyChatKey(state.currentProjectId));
           raw = null;
         } else {
           raw = null;
@@ -244,12 +210,11 @@ export function loadChatHistory(): void {
   }
 }
 
-/** Reset in-memory chat history, DOM view, and token meter without deleting stored sessions. */
+/** Resets in-memory history, DOM view and token meter without deleting stored sessions. */
 function resetChatView(): void {
   try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
   chatHistory.length = 0;
   chatHistory.push({ role: 'system', content: buildSystemPrompt() });
-  // Reset UI
   const historyEl = ui.agentChatHistory as HTMLElement;
   if (historyEl) {
     historyEl.innerHTML = '';
@@ -296,9 +261,8 @@ export function renderChatHistory(): void {
 }
 
 /**
- * Render an interactive question card (question + clickable option buttons)
- * into the agent chat. Resolving writes the chosen answer back into the card
- * so the transcript stays readable.
+ * Renders a question card with option buttons. Resolving writes the chosen
+ * answer back into the card so the transcript stays readable.
  */
 export function showSubagentQuestion(id: string, question: string, options: string[]): void {
   const historyEl = ui.agentChatHistory as HTMLElement | null;
@@ -365,7 +329,7 @@ export function showSubagentQuestion(id: string, question: string, options: stri
   });
   card.appendChild(optsEl);
 
-  // Free-text fallback: the main input forwards as the answer.
+  // Free text: the main input forwards as the answer.
   const hint = document.createElement('div');
   hint.className = 'agent-question-hint';
   hint.textContent = options.length ? 'Atau ketik jawaban lain di kotak input di bawah.' : 'Ketik jawabanmu di kotak input di bawah.';
@@ -374,10 +338,6 @@ export function showSubagentQuestion(id: string, question: string, options: stri
   historyEl.appendChild(card);
   historyEl.scrollTop = historyEl.scrollHeight;
 }
-
-// ------------------------------------------------------------------
-// Tools Logic
-// ------------------------------------------------------------------
 
 function getProjectStats() {
   const visible = state.lines.filter(l => !l._hidden);
@@ -524,10 +484,9 @@ async function applyTranslations(updates: {num: number, trans_message: string, t
       isCancelled: ctx.isCancelled,
       onUpdate: ctx.onUpdate,
     });
-    if (!approved) return 'Dibatalkan oleh user lewat preview mutasi. Tidak ada perubahan diterapkan — tanyakan apa yang ingin diubah.';
+    if (!approved) return 'Dibatalkan oleh user lewat preview mutasi. Tidak ada perubahan diterapkan. Tanyakan apa yang ingin diubah.';
 
     const applied = applyAgentTranslations(updates);
-    // Self-verification: deterministic sweep over the affected lines.
     const { verifyMutatedLines, formatVerifyReport } = await import('./agent-review');
     const report = formatVerifyReport(verifyMutatedLines(list.map(u => u.num)));
     return `Berhasil menerapkan terjemahan ke ${applied} baris.${report}`;
@@ -535,8 +494,6 @@ async function applyTranslations(updates: {num: number, trans_message: string, t
     return `Gagal menerapkan terjemahan: ${e.message}`;
   }
 }
-
-// ── Tool: editPrompt — edit prompt terjemahan/AI check/glosarium/agent ──
 
 function editPrompt(promptType: string, newPrompt: string): string {
   const pt = String(promptType || '').toLowerCase().trim();
@@ -551,14 +508,12 @@ function editPrompt(promptType: string, newPrompt: string): string {
   };
   const field = map[pt];
   if (!field) {
-    return `Error: prompt_type tidak valid — "${promptType}". Pilihan: translation, glossary, ai_check, agent.`;
+    return `Error: prompt_type tidak valid: "${promptType}". Pilihan: translation, glossary, ai_check, agent.`;
   }
   (state as any)[field] = np;
   queueAutoSave();
   return `Prompt "${pt}" berhasil diperbarui (${np.length} karakter).`;
 }
-
-// ── Tool: editGlossary — edit teks glosarium ──
 
 function editGlossary(newGlossary: string): string {
   const ng = String(newGlossary ?? '');
@@ -569,8 +524,6 @@ function editGlossary(newGlossary: string): string {
   return `Glosarium berhasil diperbarui (${entryCount} baris).`;
 }
 
-// ── Tool: toggleSetting — toggle/ubah semua setting di AppState ──
-
 interface SettingMeta {
   field: keyof typeof state;
   type: 'boolean' | 'number' | 'string';
@@ -578,7 +531,6 @@ interface SettingMeta {
 }
 
 const SETTING_REGISTRY: Record<string, SettingMeta> = {
-  // Boolean toggles
   showFurigana: { field: 'showFurigana', type: 'boolean', desc: 'Tampilkan furigana di teks Jepang' },
   enableDictionary: { field: 'enableDictionary', type: 'boolean', desc: 'Aktifkan kamus pop-up' },
   checkKanaResidue: { field: 'checkKanaResidue', type: 'boolean', desc: 'Cek sisa kana di terjemahan' },
@@ -593,7 +545,6 @@ const SETTING_REGISTRY: Record<string, SettingMeta> = {
   disableEmptyLineValidation: { field: 'disableEmptyLineValidation', type: 'boolean', desc: 'Matikan validasi baris kosong' },
   aiFilterThinkingOutput: { field: 'aiFilterThinkingOutput', type: 'boolean', desc: 'Filter <think> tag dari output AI' },
   aiMergeSystemPrompt: { field: 'aiMergeSystemPrompt', type: 'boolean', desc: 'Merge system prompt ke user (workaround gateway yang drop system di OpenAI-compatible)' },
-  // Number settings
   fontSize: { field: 'fontSize', type: 'number', desc: 'Ukuran font (8-32)' },
   contextLines: { field: 'contextLines', type: 'number', desc: 'Jumlah baris konteks (0-100)' },
   selectionBatchSize: { field: 'selectionBatchSize', type: 'number', desc: 'Ukuran batch seleksi (1-500)' },
@@ -604,7 +555,6 @@ const SETTING_REGISTRY: Record<string, SettingMeta> = {
   subagentWorkers: { field: 'subagentWorkers', type: 'number', desc: 'Jumlah worker paralel untuk subagent (1-10, default 3)' },
   similarityThreshold: { field: 'similarityThreshold', type: 'number', desc: 'Threshold kemiripan (0.01-0.99)' },
   lengthRatioThreshold: { field: 'lengthRatioThreshold', type: 'number', desc: 'Threshold rasio panjang (1-10)' },
-  // String settings
   sourceLang: { field: 'sourceLang', type: 'string', desc: 'Bahasa sumber' },
   targetLang: { field: 'targetLang', type: 'string', desc: 'Bahasa target' },
   regexFilter: { field: 'regexFilter', type: 'string', desc: 'Regex filter baris' },
@@ -619,7 +569,7 @@ function listSettings(): string {
   for (const [name, meta] of Object.entries(SETTING_REGISTRY)) {
     const current = (state as any)[meta.field];
     const valStr = meta.type === 'boolean' ? (current ? 'ON' : 'OFF') : String(current);
-    lines.push(`- ${name} (${meta.type}): ${valStr} — ${meta.desc}`);
+    lines.push(`- ${name} (${meta.type}): ${valStr}, ${meta.desc}`);
   }
   return lines.join('\n');
 }
@@ -627,7 +577,7 @@ function listSettings(): string {
 function toggleSetting(settingName: string, value: any): string {
   const meta = SETTING_REGISTRY[String(settingName || '').trim()];
   if (!meta) {
-    return `Error: setting tidak dikenal — "${settingName}". Gunakan listSettings() untuk melihat daftar setting yang tersedia.`;
+    return `Error: setting tidak dikenal: "${settingName}". Gunakan listSettings() untuk melihat daftar setting.`;
   }
   const field = meta.field;
   let applied: any;
@@ -644,13 +594,12 @@ function toggleSetting(settingName: string, value: any): string {
       const s = String(value).toLowerCase().trim();
       if (s === 'on' || s === 'true' || s === '1' || s === 'yes') applied = true;
       else if (s === 'off' || s === 'false' || s === '0' || s === 'no') applied = false;
-      else return `Error: nilai boolean tidak valid — "${value}". Gunakan true/false, on/off, atau 1/0.`;
+      else return `Error: nilai boolean tidak valid: "${value}". Gunakan true/false, on/off, atau 1/0.`;
     }
     (state as any)[field] = applied;
   } else if (meta.type === 'number') {
     const num = typeof value === 'number' ? value : parseFloat(String(value));
-    if (isNaN(num)) return `Error: nilai number tidak valid — "${value}".`;
-    // Validasi range
+    if (isNaN(num)) return `Error: nilai number tidak valid: "${value}".`;
     if (field === 'fontSize' && (num < 8 || num > 32)) return 'Error: fontSize harus 8-32.';
     if (field === 'contextLines' && (num < 0 || num > 100)) return 'Error: contextLines harus 0-100.';
     if ((field === 'selectionBatchSize' || field === 'glossaryBatchSize' || field === 'aiCheckBatchSize') && (num < 1 || num > 500)) return `Error: ${field} harus 1-500.`;
@@ -662,10 +611,8 @@ function toggleSetting(settingName: string, value: any): string {
     applied = num;
     (state as any)[field] = applied;
   } else {
-    // string
     if (value === undefined || value === null) return `Error: nilai string diperlukan untuk "${settingName}".`;
     const s = String(value);
-    // Validasi khusus
     if (field === 'regexFilter' && s) {
       try { new RegExp(s, 'u'); } catch (e: any) { return `Error: regex tidak valid: ${e.message}`; }
     }
@@ -676,7 +623,6 @@ function toggleSetting(settingName: string, value: any): string {
     (state as any)[field] = applied;
   }
 
-  // Side effects
   if (field === 'fontSize') {
     document.documentElement.style.setProperty('--content-font-size', applied + 'px');
   }
@@ -688,10 +634,8 @@ function toggleSetting(settingName: string, value: any): string {
   queueAutoSave();
 
   const valDisplay = meta.type === 'boolean' ? (applied ? 'ON' : 'OFF') : String(applied);
-  return `Setting "${settingName}" berhasil diubah ke ${valDisplay}.`;
+  return `Setting "${settingName}" diubah ke ${valDisplay}.`;
 }
-
-// ── Tool: editLine — edit semua field di satu baris ──
 
 const EDITABLE_LINE_FIELDS = new Set([
   'message', 'name', 'trans_message', 'trans_name', 'is_translated',
@@ -711,7 +655,6 @@ function applyLineEdit(l: Line, fields: Record<string, any>): string[] {
     } else if (val === null) {
       (l as any)[key] = null;
     } else {
-      // Sanitize newlines untuk field teks (konsisten dengan normalizeLineDict).
       // Field terjemahan mempertahankan spasi di akhir kalimat, sama seperti
       // editor baris: spasi itu sering disengaja (mis. jarak sebelum jeda).
       const text = String(val);
@@ -757,7 +700,7 @@ async function editLines(updates: {line_num: number, fields: Record<string, any>
     isCancelled: ctx.isCancelled,
     onUpdate: ctx.onUpdate,
   });
-  if (!approved) return 'Dibatalkan oleh user lewat preview mutasi. Tidak ada perubahan diterapkan — tanyakan apa yang ingin diubah.';
+  if (!approved) return 'Dibatalkan oleh user lewat preview mutasi. Tidak ada perubahan diterapkan. Tanyakan apa yang ingin diubah.';
 
   pushUndoSnapshot();
   let edited = 0;
@@ -773,15 +716,12 @@ async function editLines(updates: {line_num: number, fields: Record<string, any>
   }
   refreshAll();
   queueAutoSave();
-  // Self-verification on the lines that actually changed.
   const { verifyMutatedLines, formatVerifyReport } = await import('./agent-review');
   const verifyReport = formatVerifyReport(verifyMutatedLines(affectedNums));
   const parts = [`${edited} baris berhasil diedit.${verifyReport}`];
   if (errors.length) parts.push(`Error: ${errors.join(' ')}`);
   return parts.join(' ');
 }
-
-// ── Agent Memory: Storage ───────────────────────────────────────────────────
 
 const MEMORY_GLOBAL_KEY = 'cstl_agent_memory_global';
 const MAX_MEMORIES = 50;
@@ -822,8 +762,6 @@ export function loadAllAgentMemories(): void {
   state.agentMemories = [...globalMems, ...projectMems];
 }
 
-// ── Agent Memory: Tools ──────────────────────────────────────────────────────
-
 function getMemory(category?: string): string {
   let mems = state.agentMemories;
   if (category) {
@@ -850,7 +788,7 @@ function saveMemory(key: string, value: string, category: string, scope?: string
   const validCategories: MemoryCategory[] = ['style', 'terminology', 'character', 'preference', 'note'];
   const cat = String(category || 'note').toLowerCase().trim() as MemoryCategory;
   if (!validCategories.includes(cat)) {
-    return `Error: category tidak valid — "${category}". Pilihan: ${validCategories.join(', ')}.`;
+    return `Error: category tidak valid: "${category}". Pilihan: ${validCategories.join(', ')}.`;
   }
   const sc: MemoryScope = (scope === 'global' || scope === 'project') ? scope : 'project';
 
@@ -867,7 +805,6 @@ function saveMemory(key: string, value: string, category: string, scope?: string
     state.agentMemories.push({ key: k, value: v, category: cat, scope: sc, created: now, updated: now });
   }
 
-  // Persist ke localStorage
   const scopeMems = state.agentMemories.filter(m => m.scope === sc);
   saveMemoriesToStorage(sc, scopeMems);
 
@@ -881,7 +818,6 @@ function deleteMemory(key: string): string {
   if (idx < 0) return `Error: memori "${k}" tidak ditemukan.`;
   const removed = state.agentMemories[idx];
   state.agentMemories.splice(idx, 1);
-  // Persist
   if (removed) {
     const scopeMems = state.agentMemories.filter(m => m.scope === removed.scope);
     saveMemoriesToStorage(removed.scope, scopeMems);
@@ -889,15 +825,13 @@ function deleteMemory(key: string): string {
   return `Memori "${k}" berhasil dihapus.`;
 }
 
-// ── Agent Memory: System Prompt Injection ────────────────────────────────────
-
 function buildMemoryPromptSection(): string {
   if (!state.agentMemories.length) return '';
   const globalMems = state.agentMemories.filter(m => m.scope === 'global');
   const projectMems = state.agentMemories.filter(m => m.scope === 'project');
   const parts: string[] = [];
   if (globalMems.length) {
-    parts.push('MEMORI PENGGUNA (Global — berlaku untuk semua proyek):');
+    parts.push('MEMORI PENGGUNA (Global, berlaku untuk semua proyek):');
     for (const m of globalMems) {
       parts.push(`- [${m.category}] ${m.value}`);
     }
@@ -911,8 +845,6 @@ function buildMemoryPromptSection(): string {
   return parts.length ? parts.join('\n') : '';
 }
 
-// ── Web Search Tools: Wikipedia + Jisho + VNDB ───────────────────────────────
-
 async function searchWikipedia(query: string, lang: string): Promise<string> {
   const l = lang || 'en';
   const url = `https://${l}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`;
@@ -921,7 +853,7 @@ async function searchWikipedia(query: string, lang: string): Promise<string> {
   const data = await res.json();
   const results = data?.query?.search;
   if (!results || !results.length) return `Tidak ditemukan hasil Wikipedia untuk: "${query}"`;
-  const lines: string[] = [`=== WIKIPEDIA (${l}) — "${query}" ===`];
+  const lines: string[] = [`=== WIKIPEDIA (${l}): "${query}" ===`];
   for (const r of results) {
     const snippet = String(r.snippet || '').replace(/<[^>]+>/g, '').trim();
     lines.push(`[${r.title}] ${snippet}`);
@@ -936,7 +868,7 @@ async function searchJisho(query: string): Promise<string> {
   const data = await res.json();
   const results = data?.data;
   if (!results || !results.length) return `Tidak ditemukan hasil Jisho untuk: "${query}"`;
-  const lines: string[] = [`=== JISHO — "${query}" ===`];
+  const lines: string[] = [`=== JISHO: "${query}" ===`];
   for (const r of results.slice(0, 5)) {
     const japanese = r.japanese?.[0];
     const word = japanese?.word || japanese?.reading || '?';
@@ -967,7 +899,7 @@ async function searchVndb(query: string): Promise<string> {
   const data = await res.json();
   const results = data?.results;
   if (!results || !results.length) return `Tidak ditemukan hasil VNDB untuk: "${query}"`;
-  const lines: string[] = [`=== VNDB — "${query}" ===`];
+  const lines: string[] = [`=== VNDB: "${query}" ===`];
   for (const v of results) {
     const title = v.title || '?';
     const original = v.alttitle || '';
@@ -999,7 +931,7 @@ async function searchTavily(query: string): Promise<string> {
     throw new Error(`Tavily HTTP ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = await res.json();
-  const lines: string[] = [`=== TAVILY — "${query}" ===`];
+  const lines: string[] = [`=== TAVILY: "${query}" ===`];
   if (data?.answer) {
     lines.push(`Answer: ${data.answer}`);
   }
@@ -1031,7 +963,6 @@ async function webSearch(query: string, source: string): Promise<string> {
     } else if (s === 'tavily') {
       return await searchTavily(q);
     } else {
-      // auto: coba semua sumber yang relevan
       const results: string[] = [];
       const containsJp = /[\u3040-\u30ff\u4e00-\u9fff]/.test(q);
       if (containsJp) {
@@ -1052,9 +983,7 @@ async function webSearch(query: string, source: string): Promise<string> {
   }
 }
 
-// ── Subagent Tools: delegate tasks to parallel AI calls ──────────────────────
-
-/** Helper: build a translate prompt for a set of line numbers using the current selection trick. */
+/** Builds a translate prompt for the given lines through the selection export path. */
 async function buildTranslatePrompt(lineNums: number[], instruction?: string): Promise<string> {
   const { buildSelectedTranslationExport, applyPromptVariables } = await Promise.resolve(AiFormatModule);
   const { getGlossaryPrompt } = await Promise.resolve(GlossaryModule);
@@ -1064,8 +993,8 @@ async function buildTranslatePrompt(lineNums: number[], instruction?: string): P
   const joinedText = buildSelectedTranslationExport(false, selectedLineNums);
   const glossaryBlock = getGlossaryPrompt(joinedText);
 
-  // Feed the header the actual number of lines in this delegated request so
-  // {{lineCount}} does not leak the last manual Copy for AI count.
+  // Feed the header this request's line count so {{lineCount}} does not leak
+  // the last manual Copy for AI count.
   state._lastExportedLineCount = selectedLineNums.size;
   const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
   const extra = instruction ? `\n\nInstruction: ${instruction}` : '';
@@ -1076,7 +1005,7 @@ async function buildTranslatePrompt(lineNums: number[], instruction?: string): P
   return sections.join('\n\n') + extra;
 }
 
-/** Helper: run one translate worker for a chunk of line nums. Returns a status string. */
+/** Runs one translate worker over a chunk of line numbers. */
 let delegatedApplyQueue: Promise<void> = Promise.resolve();
 
 async function runTranslateWorker(lineNums: number[], instruction?: string): Promise<string> {
@@ -1123,12 +1052,10 @@ async function delegateTranslate(lineNums: number[], instruction?: string): Prom
   const chunkSize = state.selectionBatchSize || 25;
   const workers = Math.max(1, state.subagentWorkers || 3);
 
-  // Split into chunks
   const chunks: number[][] = [];
   for (let i = 0; i < nums.length; i += chunkSize) chunks.push(nums.slice(i, i + chunkSize));
 
   if (chunks.length === 1) {
-    // Single chunk — run directly
     try {
       const msg = await runTranslateWorker(nums, instruction);
       return `Berhasil menerjemahkan ${msg}.`;
@@ -1137,7 +1064,6 @@ async function delegateTranslate(lineNums: number[], instruction?: string): Prom
     }
   }
 
-  // Multiple chunks — run in parallel batches of `workers`
   const results: string[] = [];
   const errors: string[] = [];
   for (let i = 0; i < chunks.length; i += workers) {
@@ -1173,7 +1099,6 @@ async function delegateAnalyze(lineNums: number[], focus?: string): Promise<stri
     return `You are a translation quality analyst. Analyze the following translations and report issues (accuracy, naturalness, consistency, missing nuance). Be concise.\n\n${out.join('\n\n')}${focusStr}`;
   }
 
-  // Split into chunks
   const chunks: typeof lines[] = [];
   for (let i = 0; i < lines.length; i += chunkSize) chunks.push(lines.slice(i, i + chunkSize));
 
@@ -1207,7 +1132,7 @@ async function delegateAnalyze(lineNums: number[], focus?: string): Promise<stri
   return errors.length ? `${header}\n${body}\n\nError:\n${errors.join('\n')}` : `${header}\n${body}`;
 }
 
-/** delegateParallelTranslate — high-level orchestrator: translate a LINE RANGE in parallel. */
+/** Translates a line range in parallel. */
 async function delegateParallelTranslate(
   startLine: number,
   endLine: number,
@@ -1226,7 +1151,6 @@ async function delegateParallelTranslate(
   const chunkSize = state.selectionBatchSize || 25;
   const workers = Math.max(1, state.subagentWorkers || 3);
 
-  // Build chunks
   const chunks: number[][] = [];
   for (let i = 0; i < targetLines.length; i += chunkSize) {
     chunks.push(targetLines.slice(i, i + chunkSize).map(l => l.line_num));
@@ -1249,7 +1173,7 @@ async function delegateParallelTranslate(
       } else {
         const errMsg = r.reason?.message || String(r.reason);
         errors.push(`Chunk ${batch[j][0]}–${batch[j][batch[j].length - 1]}: ${errMsg}`);
-        onProgress?.(`Subagent ${completedChunks}/${chunks.length}: Error — ${errMsg}`);
+        onProgress?.(`Subagent ${completedChunks}/${chunks.length} gagal: ${errMsg}`);
       }
     }
   }
@@ -1260,7 +1184,7 @@ async function delegateParallelTranslate(
   return errors.length ? `${summary}\nError:\n${errors.join('\n')}` : summary;
 }
 
-/** delegateGlossaryExtract — parallel glossary extraction across multiple queries. */
+/** Extracts glossary entries across multiple queries in parallel. */
 async function delegateGlossaryExtract(queries: string[], source: string = 'vndb'): Promise<string> {
   if (!Array.isArray(queries) || !queries.length) return 'Error: queries harus berupa array string.';
   const workers = Math.max(1, state.subagentWorkers || 3);
@@ -1283,9 +1207,7 @@ async function delegateGlossaryExtract(queries: string[], source: string = 'vndb
   return errors.length ? `${header}\n${body}\n\nError:\n${errors.join('\n')}` : `${header}\n${body}`;
 }
 
-// ── delegateAgent — spawn an autonomous subagent that can talk to the user ───
-
-/** System prompt for spawned subagents — smaller scope than the main agent. */
+/** System prompt for spawned subagents: narrower scope than the main agent. */
 export function buildSubagentSystemPrompt(): string {
   return `You are a focused subagent spawned by the main CSTL Agent. Complete the task you were given.
 
@@ -1293,17 +1215,17 @@ export function buildSubagentSystemPrompt(): string {
 Read tools: getProjectStats, getLines, getContext, searchLines, getCharacterNames, analyzeQuality, getProgressReport, getGlossary, listSettings, getMemory, listMemory, webSearch, searchVn.
 Mutation tools: applyTranslations, editLines, editGlossary, saveMemory.
 Special tools:
-- askUser(question, options?) — ask the HUMAN a question; options is an array of up to 6 short answer choices. The user sees clickable buttons and answers directly. Use it when you need a decision you cannot make alone (naming preference, ambiguous instruction, confirmation before mutating many lines).
-- reportToMain(message) — send a short progress report to the main agent while working (not your final answer).
+- askUser(question, options?): ask the HUMAN a question; options is an array of up to 6 short answer choices. The user sees clickable buttons and answers directly. Use it when you need a decision you cannot make alone (naming preference, ambiguous instruction, confirmation before mutating many lines).
+- reportToMain(message): send a short progress report to the main agent while working (not your final answer).
 
 ## Output format
 Same JSON protocol as the main agent:
 {"tool_calls": [{"name": "...", "arguments": {...}}]}
-Plain text (no JSON) = your FINAL answer to the main agent. Make it a concise, complete report of what you did/found — the main agent reads it as the tool result.
+Plain text (no JSON) = your FINAL answer to the main agent. Make it a concise, complete report of what you did/found; the main agent reads it as the tool result.
 
 ## Rules
 - Work autonomously toward the task; use tools before guessing.
-- Turn budget: unlimited by default, but jangan boros — ketika temuan sudah cukup untuk menjawab task, BALAS dengan teks final (bukan JSON). Jangan looping analisis yang sama berulang.
+- Turn budget: unlimited by default, tapi jangan boros. Begitu temuan cukup untuk menjawab task, BALAS dengan teks final (bukan JSON). Jangan ulang analisis yang sama.
 - Untuk analisis proyek besar: sampling cerdas dari bagian berbeda; jangan mencoba membaca semua baris satu per satu.
 - Mutating many lines or changing settings/prompts without explicit instruction: askUser first.
 - Do not call delegate* tools (they are unavailable to you).
@@ -1311,9 +1233,8 @@ Plain text (no JSON) = your FINAL answer to the main agent. Make it a concise, c
 }
 
 /**
- * delegateAgent — spawn an autonomous subagent with its own ReAct loop. The
- * subagent can read/write project data, ask the user questions with clickable
- * options, and stream reports back into the main agent chat while working.
+ * Spawns a subagent with its own ReAct loop: it reads/writes project data, asks
+ * the user questions with clickable options, and streams reports into the chat.
  */
 async function delegateAgent(
   task: string,
@@ -1342,14 +1263,13 @@ async function delegateAgent(
     }, (msg) => opts.onUpdate?.(msg), opts.maxTurns);
     return `=== HASIL SUBAGENT ===\n${result}`;
   } catch (e: any) {
-    return `Error: subagent gagal — ${e?.message || e}`;
+    return `Error: subagent gagal: ${e?.message || e}`;
   }
 }
 
 // Epoch of the currently-running main-agent turn, captured at tool dispatch.
 let startEpochOfDelegate = 0;
 
-// ── Tool 26: searchVn — search VN/anime by name ──────────────────────────────
 async function searchVn(query: string, source: string = 'vndb'): Promise<string> {
   if (!query?.trim()) return 'Error: query tidak boleh kosong.';
   const q = query.trim();
@@ -1367,7 +1287,6 @@ async function searchVn(query: string, source: string = 'vndb'): Promise<string>
     return `Ditemukan ${results.length} media AniList:\n${lines.join('\n')}`;
   }
 
-  // default: vndb
   const results = await fetchVndbVnByName(q);
   if (!results.length) return `Tidak ditemukan VN di VNDB untuk "${q}".`;
   const lines = results.map((vn: any) => {
@@ -1378,7 +1297,6 @@ async function searchVn(query: string, source: string = 'vndb'): Promise<string>
   return `Ditemukan ${results.length} VN:\n${lines.join('\n')}`;
 }
 
-// ── Tool 27: extractGlossary — auto-extract glossary from VNDB/AniList ───────
 async function extractGlossary(query: string, source: string = 'vndb'): Promise<string> {
   if (!query?.trim()) return 'Error: query tidak boleh kosong.';
   const q = query.trim();
@@ -1399,7 +1317,6 @@ async function extractGlossary(query: string, source: string = 'vndb'): Promise<
       if (!charCount) return `Tidak ada karakter di AniList untuk "${title}".`;
       entries = collectAnilistGlossaryEntries(media);
     } else {
-      // vndb: search by name → get ID → fetch characters
       const vnResults = await fetchVndbVnByName(q);
       if (!vnResults.length) return `Tidak ditemukan VN di VNDB untuk "${q}".`;
       const vn = vnResults[0];
@@ -1407,7 +1324,6 @@ async function extractGlossary(query: string, source: string = 'vndb'): Promise<
       charCount = chars.length;
       if (!charCount) return `Tidak ada karakter di VNDB untuk ${vn.id}: ${vn.title}.`;
       entries = collectVndbGlossaryEntries(chars);
-      // Also apply name translations directly to name table
       appliedResult = applyVndbNameTranslations(chars);
     }
 
@@ -1415,7 +1331,6 @@ async function extractGlossary(query: string, source: string = 'vndb'): Promise<
     mergeGlossaryEntries(entries);
     const after = state.glossaryText || '';
 
-    // Count new entries added
     let added = 0;
     if (after && after !== before) {
       const beforeLines = before ? before.split('\n').filter((l: string) => l.trim()) : [];
@@ -1423,11 +1338,10 @@ async function extractGlossary(query: string, source: string = 'vndb'): Promise<
       added = afterLines.length - beforeLines.length;
     }
 
-    // Refresh UI
     renderGlossaryPreview();
     queueAutoSave();
 
-    let msg = `Berhasil extract glossary dari ${source === 'anilist' ? 'AniList' : 'VNDB'}.\n`;
+    let msg = `Glossary diekstrak dari ${source === 'anilist' ? 'AniList' : 'VNDB'}.\n`;
     msg += `Karakter ditemukan: ${charCount}\n`;
     msg += `Entri glossary baru: ${added > 0 ? added : '0 (mungkin sudah ada sebelumnya)'}\n`;
     if (appliedResult && (appliedResult.appliedNames > 0 || appliedResult.appliedLines > 0)) {
@@ -1440,7 +1354,7 @@ async function extractGlossary(query: string, source: string = 'vndb'): Promise<
   }
 }
 
-/** Known tool names — used for typo suggestions. */
+/** Tool names used for typo suggestions. */
 const TOOL_NAMES = [
   'getProjectStats', 'getLines', 'getContext', 'searchLines', 'getCharacterNames',
   'analyzeQuality', 'getProgressReport', 'applyTranslations', 'editLine', 'editLines',
@@ -1480,11 +1394,10 @@ export async function executeTool(
   args: any,
   onProgress?: (msg: string) => void
 ): Promise<string> {
-  // Capture the current abort epoch so spawned subagents die with this turn.
+  // Spawned subagents must die with this turn.
   startEpochOfDelegate = currentAbortEpoch();
-  // Tool errors must never kill the agent turn — the model reads the error
-  // text and self-corrects on its next turn. Previously a single throwing
-  // tool (e.g. a network failure in webSearch) aborted the whole conversation.
+  // Tool errors must never kill the agent turn: the model reads the error text
+  // and self-corrects on its next turn.
   const safe = (fn: () => string | Promise<string>): Promise<string> =>
     Promise.resolve()
       .then(fn)
@@ -1550,16 +1463,12 @@ export async function executeTool(
       const hint = suggestion
         ? `Mungkin maksudmu "${suggestion}"?`
         : 'Gunakan salah satu tool dari DAFTAR TOOL di system prompt.';
-      return `Error: Tool tidak dikenal — "${name}". ${hint}`;
+      return `Error: Tool tidak dikenal: "${name}". ${hint}`;
     }
   }
 }
 
-// ------------------------------------------------------------------
-// Response Parser — JSON with fallback
-// ------------------------------------------------------------------
-
-/** Short human-readable description of a tool call for the activity line. */
+/** Short description of a tool call for the activity line. */
 function describeToolCall(name: string, args: any): string {
   const a = args || {};
   switch (name) {
@@ -1602,16 +1511,13 @@ interface ParsedToolCalls {
 export function parseToolCalls(text: string): ParsedToolCalls | null {
   let jsonStr = stripCodeFences(text.trim());
 
-  // Strategy 1: Try direct JSON parse
   try {
     const obj = JSON.parse(jsonStr);
     return extractCallsFromObject(obj, text);
   } catch { /* fall through */ }
 
-  // Strategy 2: Brace-balanced JSON objects in the text, first parse wins.
-  // A greedy {.*} match (the old approach) breaks when the model wraps its
-  // JSON in prose that itself contains braces; a single first-object scan
-  // breaks when that prose appears BEFORE the JSON. Iterate instead.
+  // Iterate balanced objects: a greedy {.*} match breaks on prose containing
+  // braces, and a single first-object scan breaks when prose precedes the JSON.
   let from = 0;
   while (true) {
     const candidate = nextBalancedObject(jsonStr, from);
@@ -1623,8 +1529,8 @@ export function parseToolCalls(text: string): ParsedToolCalls | null {
     } catch { /* try the next balanced object */ }
   }
 
-  // Strategy 3: Truncated responses (max-tokens cutoff) leave a JSON object
-  // missing its closing braces. The salvage parser keeps every complete field.
+  // Truncated responses (max-tokens cutoff) leave the object unterminated; the
+  // salvage parser keeps every complete field.
   const salvaged = salvageJsonObject(jsonStr);
   if (salvaged) {
     const parsed = extractCallsFromObject(salvaged, text);
@@ -1638,16 +1544,15 @@ export function parseToolCalls(text: string): ParsedToolCalls | null {
 function stripCodeFences(s: string): string {
   const m = s.match(/^```(?:json|tool_call)?\s*\n?([\s\S]*?)\n?```\s*$/i);
   if (m) return m[1].trim();
-  // Old ```tool_call format embedded mid-text (backward compat)
+  // ```tool_call blocks embedded mid-text (backward compat)
   const embedded = s.match(/```tool_call\s*\n([\s\S]*?)\n```/i);
   if (embedded) return embedded[1].trim();
   return s;
 }
 
 /**
- * Finds the next brace-balanced top-level object literal at or after `from`.
+ * Finds the next brace-balanced top-level object at or after `from`.
  * String/escape aware, so braces inside string values do not confuse the scan.
- * Returns `{ text, end }` or null when no (more) object exists.
  */
 function nextBalancedObject(s: string, from: number): { text: string; end: number } | null {
   const start = s.indexOf('{', from);
@@ -1675,7 +1580,6 @@ function nextBalancedObject(s: string, from: number): { text: string; end: numbe
 
 function extractCallsFromObject(obj: any, raw: string): ParsedToolCalls {
   const calls: { name: string; arguments: any }[] = [];
-  // Multiple tools format
   if (Array.isArray(obj.tool_calls)) {
     for (const c of obj.tool_calls) {
       if (c.name) calls.push({ name: c.name, arguments: c.arguments || {} });
@@ -1688,10 +1592,6 @@ function extractCallsFromObject(obj: any, raw: string): ParsedToolCalls {
   }
   return { calls, raw };
 }
-
-// ------------------------------------------------------------------
-// Context Compaction
-// ------------------------------------------------------------------
 
 async function compactContextIfNeeded(onUpdate: (msg: string, role: 'assistant' | 'system') => void): Promise<void> {
   const { compactAgentContextIfNeeded, getEffectiveContextWindow, estimateMessagesTokens } = await import('./agent-context');
@@ -1708,8 +1608,8 @@ async function compactContextIfNeeded(onUpdate: (msg: string, role: 'assistant' 
 }
 
 /**
- * Update the header token meter: estimated conversation tokens vs the
- * effective context window. Cheap enough to call after every turn.
+ * Estimated conversation tokens vs the effective context window. Cheap enough
+ * to call after every turn.
  */
 export async function updateTokenMeter(): Promise<void> {
   const el = ui.agentTokenMeter as HTMLElement | null;
@@ -1722,12 +1622,9 @@ export async function updateTokenMeter(): Promise<void> {
     const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n);
     el.textContent = `${fmt(used)} / ${fmt(window)} (${pct}%)`;
     el.style.color = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning, #c98a12)' : 'var(--muted)';
-  } catch { el.textContent = '—'; }
+  } catch { el.textContent = '-'; }
 }
 
-/**
- * Render the sessions dropdown panel and wire its actions.
- */
 export function renderSessionsPanel(): void {
   const panel = ui.agentSessionsPanel as HTMLElement | null;
   const list = ui.agentSessionsList as HTMLElement | null;
@@ -1737,7 +1634,6 @@ export function renderSessionsPanel(): void {
       const msgs = switchToSession(id);
       if (msgs === null) return;
       try { (globalThis as any).__cstlAgentPlanReset?.(); } catch {}
-      // Rebuild chat history from the loaded session.
       chatHistory.length = 0;
       chatHistory.push({ role: 'system', content: buildSystemPrompt() });
       for (const m of msgs) {
@@ -1749,7 +1645,6 @@ export function renderSessionsPanel(): void {
     },
     onDelete: (id) => {
       if (id === activeSessionId) {
-        // Active session deleted — start fresh and refresh token meter.
         clearChatHistory();
       } else {
         deleteSessionData(id);
@@ -1763,7 +1658,6 @@ export function renderSessionsPanel(): void {
   });
 }
 
-/** Toggle the sessions panel open/closed. */
 export function toggleSessionsPanel(): void {
   const panel = ui.agentSessionsPanel as HTMLElement | null;
   if (!panel) return;
@@ -1772,7 +1666,6 @@ export function toggleSessionsPanel(): void {
   if (show) renderSessionsPanel();
 }
 
-/** Start a brand-new empty session. */
 export function startNewSession(): void {
   if (activeSessionId) persistCurrentSession();
   createNewSession();
@@ -1780,7 +1673,7 @@ export function startNewSession(): void {
   renderSessionsPanel();
 }
 
-/** Ensure an active session id exists (lazy — created on first message). */
+/** Session id is created lazily on the first message. */
 export function ensureActiveSession(): void {
   if (!activeSessionId) {
     createNewSession();
@@ -1788,23 +1681,17 @@ export function ensureActiveSession(): void {
   }
 }
 
-// ------------------------------------------------------------------
-// System Prompt
-// ------------------------------------------------------------------
-
 function buildSystemPrompt(): string {
   const visible = state.lines.filter(l => !l._hidden);
   const total = visible.length;
   const rawTotal = state.lines.length;
   const translated = visible.filter(l => l.is_translated).length;
-  // The active plan checklist is injected synchronously via agent-plan's
-  // prompt section getter (imported lazily to avoid a cycle).
+  // The plan checklist is read through a global side-channel because agent-plan
+  // is imported lazily to avoid a cycle; it has no import-time dependency here.
   let planSection = '';
   try {
-    // agent-plan has no import-time dependency on ai-agent, safe to require
-    // synchronously through the module registry via a global side-channel.
     planSection = (globalThis as any).__cstlAgentPlanPrompt?.() || '';
-  } catch { /* plan module not loaded yet — no active plan */ }
+  } catch { /* plan module not loaded yet */ }
 
   return `Kamu adalah CSTL AI Agent, asisten terjemahan visual novel yang terintegrasi di dalam aplikasi CSTL Visual Novel Translation Editor. Kamu membantu pengguna menerjemahkan skrip, menjawab pertanyaan tentang proyek, menganalisis kualitas terjemahan, dan memodifikasi data terjemahan.
 
@@ -1833,10 +1720,10 @@ ${buildMemoryPromptSection()}
 | listSettings() / toggleSetting(name, value) | Lihat / ubah setting aplikasi |
 | getMemory(category?) / listMemory() / saveMemory(key, value, category, scope?) / deleteMemory(key) | Memori persisten |
 | webSearch(query, source?) | Cari web: wikipedia, jisho (kamus JP), vndb, tavily (perlu API key), auto |
-| delegateParallelTranslate(startLine, endLine, instruction?) | Terjemahkan rentang baris via subagent paralel — PAKE INI untuk rentang besar (>30 baris) |
+| delegateParallelTranslate(startLine, endLine, instruction?) | Terjemahkan rentang baris via subagent paralel. PAKE INI untuk rentang besar (>30 baris) |
 | delegateTranslate(lineNums, instruction?) | Terjemahkan kumpulan baris spesifik via subagent |
 | delegateAnalyze(lineNums, focus?) | Analisis kualitas terjemahan via subagent |
-| delegateAgent(task, max_turns?) | Spawn subagent otonom (loop tool sendiri, TANPA batas turn secara default) untuk tugas kompleks/multi-langkah atau analisis besar. Subagent bisa bertanya ke user (askUser) dan mengirim laporan progress (reportToMain). Untuk proyek 20K+ baris TIDAK perlu pecah manual — langsung delegasikan keseluruhan. Set max_turns (mis. 15) hanya jika ingin membatasi |
+| delegateAgent(task, max_turns?) | Spawn subagent otonom (loop tool sendiri, TANPA batas turn secara default) untuk tugas kompleks/multi-langkah atau analisis besar. Subagent bisa bertanya ke user (askUser) dan mengirim laporan progress (reportToMain). Untuk proyek 20K+ baris TIDAK perlu pecah manual, langsung delegasikan keseluruhan. Set max_turns (mis. 15) hanya jika ingin membatasi |
 | askUser(question, options?) | TANYA USER dengan kartu pertanyaan interaktif (tombol pilihan). Loop agent berhenti sampai user menjawab. WAJIB dipakai (bukan nanya lewat teks) saat butuh keputusan/klarifikasi penting: pilihan nama, konfirmasi aksi besar, instruksi ambigu. options = array maks 6 pilihan singkat, boleh kosong untuk jawaban bebas |
 | setPlan(steps) | TAMPILKAN RENCANA sebagai checklist live di chat. WAJIB dipanggil di awal tugas multi-langkah (2+ langkah): langkah 1-6, ringkas & konkret. Contoh: setPlan(["Baca glosarium & nama karakter", "Analisis bab 1-5", "Terapkan perbaikan", "Verifikasi hasil"])
 | updatePlanStep(step, status) | Update status langkah rencana: step = nomor (1-based), status = pending/active/done. Panggil SETIAP kali pindah langkah |
@@ -1847,7 +1734,7 @@ ${buildMemoryPromptSection()}
 
 ## FORMAT RESPONS WAJIB
 
-Memanggil tool (bisa beberapa sekaligus) — BALAS HANYA dengan JSON, tanpa teks lain, tanpa markdown fence:
+Memanggil tool (bisa beberapa sekaligus): BALAS HANYA dengan JSON, tanpa teks lain, tanpa markdown fence:
 {"tool_calls": [{"name": "getLines", "arguments": {"start": 100, "end": 105}}, {"name": "getGlossary", "arguments": {}}]}
 
 Balasan biasa tanpa tool: tulis teks biasa (bukan JSON).
@@ -1856,17 +1743,17 @@ Sistem akan mengeksekusi tool dan mengirim hasilnya sebagai pesan user internal.
 ## PROTOKOL ERROR
 
 - Hasil tool berawalan "Error:" = panggilan gagal. Baca alasannya, perbaiki argument-nya, lalu panggil ulang tool yang sama. JANGAN menebak hasil.
-- Jika JSON-mu ditolak karena malformed/terpotong, ulangi HANYA JSON-nya — jangan tambahkan penjelasan.
+- Jika JSON-mu ditolak karena malformed/terpotong, ulangi HANYA JSON-nya, jangan tambahkan penjelasan.
 
 ## ATURAN TERJEMAHAN
 
 - Sebelum menerjemahkan: ambil baris dulu (getLines/getContext), baca glosarium (getGlossary) dan nama karakter (getCharacterNames) bila relevan.
 - Menerjemahkan sendiri: gunakan applyTranslations. WAJIB sertakan trans_name untuk baris yang punya nama karakter.
-- PREVIEW MUTASI: applyTranslations/editLines dengan >10 baris otomatis menampilkan diff-preview dan MENUNGGU konfirmasi user. Jika hasilnya "Dibatalkan oleh user lewat preview mutasi" — JANGAN mencoba lagi dengan cara yang sama; tanyakan apa yang ingin diubah.
+- PREVIEW MUTASI: applyTranslations/editLines dengan >10 baris otomatis menampilkan diff-preview dan MENUNGGU konfirmasi user. Jika hasilnya "Dibatalkan oleh user lewat preview mutasi", JANGAN mencoba lagi dengan cara yang sama; tanyakan apa yang ingin diubah.
 - Self-verification: hasil mutasi otomatis diperiksa (sisa teks Jepang, terjemahan terlalu pendek, kosong). Jika ada laporan ⚠️, periksa baris tersebut dan perbaiki sebelum melanjutkan.
-- Rentang besar (>30 baris): JANGAN terjemahkan manual satu-satu — gunakan delegateParallelTranslate(startLine, endLine). Ia memakai pipeline terjemahan lengkap (prompt, glosarium, konteks) dengan worker paralel.
+- Rentang besar (>30 baris): JANGAN terjemahkan manual satu-satu, gunakan delegateParallelTranslate(startLine, endLine). Ia memakai pipeline terjemahan lengkap (prompt, glosarium, konteks) dengan worker paralel.
 - Perbaiki terjemahan spesifik yang sudah ada: delegateAnalyze untuk menemukan masalahnya, lalu applyTranslations/editLines untuk memperbaiki.
-- Perubahan selalu bisa dibatalkan pengguna lewat undoLastAction — jangan ragu menerapkan, tapi jangan menimpa terjemahan yang sudah baik tanpa alasan.
+- Perubahan selalu bisa dibatalkan pengguna lewat undoLastAction: jangan ragu menerapkan, tapi jangan menimpa terjemahan yang sudah baik tanpa alasan.
 
 ## PROTOKOL KONFIRMASI
 
@@ -1885,21 +1772,18 @@ Simpan memori SECARA OTOMATIS (tanpa menunggu perintah) ketika:
 Hapus memori outdated dengan deleteMemory. Jangan simpan hal trivial atau progres terjemahan. Setelah menyimpan, beri tahu user singkat: "(Tersimpan di memori: ...)"
 
 ## CARA KERJA (plan-first)
-- Tugas multi-langkah (analisis, perbaikan massal, dsb.): PANGGIL setPlan dulu sebelum tool lain — user melihat checklist rencana real-time.
+- Tugas multi-langkah (analisis, perbaikan massal, dsb.): PANGGIL setPlan dulu sebelum tool lain, user melihat checklist rencana real-time.
 - Setiap pindah langkah: updatePlanStep(step, "done") + langkah berikutnya otomatis jadi aktif.
 - Sebelum jawaban final tugas: completePlan().
 - Pertanyaan/trivial satu-langkah: tidak perlu setPlan.
-- User bisa mengirim pesan steering di tengah pekerjaanmu (muncul sebagai [Steering dari user]) — hentikan arah lama dan ikuti arahan barunya.
+- User bisa mengirim pesan steering di tengah pekerjaanmu (muncul sebagai [Steering dari user]): hentikan arah lama dan ikuti arahan barunya.
 
 ## GAYA
 
 - Jawab dalam Bahasa Indonesia kecuali diminta sebaliknya.
 - Jangan tampilkan proses berpikir internal. Langsung jawab atau panggil tool.
-- Untuk pertanyaan tentang proyek, gunakan tool untuk mendapat data aktual — jangan mengarang angka.${planSection}`;
+- Untuk pertanyaan tentang proyek, gunakan tool untuk mendapat data aktual, jangan mengarang angka.${planSection}`;
 }
-
-// ------------------------------------------------------------------
-// ReAct Agent Engine
 
 /** Drain queued steering messages (typed mid-run by the user). */
 function drainSteer(): string | null {
@@ -1918,7 +1802,6 @@ function isContextLengthError(err: any): boolean {
     /context length|context window|maximum context|max.?tokens.*exceed|too many tokens|prompt is too long|input is too long|exceeds.*token|token limit|request too large/.test(text)
   );
 }
-// ------------------------------------------------------------------
 
 export const chatHistory: ChatMessage[] = [];
 
@@ -1926,20 +1809,17 @@ export async function sendAgentMessage(
   userMessage: string,
   onUpdate: (msg: string, role: 'assistant' | 'system', meta?: { streaming?: boolean }) => void
 ): Promise<void> {
-  // New run — clear any stale plan checklist from the previous task.
   const planMod = await import('./agent-plan');
   planMod.resetPlanForNewRun();
   planMod.setAgentRunning(true);
   try {
-  // Ensure system prompt is fresh
   if (chatHistory.length === 0 || chatHistory[0].role !== 'system') {
     chatHistory.unshift({ role: 'system', content: buildSystemPrompt() });
   } else {
-    // Refresh system prompt with current stats
+    // Refresh the prompt so project stats stay current.
     chatHistory[0].content = buildSystemPrompt();
   }
 
-  // Compact if needed
   await compactContextIfNeeded(onUpdate);
 
   chatHistory.push({ role: 'user', content: userMessage });
@@ -1978,15 +1858,15 @@ export async function sendAgentMessage(
       const structured = await chatCompletionStructured(chatHistory, {
         tools: nativeToolsActive ? AGENT_TOOL_SCHEMAS : undefined,
         onDelta: (_delta, fullText) => {
-          // Live stream only while text looks like a normal reply (not pure tool JSON).
-          // During tool-call JSON we keep "Memproses..." until parse finishes.
+          // Stream only normal replies; during tool-call JSON we keep
+          // "Memproses..." until the parse finishes.
           const looksLikeTool =
             /^\s*\{/.test(fullText) ||
             /"tool"\s*:/.test(fullText) ||
             /```json\s*\{/.test(fullText);
           if (!looksLikeTool && fullText.trim()) {
             streamedVisible = true;
-            // Same display filter as the translation pipelines — a reasoning
+            // Same display filter as the translation pipelines: a reasoning
             // model's <think> block must not flash into the chat while streaming.
             const display = state.aiFilterThinkingOutput
               ? stripThinkingTagsForStream(fullText)
@@ -2004,15 +1884,14 @@ export async function sendAgentMessage(
       // retry ONCE on the same turn instead of dying.
       if (isContextLengthError(e) && !emergencyCompactedThisTurn) {
         emergencyCompactedThisTurn = true;
-        onUpdate('Context window terlampaui — memadatkan darurat...', 'system');
+        onUpdate('Context window terlampaui, memadatkan darurat...', 'system');
         const { forceCompactAgentContext } = await import('./agent-context');
         await forceCompactAgentContext(chatHistory, async (msgs) => chatCompletion(msgs), 0.35);
-        loopCount--; // this turn does not count — retry it
+        loopCount--; // this turn does not count, retry it
         continue;
       }
-      // API errors are UI-only — persisting them as an assistant message used
-      // to poison the conversation (the model saw its own "error" as text on
-      // reload) and pushed junk into future prompts.
+      // API errors are UI-only: persisting them as an assistant message poisoned
+      // the conversation (the model saw its own "error" as text on reload).
       throw e;
     }
 
@@ -2023,9 +1902,9 @@ export async function sendAgentMessage(
       : parseToolCalls(responseText);
 
     // A text response that *looks* like a tool call (starts with {) but failed
-    // every parse strategy — usually truncated output or malformed JSON. When
-    // native tools are active this is just prose that happens to start with '{'
-    // (rare) — only run the corrective retry in fallback mode.
+    // every parse strategy: usually truncated output or malformed JSON. With
+    // native tools active this is prose that happens to start with '{', so the
+    // corrective retry only runs in fallback mode.
     const looksLikeTool = !nativeToolsActive && (/^\s*\{/.test(responseText) || /```json\s*\{/.test(responseText));
     if (!parsed && looksLikeTool) {
       chatHistory.push({ role: 'assistant', content: responseText, _internal: true });
@@ -2034,7 +1913,7 @@ export async function sendAgentMessage(
         content:
           'Error: Respons JSON-mu tidak bisa diparse (kemungkinan terpotong atau malformed). '
           + 'JANGAN ulangi seluruh tool call sebelumnya. Respon ulang HANYA dengan JSON valid '
-          + 'berformat {"tool_calls": [{"name": ..., "arguments": {...}}]} — tanpa teks lain, '
+          + 'berformat {"tool_calls": [{"name": ..., "arguments": {...}}]}, tanpa teks lain, '
           + 'tanpa markdown fence, pastikan semua string tertutup dan objek seimbang.',
         _internal: true,
       });
@@ -2052,8 +1931,7 @@ export async function sendAgentMessage(
     saveChatHistory();
 
     if (parsed && parsed.calls.length > 0) {
-      // Describe each call with its key argument so the user can follow what
-      // the agent is actually doing, not just which tool fired.
+      // Describe each call with its key argument so the user can follow the work.
       const described = parsed.calls.map(c => describeToolCall(c.name, c.arguments)).join(', ');
       onUpdate(`Menggunakan tool: ${described}...`, 'system');
 
@@ -2080,18 +1958,18 @@ export async function sendAgentMessage(
       }
 
       // Bound each tool result so a 50-hit searchLines cannot inject 10k+
-      // characters into the context on every turn.
+      // characters into the context every turn.
       const TOOL_RESULT_LIMIT = 6000;
       const toolResults = calls.map((call, i) => {
         const clipped = results[i].length > TOOL_RESULT_LIMIT
-          ? results[i].slice(0, TOOL_RESULT_LIMIT) + `\n…(terpotong — ${results[i].length - TOOL_RESULT_LIMIT} karakter lagi; persempit query atau minta rentang lebih kecil)`
+          ? results[i].slice(0, TOOL_RESULT_LIMIT) + `\n…(terpotong, ${results[i].length - TOOL_RESULT_LIMIT} karakter lagi; persempit query atau minta rentang lebih kecil)`
           : results[i];
         return `Tool "${call.name}" result:\n${clipped}`;
       });
 
       chatHistory.push({ role: 'user', content: toolResults.join('\n\n'), _internal: true });
       saveChatHistory();
-      // Unlimited turns can accumulate huge tool results mid-turn — compact
+      // Unlimited turns can accumulate huge tool results mid-turn, so compact
       // between rounds too, not just before a new user message.
       await compactContextIfNeeded(onUpdate);
 
@@ -2103,10 +1981,8 @@ export async function sendAgentMessage(
         saveChatHistory();
         onUpdate('📣 Steering diterima.', 'system');
       }
-      // Loop continues — AI can call more tools or respond with text
     } else {
-      // No tool call — plain text response, conversation turn ended
-      // Final paint without streaming cursor (even if already streamed)
+      // Final paint without the streaming cursor (even if already streamed)
       onUpdate(responseText || (streamedVisible ? '' : '(kosong)'), 'assistant', { streaming: false });
       finishedWithReply = true;
       break;
@@ -2119,9 +1995,9 @@ export async function sendAgentMessage(
     if (userStopped) {
       onUpdate('⏹ Dibatalkan.', 'system');
     } else if (maxLoops === 0) {
-      // Unlimited loop exiting without a reply means malformed JSON retries
-      // bailed out — shouldn't normally happen, but never freeze silently.
-      onUpdate('⚠️ Agent berhenti tanpa jawaban final (loop unlimited terputus). Coba kirim ulang instruksi.', 'system');
+      // An unlimited loop exiting without a reply means the malformed-JSON
+      // retries bailed out. Never freeze silently.
+      onUpdate('⚠️ Agent berhenti tanpa jawaban final. Coba kirim ulang instruksi.', 'system');
     } else {
       onUpdate(
         `⚠️ Batas ${maxLoops} giliran tool tercapai sebelum agent selesai. Set "Agent Max Turns" ke 0 (unlimited) di pengaturan atau lanjutkan dengan instruksi baru.`,

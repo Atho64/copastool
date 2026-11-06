@@ -1,6 +1,4 @@
-// @module types.ts — Shared TypeScript interfaces for the CSTL application
-
-// ─── Core Line Object ──────────────────────────────────────────────────────────
+// @module types.ts: shared TypeScript interfaces.
 
 export interface Line {
   line_num: number;
@@ -16,7 +14,6 @@ export interface Line {
   _ai_checked?: boolean;
   _ai_confirmed?: boolean;
 
-  // LucaSystem fields
   luca_command?: string;
   luca_choice_index?: number;
   luca_choice_count?: number;
@@ -32,29 +29,24 @@ export interface Line {
   luca_raw?: string;
   luca_profile?: string;
 
-  // Reference language fields (HTL mode)
   ref_lang_1?: string | null;
   ref_lang_1_name?: string | null;
   ref_lang_2?: string | null;
   ref_lang_2_name?: string | null;
 
-  // EPUB fields
   epub_selector?: string;
   epub_id?: string;
   epub_img_src?: string;
 
-  // Luca language fields
   luca_jp?: string;
   luca_en?: string;
   luca_zh?: string;
 
-  // Custom parser fields
-  /** Original snippet captured by a custom parser at import time, handed back
-   *  to the parser's serialize() at export time (patch-style round-trip). */
+  /** Original snippet captured at import, handed back to serialize() at export
+   *  (patch-style round-trip). */
   custom_raw?: string;
-  /** Optional numeric index set by the parser at import time (mis. posisi
-   *  entri di file asli / offset), diteruskan balik ke serialize() sebagai
-   *  line.index agar patch tidak bergantung pada pencocokan teks raw. */
+  /** Parser-set position (entry number, byte offset), passed back to serialize()
+   *  as line.index so patches do not depend on raw text matching. */
   custom_index?: any;
 }
 
@@ -66,15 +58,13 @@ export interface EpubImageAsset {
   afterLineNum: number;
 }
 
-// ─── Custom Parser (user-defined import/export formats) ───────────────────────
-
 export interface CustomParser {
   id: string;
   name: string;
   language: 'js' | 'python';
   /** Lowercase extensions including the dot, e.g. ['.xyz', '.dat'] */
   extensions: string[];
-  /** Code defining parse(ctx) — runs sandboxed in a worker */
+  /** Code defining parse(ctx); runs sandboxed in a worker. */
   parseScript: string;
   /** Optional code defining serialize(ctx) for round-trip export */
   serializeScript: string;
@@ -95,18 +85,14 @@ export interface CustomParser {
 }
 
 /** Entry returned by a custom parse() call before normalization into Line.
- *  `index` (opsional) = penanda posisi bebas buatan parser (mis. nomor entri
- *  di file asli, offset byte, atau indeks array) — diteruskan utuh ke
- *  serialize(ctx) sebagai line.index untuk patch berbasis index, bukan
- *  pencocokan teks raw yang bisa salah saat raw duplikat. */
+ *  `index` is a parser-defined position (entry number, byte offset, array index)
+ *  passed through to serialize(ctx) as line.index. */
 export interface CustomParsedEntry {
   name?: string | null;
   message: string;
   raw?: string | null;
   index?: number | null;
 }
-
-// ─── Custom Parser matching (strategi pencocokan file saat impor) ─────────────
 
 export type CpMatchStrategy = 'extension' | 'magic' | 'filename';
 
@@ -122,7 +108,7 @@ export interface CustomParserAsset {
   dataBase64: string;
 }
 
-/** Spec setting per-parser — form otomatis; nilai dikirim ke parser sebagai ctx.options. */
+/** Spec setting per-parser: form otomatis; nilai dikirim ke parser sebagai ctx.options. */
 export interface CpSettingSpec {
   key: string;            // /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
   label: string;
@@ -133,8 +119,6 @@ export interface CpSettingSpec {
   placeholder?: string;
   min?: number; max?: number; step?: number;
 }
-
-// ─── Application State ────────────────────────────────────────────────────────
 
 export interface AppState {
   sourceLang: string;
@@ -164,9 +148,8 @@ export interface AppState {
   checkUntransName: boolean;
   ignorePasteNames: boolean;
   enableUncertainMarking: boolean;
-  /** Replace angle-bracket section tags (<Glossary>, <Context>, <lines>, …) with
-   *  safe `=== LABEL ===` markers before sending to LLM. Prevents ChatGPT from
-   *  stripping the tags as if they were HTML. */
+  /** Replace angle-bracket section tags (<Glossary>, <Context>, <lines>) with
+   *  `=== LABEL ===` markers so ChatGPT does not strip them as HTML. */
   safeTagsForChatgpt: boolean;
   aiBackupKeys: string;
   aiKeyStrategy: 'fallback' | 'random';
@@ -178,10 +161,9 @@ export interface AppState {
   /** Engine for Live Translate (on-the-fly during gameplay): HTTP API or Auto Copas. */
   liveTranslateEngine: 'api' | 'copas';
   /**
-   * Look-ahead batch size for TL Mode. 1 = translate only the hooked line.
-   * >1 = when a hooked line arrives, translate it plus the next (n-1)
-   * untranslated lines in one request so upcoming dialogue is already ready.
-   * Only meaningful for the Copas engine, where one round-trip is expensive.
+   * Look-ahead batch size for TL Mode: 1 translates only the hooked line, >1
+   * also translates the next (n-1) untranslated lines. Only meaningful for the
+   * Copas engine, where one round-trip is expensive.
    */
   liveBatchSize: number;
   /** AI chat site Auto Copas drives (Gemini/ChatGPT/DeepSeek/Arena). */
@@ -230,10 +212,9 @@ export interface AppState {
   aiReasoningEffort: 'default' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   aiRpm: number;
   /**
-   * Idle timeout for an AI request, in milliseconds. The countdown restarts every
-   * time a chunk arrives, so it measures silence rather than total duration —
-   * a reasoning model may think for a while before its first token.
-   * `0` disables the timeout.
+   * Idle timeout for an AI request, in milliseconds. The countdown restarts on
+   * every chunk, so it measures silence, not total duration: a reasoning model
+   * may think for a while before its first token. `0` disables it.
    */
   aiRequestTimeoutMs: number;
   aiThinkingMode: 'default' | 'off' | 'on';
@@ -289,8 +270,6 @@ export interface AppState {
 
 export type WorkspaceTab = 'translate' | 'glossary' | 'aiCheck' | 'delete';
 
-// ─── Undo ─────────────────────────────────────────────────────────────────────
-
 export interface PartialLineSnapshot {
   line_num: number;
   file?: string;
@@ -314,30 +293,27 @@ export interface PartialLineSnapshot {
 
 export interface UndoSnapshot {
   lines: PartialLineSnapshot[];
-  /** File-level operations (add/remove/reorder) — when present, lines is empty */
+  /** File-level operations (add/remove/reorder); when present, lines is empty. */
   fileAction?: FileActionSnapshot;
 }
 
 export interface FileActionSnapshot {
   type: 'add' | 'remove' | 'reorder';
-  /** Files affected by this action */
   files: string[];
   /** Lines that were removed (for 'remove' action undo) */
   removedLines?: Line[];
-  /** Lines that were added (for 'add' action undo — to remove them on undo) */
+  /** Lines added by the action, so undo can remove them. */
   addedLines?: Line[];
   /** Previous file order (for 'reorder' action undo) */
   prevOrder?: string[];
   /** New file order (for 'reorder' action redo) */
   newOrder?: string[];
-  /** Full state snapshot for add/remove (for reliable redo) */
+  /** Full file lists for add/remove, needed for reliable redo. */
   prevImportedFiles?: string[];
   newImportedFiles?: string[];
   prevFileOrder?: string[];
   newFileOrder?: string[];
 }
-
-// ─── Display / Render ─────────────────────────────────────────────────────────
 
 export interface DisplayRow {
   type: 'line' | 'separator' | 'image';
@@ -345,8 +321,6 @@ export interface DisplayRow {
   file?: string;
   src?: string;
 }
-
-// ─── Proofread ────────────────────────────────────────────────────────────────
 
 export interface ProofreadMatch {
   num: number;
@@ -359,8 +333,6 @@ export interface ProofreadMatch {
   excluded?: boolean;
 }
 
-// ─── QA ───────────────────────────────────────────────────────────────────────
-
 export interface QaMatch {
   num: number;
   file: string;
@@ -370,8 +342,6 @@ export interface QaMatch {
   transMsg: string | null;
   errors: string[];
 }
-
-// ─── AI Check ─────────────────────────────────────────────────────────────────
 
 export interface AiCheckCorrection {
   num: number;
@@ -388,8 +358,6 @@ export interface AiCheckCorrection {
   reviewNote?: string;
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
 export interface DashboardProject {
   id: string;
   name: string;
@@ -400,13 +368,11 @@ export interface DashboardProject {
   fileCount: number;
   lineCount?: number;
   updatedAt: number;
-  /** Set when the .cstl file exists but cannot be parsed — shown as a recovery card. */
+  /** Set when the .cstl file exists but cannot be parsed; shown as a recovery card. */
   corrupt?: boolean;
   /** For projectType 'custom': which custom parser the project uses. */
   customParserId?: string | null;
 }
-
-// ─── AI Agent Memory ──────────────────────────────────────────────────────────
 
 export type MemoryCategory = 'style' | 'terminology' | 'character' | 'preference' | 'note';
 export type MemoryScope = 'global' | 'project';
@@ -420,15 +386,11 @@ export interface AgentMemory {
   updated: number;
 }
 
-// ─── Glossary ─────────────────────────────────────────────────────────────────
-
 export interface GlossaryEntry {
   target: string;
   type: string;
   desc: string;
 }
-
-// ─── Shortcut ─────────────────────────────────────────────────────────────────
 
 export interface ShortcutParsed {
   ctrl: boolean;
@@ -438,8 +400,6 @@ export interface ShortcutParsed {
   key: string;
 }
 
-// ─── Parsed Translation Items ────────────────────────────────────────────────
-
 export interface ParsedTranslationItem {
   num: number;
   name: string | null;
@@ -447,6 +407,5 @@ export interface ParsedTranslationItem {
   rawMsg: string;
 }
 
-// ─── UI Cache (populated dynamically by ui-init.ts) ──────────────────────────
-
+// Populated dynamically by ui-init.ts.
 export type UiCache = Record<string, HTMLElement | any>;

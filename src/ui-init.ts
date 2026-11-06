@@ -1,4 +1,4 @@
-// @module ui-init.ts — DOM element caching, scroller initialization, and event binding
+// DOM element caching, scroller initialization, event binding.
 
 import * as ProjectModule from './project';
 import * as RenderModule from './render';
@@ -75,8 +75,6 @@ import { isTauri } from './native-storage';
 import { initContextMenu } from './context-menu';
 import { syncPlatformFeatures, isAndroidPlatform } from './platform';
 
-// ─── Debounce Utility ─────────────────────────────────────────────────────────
-
 function debounce(func: Function, wait: number) {
   let timeout: any;
   return function (this: any, ...args: any[]) {
@@ -84,8 +82,6 @@ function debounce(func: Function, wait: number) {
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
 }
-
-// ─── Element Caching ──────────────────────────────────────────────────────────
 
 export function cacheElements(): void {
   const ids = [
@@ -157,8 +153,6 @@ export function cacheElements(): void {
   }
 }
 
-// ─── Scroller Initialization ──────────────────────────────────────────────────
-
 export function initScrollers(): void {
   const mainScroller = new VirtualScroller(ui.previewViewport as HTMLElement, ui.previewContainer as HTMLElement, 65, renderMainRow, true);
   mainScroller.onVisibleRangeChange = (start) => updateCurrentFileBar(start);
@@ -168,8 +162,6 @@ export function initScrollers(): void {
   const qaViewport = (ui.qaResults as HTMLElement).closest('.proofread-results-wrap') as HTMLElement;
   setQaScroller(new VirtualScroller(qaViewport, ui.qaResults as HTMLElement, 90, renderQaRow));
 }
-
-// ─── Event Binding ────────────────────────────────────────────────────────────
 
 export function bindEvents(): void {
   document.addEventListener('click', e => {
@@ -218,7 +210,7 @@ export function bindEvents(): void {
         (ui.dropdownImportOtherMenu as HTMLElement).classList.remove('show');
       }
     } else {
-      // Clicked an action item inside the import menu — close everything
+      // Clicked an action item inside the import menu: close everything.
       if (ui.dropdownImportMenu) {
         (ui.dropdownImportMenu as HTMLElement).classList.remove('show');
       }
@@ -341,7 +333,6 @@ export function bindEvents(): void {
     if (e.key !== 'Escape') return;
     if (Shortcuts._recording) return;
 
-    // 1. Close open dropdown menus first
     const openDropdowns = document.querySelectorAll('.dropdown-content.show');
     if (openDropdowns.length > 0) {
       openDropdowns.forEach(el => el.classList.remove('show'));
@@ -350,7 +341,6 @@ export function bindEvents(): void {
       return;
     }
 
-    // 2. Close dictionary popup if visible
     const dictPopup = document.getElementById('dictionaryPopup');
     if (dictPopup && dictPopup.style.display !== 'none') {
       const dictClose = document.getElementById('dictPopupClose');
@@ -360,7 +350,6 @@ export function bindEvents(): void {
       return;
     }
 
-    // 3. Close topmost open modal if any
     const openModals = Array.from(document.querySelectorAll<HTMLElement>('.modal-backdrop')).filter(m => {
       if (m.classList.contains('closing')) return false;
       if (m.classList.contains('open')) return true;
@@ -389,7 +378,6 @@ export function bindEvents(): void {
       return;
     }
 
-    // 4. Close floating agent panel or logging panel if open
     const agentChat = document.getElementById('aiAgentChatPanel');
     if (agentChat && window.getComputedStyle(agentChat).display !== 'none') {
       const agentClose = document.getElementById('btnAgentClose');
@@ -408,7 +396,7 @@ export function bindEvents(): void {
       return;
     }
 
-    // 5. Close the immersive reader last (its own handler closes panels first)
+    // The immersive reader goes last; its own handler closes panels first.
     if (ui.immersiveView?.classList.contains('open')) {
       void import('./immersive').then(m => m.Immersive.close());
       e.preventDefault();
@@ -452,8 +440,8 @@ export function bindEvents(): void {
   ui.btnBatchNext?.addEventListener('click', () => selectActiveWorkspaceBatch(1));
   ui.btnRestoreProject?.addEventListener('click', () => (ui.restoreProjectInput as HTMLInputElement).click());
   ui.restoreProjectInput?.addEventListener('change', onRestoreProject);
-  // Google Spreadsheet round-trip — both directions are manual only (explicit
-  // user click + file pick), never automatic on project open.
+  // Google Spreadsheet round-trip is manual in both directions (explicit user
+  // click + file pick), never automatic on project open.
   ui.btnSpreadsheetImport?.addEventListener('click', () => (ui.spreadsheetInput as HTMLInputElement).click());
   ui.spreadsheetInput?.addEventListener('change', async (ev: Event) => {
     const input = ev.target as HTMLInputElement;
@@ -463,9 +451,8 @@ export function bindEvents(): void {
     await importSpreadsheetFile(file);
   });
   ui.btnExportSpreadsheet?.addEventListener('click', () => { void exportProjectToSpreadsheet(); });
-  // Workspace entry point. The dashboard copy above can only create new
-  // projects (closing a project clears currentProjectId), so merge is only
-  // reachable from here, where the target project is already open.
+  // The dashboard copy can only create new projects (closing a project clears
+  // currentProjectId), so merge is only reachable here, with a project open.
   ui.btnImportSpreadsheet?.addEventListener('click', () => (ui.spreadsheetInput as HTMLInputElement).click());
   ui.btnImageLightboxClose?.addEventListener('click', () => {
     (ui.imageLightboxModal as HTMLElement | null)?.classList.remove('open');
@@ -476,14 +463,13 @@ export function bindEvents(): void {
     }
   });
 
-  // Closing the tab within the 1s autosave debounce would drop the last edit —
-  // flush it best-effort on pagehide (OPFS writes are atomic-swap, so a write
-  // that does not finish leaves the previous file intact).
+  // Closing the tab within the 1s autosave debounce would drop the last edit, so
+  // flush on pagehide (OPFS writes are atomic-swap: an unfinished write leaves
+  // the previous file intact).
   window.addEventListener('pagehide', flushAutoSaveNow);
 
-  // Returning from background: make sure the main WebView's timers are running
-  // again (Android may have frozen them while hidden) so a Full Auto loop
-  // resumes polling without needing an app restart.
+  // Returning from background: Android may have frozen the main WebView's timers
+  // while hidden, so resume them and let a Full Auto loop keep polling.
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     try {
@@ -976,7 +962,6 @@ if (ui.settingsCheckSimilarity) {
   ui.btnRunQa?.addEventListener('click', runQaCheck);
   document.getElementById('btnRetranslateFlagged')?.addEventListener('click', onRetranslateFlagged);
 
-  // AI Check review mode buttons
   document.getElementById('btnReviewApply')?.addEventListener('click', () => {
     resolveReviewAction('apply');
     const reviewActions = document.getElementById('aiCheckReviewActions');
@@ -1010,8 +995,8 @@ if (ui.settingsCheckSimilarity) {
     });
   }
 
-  // ── Auto Copas (browser otomatis) — engine selects, target picker, login ──
-  // Row visibility + select values live in auto-copas/ui.ts (syncCopasUi) so
+  // Auto Copas (browser otomatis): engine selects, target picker, login.
+  // Row visibility and select values live in auto-copas/ui.ts (syncCopasUi) so
   // loadApiSettings can re-run them after restoring saved settings on reload.
   const copasTargetSelectIds = ['copasTargetSelectTranslate', 'copasTargetSelectGlossary', 'copasTargetSelectAiCheck', 'copasTargetSelectLive'];
   populateCopasTargetSelects();
@@ -1021,7 +1006,7 @@ if (ui.settingsCheckSimilarity) {
       state.copasTarget = normalizeCopasTarget(sel.value);
       import('./auto-translate').then(m => m.saveApiSettings());
       syncCopasUi();
-      // Keep every target picker on the same site — one shared browser tab.
+      // Keep every target picker on the same site: one shared browser tab.
       for (const otherId of copasTargetSelectIds) {
         const other = document.getElementById(otherId) as HTMLSelectElement | null;
         if (other && other !== sel) other.value = state.copasTarget;
@@ -1080,11 +1065,10 @@ if (ui.settingsCheckSimilarity) {
     Promise.resolve(ProjectModule).then(m => {
       m.queueAutoSave();
       m.closeModal(ui.textReplacerModal as HTMLElement);
-      Promise.resolve(RenderModule).then(r => r.flashHint('Aturan Replacer berhasil disimpan.'));
+      Promise.resolve(RenderModule).then(r => r.flashHint('Aturan Replacer disimpan.'));
     });
   });
 
-  // File List
   ui.btnFileList?.addEventListener('click', () => openFileListModal());
   ui.btnImmersiveOpen?.addEventListener('click', () => import('./immersive').then(m => m.Immersive.open()));
   ui.btnLunaHookerOpen?.addEventListener('click', () => {
@@ -1223,7 +1207,6 @@ if (ui.settingsCheckSimilarity) {
   ui.btnLoggingClose?.addEventListener('click', () => { (ui.loggingPanel as HTMLElement).style.display = 'none'; });
   ui.btnLoggingClear?.addEventListener('click', () => { if (ui.loggingHistory) (ui.loggingHistory as HTMLElement).textContent = ''; });
 
-  // AI Agent Events
   let isDraggingChat = false;
   let chatStartX = 0, chatStartY = 0;
   let chatInitLeft = 0, chatInitTop = 0;
@@ -1300,7 +1283,7 @@ if (ui.settingsCheckSimilarity) {
   ui.btnAgentClose?.addEventListener('click', () => {
     (ui.aiAgentChatPanel as HTMLElement).style.display = 'none';
   });
-  // Make the AI Agent chat panel draggable by its header, mirroring the robot icon.
+  // Draggable by its header, mirroring the robot icon.
   if (ui.aiAgentChatPanel) {
     const panel = ui.aiAgentChatPanel as HTMLElement;
     const header = panel.querySelector<HTMLElement>('.agent-header');
@@ -1364,7 +1347,7 @@ if (ui.settingsCheckSimilarity) {
     }
   }
 
-  // Make the logging panel draggable by its header.
+  // Draggable by its header.
   if (ui.loggingPanel) {
     const panel = ui.loggingPanel as HTMLElement;
     const header = panel.querySelector<HTMLElement>('.agent-header');
@@ -1414,7 +1397,6 @@ if (ui.settingsCheckSimilarity) {
     clearChatHistory();
   });
 
-  // ── Agent Memory UI ──
   function renderAgentMemoryList(): void {
     const listEl = ui.agentMemoryList as HTMLElement;
     if (!listEl) return;
@@ -1455,7 +1437,6 @@ if (ui.settingsCheckSimilarity) {
       delBtn.title = 'Hapus';
       delBtn.onclick = () => {
         state.agentMemories = state.agentMemories.filter(x => x.key !== m.key || x.scope !== m.scope);
-        // Persist
         const scopeMems = state.agentMemories.filter(x => x.scope === m.scope);
         try {
           const key = m.scope === 'global' ? 'cstl_agent_memory_global' : `cstl_agent_memory_${state.currentProjectId}`;
@@ -1513,11 +1494,11 @@ if (ui.settingsCheckSimilarity) {
     const text = input.value.trim();
     if (!text) return;
 
-    // Lazy session: ensure the run belongs to a named session slot.
+    // Lazy session: the run needs a named session slot.
     import('./ai-agent').then(m => m.ensureActiveSession()).catch(() => {});
 
-    // A subagent question is waiting: forward the typed text as the answer
-    // (takes priority over steering — the agent is explicitly blocked on it).
+    // A subagent question is waiting: forward the typed text as the answer, ahead
+    // of steering (the agent is explicitly blocked on it).
     const subagentMod = await import('./agent-subagent');
     if (subagentMod.hasPendingSubagentQuestion()) {
       const card = ui.agentChatHistory?.querySelector('.agent-question-card:not([data-answered])') as HTMLElement | null;
@@ -1535,7 +1516,7 @@ if (ui.settingsCheckSimilarity) {
       return;
     }
 
-    // Agent currently working? Then this is a STEERING message, not a new turn.
+    // Agent working: this is a STEERING message, not a new turn.
     const steerMod = await import('./agent-plan');
     if (steerMod.isAgentRunning()) {
       input.value = '';
@@ -1568,8 +1549,8 @@ if (ui.settingsCheckSimilarity) {
     const sendAgentMessage = (await import('./ai-agent')).sendAgentMessage;
     const { setAgentMessageHtml, createStreamThrottle } = await import('./ai-agent');
 
-    // Disable send button while agent runs; show the Stop button. The input
-    // stays ENABLED: typing mid-run queues a steering message instead.
+    // The input stays ENABLED while the agent runs: typing mid-run queues a
+    // steering message instead.
     const sendBtn = ui.btnAgentSend as HTMLButtonElement | null;
     const stopBtn = ui.btnAgentStop as HTMLButtonElement | null;
     if (sendBtn) sendBtn.disabled = true;
@@ -1598,17 +1579,15 @@ if (ui.settingsCheckSimilarity) {
       if (sendBtn) sendBtn.disabled = false;
       if (stopBtn) stopBtn.style.display = 'none';
       input.focus();
-      // Refresh the token meter after every completed run.
       import('./ai-agent').then(m => m.updateTokenMeter()).catch(() => {});
     }
   };
 
-  // Clickable [line N] references in agent messages → jump to preview line.
+  // Clickable [line N] references in agent messages jump to the preview line.
   if (ui.agentChatHistory) {
     import('./ai-agent').then(m => m.attachLineLinkHandler(ui.agentChatHistory as HTMLElement)).catch(() => {});
   }
 
-  // Sessions panel toggling + actions.
   ui.btnAgentSessions?.addEventListener('click', () => {
     import('./ai-agent').then(m => m.toggleSessionsPanel()).catch(() => {});
   });
@@ -1617,8 +1596,8 @@ if (ui.settingsCheckSimilarity) {
   });
 
   ui.btnAgentSend?.addEventListener('click', doAgentSend);
-  // Stop aborts every in-flight AI request (and cancels RPM/backoff waits);
-  // the catch above turns that into a "Dibatalkan" notice and restores input.
+  // Stop aborts every in-flight AI request and cancels RPM/backoff waits; the
+  // catch above turns that into a "Dibatalkan" notice and restores input.
   ui.btnAgentStop?.addEventListener('click', () => {
     import('./ai-client').then(m => m.abortActiveRequests());
   });
@@ -1630,7 +1609,6 @@ if (ui.settingsCheckSimilarity) {
     }
   });
 
-  // Bookmark Feature Events
   ui.btnToolbarBookmark?.addEventListener('click', () => {
     Promise.resolve(BookmarkModule).then(m => m.openBookmarkModal());
   });
@@ -1668,9 +1646,6 @@ if (ui.settingsCheckSimilarity) {
   }, 150));
 }
 
-// ─── Bootstrap ────────────────────────────────────────────────────────────────
-
-// ─── Color Palette System ────────────────────────────────────────────────────
 interface ColorPalette {
   '--bg': string; '--bg-2': string; '--panel': string; '--panel-2': string;
   '--line': string; '--line-2': string; '--primary': string; '--primary-hover': string;
@@ -1706,7 +1681,7 @@ const PALETTES: Record<string, ColorPalette> = {
 };
 
 function applyPalette(name: string): void {
-  // Resolve the key first so an unknown name falls back fully to indigo (icon included).
+  // Resolve the key first so an unknown name falls back fully to indigo.
   const paletteKey = PALETTES[name] ? name : 'indigo';
   const palette = PALETTES[paletteKey];
   const root = document.documentElement;
@@ -1723,8 +1698,8 @@ function applyPalette(name: string): void {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', palette['--bg']);
 
-  // 'indigo' is byte-identical to icon.svg — reuse the canonical file so the
-  // PWA precaches one indigo icon instead of two.
+  // 'indigo' is byte-identical to icon.svg, so reuse it and let the PWA precache
+  // one indigo icon instead of two.
   const iconUrl = paletteKey === 'indigo' ? './icon.svg' : `./icon-${paletteKey}.svg`;
   const logoImg = document.querySelector('.hero-logo-img') as HTMLImageElement | null;
   if (logoImg) logoImg.src = iconUrl;
@@ -1744,9 +1719,8 @@ export async function init(): Promise<void> {
   if (globalWindow.__cstlInitialized) return;
   globalWindow.__cstlInitialized = true;
 
-  // Register PWA service worker — web build only. Inside Tauri the app already
-  // ships its own assets; a service worker just adds cache interception and
-  // update checks that slow down startup on Windows and Android.
+  // PWA service worker, web build only: inside Tauri the app ships its own assets
+  // and a service worker just adds cache interception and update checks.
   if ('serviceWorker' in navigator && !isTauri()) {
     import('virtual:pwa-register').then(({ registerSW }) => {
       registerSW({ immediate: true });
@@ -1756,8 +1730,8 @@ export async function init(): Promise<void> {
   loadPalette();
   cacheElements();
   syncPlatformFeatures();
-  // The WebView re-runs the user-agent feature pass after layout changes made by
-  // the on-screen keyboard or split screen.
+  // The WebView re-runs the user-agent feature pass after layout changes from the
+  // on-screen keyboard or split screen.
   window.addEventListener('resize', syncPlatformFeatures);
   initScrollers();
   bindEvents();
@@ -1768,7 +1742,7 @@ export async function init(): Promise<void> {
     (ui.projectList as HTMLElement).innerHTML = `<p class="hint" style="grid-column: 1/-1; color: var(--danger);">Browser tidak mendukung OPFS. Sistem penyimpanan tidak dapat diakses.</p>`;
   } else {
     // OPFS is best-effort by default: under disk pressure the browser may evict
-    // the whole origin's storage without any user action. Ensure persistent storage.
+    // the whole origin's storage without user action, so ask for persistence.
     ensureStoragePersistence().catch(() => {});
     checkStorageQuota().then(quota => {
       if (quota && quota.isLow) {
@@ -1789,9 +1763,8 @@ export async function init(): Promise<void> {
   initDictionary();
   initCustomParserModal();
   updateCustomImportAccept();
-  setPyodideColdStartHint(() => flashHint('Memuat runtime Python (pyodide ~10MB, hanya sekali) — butuh internet...', true));
+  setPyodideColdStartHint(() => flashHint('Memuat runtime Python (pyodide ~10MB, sekali saja). Butuh internet...', true));
 
-  // Initialize CSTL Plugins
   try {
     const bridge = createPluginHostBridge();
     (window as any).CSTL?.plugins?.attach(bridge);
@@ -1800,20 +1773,16 @@ export async function init(): Promise<void> {
     console.warn('[CSTL] Plugin initialization error:', err);
   }
 
-  // Initialize Shortcuts
   Shortcuts.init();
-
-  // Initialize OPFS Explorer
   OpfsExplorer.init();
 
-  // Initialize the VN Overlay; the Luna dialog initializes when it is opened.
+  // The Luna dialog initializes when it is opened.
   try {
     overlayController.init();
   } catch (err) {
     console.warn('[LunaHooker] Initialization error:', err);
   }
 
-  // Initialize Mobile View Switcher
   initMobileViewSwitcher();
 }
 

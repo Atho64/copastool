@@ -1,4 +1,4 @@
-// @module import-translated.ts — Import translated file/folder: match and apply
+// @module import-translated.ts: import a translated file or folder, match and apply.
 
 import { state, ui } from './state';
 import { normalizeLineDict, isTranslated, isIlustrasiLine, getOpfsRoot } from './state';
@@ -14,7 +14,7 @@ import type { Line } from './types';
 export function groupCurrentLinesByFile(): Map<string, Line[]> {
   const grouped = new Map<string, Line[]>();
   for (const line of state.lines) {
-    // Illustration placeholders have no counterpart paragraph in imported files —
+    // Illustration placeholders have no counterpart paragraph in imported files;
     // skipping them keeps the element<->line pairing in sync.
     if (isIlustrasiLine(line)) continue;
     if (!grouped.has(line.file)) grouped.set(line.file, []);
@@ -120,7 +120,7 @@ export function collectTranslatedJsonUpdates(pathOrName: string, jsonArray: any[
     const message = normalizeTranslatedImportValue(entry.message ?? entry.trans_message ?? entry.text);
     if (!message && !state.disableEmptyLineValidation) continue;
     const line = lines[i];
-    // Skip identity TL unless punctuation-only (…… / ....) — those are valid TL beats.
+    // Skip identity TL unless punctuation-only (…… / ....); those are valid TL beats.
     if (isSameAsOriginal(message, line.message) && !isPunctuationOnlyMessage(message)) continue;
     const hasNameValue = Object.prototype.hasOwnProperty.call(entry, 'name') || Object.prototype.hasOwnProperty.call(entry, 'trans_name');
     const name = hasNameValue ? normalizeTranslatedImportValue(entry.name ?? entry.trans_name) : null;

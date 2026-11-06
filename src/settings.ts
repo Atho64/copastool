@@ -1,4 +1,4 @@
-// @module settings.ts — Unified Settings modal: open, save, and reset all project settings with tabbed UI
+// @module settings.ts: tabbed settings modal for project configuration.
 
 import { state, ui } from './state';
 import {
@@ -196,7 +196,6 @@ export function initSettingsTabs(): void {
     (window as any).CSTL?.plugins?.openPluginManager?.();
   });
 
-  // Luca profile change updates slot options
   document.getElementById('settingsLucaProfileSelect')?.addEventListener('change', (e) => {
     const profileId = (e.target as HTMLSelectElement).value;
     populateLucaExportSlotSelect(profileId);
@@ -206,7 +205,6 @@ export function initSettingsTabs(): void {
   });
 }
 
-/** Isi dropdown profil/slot/MC dari state untuk LucaSystem (jika container ada di UI) */
 export function populateLucaSettingsUI(): void {
   const wrap = document.getElementById('settingsLucaWrap');
   if (!wrap) return;
@@ -237,7 +235,6 @@ export function populateLucaSettingsUI(): void {
   }
 }
 
-/** Simpan nilai Luca dari UI ke state (jika container ada di UI) */
 export function saveLucaSettingsFromUI(): void {
   const wrap = document.getElementById('settingsLucaWrap');
   if (!wrap || wrap.style.display === 'none') return;
@@ -258,7 +255,6 @@ export function saveLucaSettingsFromUI(): void {
 export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   const openToken = ++settingsOpenToken;
   initializedSettingsTabs = new Set();
-  // === 1. General Settings ===
   if (ui.settingsSourceLangSelect) (ui.settingsSourceLangSelect as HTMLSelectElement).value = state.sourceLang || 'Japanese';
   if (ui.settingsTargetLangSelect) (ui.settingsTargetLangSelect as HTMLSelectElement).value = state.targetLang || 'Indonesian';
   if (ui.settingsTranslationModeSelect) {
@@ -331,10 +327,8 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   const showEpubCheckbox = (document.getElementById('settingsShowEpubImages') || ui.settingsShowEpubImages) as HTMLInputElement | null;
   if (showEpubCheckbox) showEpubCheckbox.checked = state.showEpubImages !== false;
 
-  // === 2. LucaSystem Settings ===
   populateLucaSettingsUI();
 
-  // === 5. Switch Tab & Show ===
   switchSettingsTab(tabName);
   openModal(ui.settingsModal as HTMLElement);
   if (isJson) scheduleReferenceLanguageCounts(openToken, state.lines, state.currentProjectId);
@@ -352,7 +346,6 @@ export function onSavePromptSettings(): void {
   // Tabs not visited before Save still need their current state in the form.
   initializeSettingsTab('prompts');
   initializeSettingsTab('glossary');
-  // === General Settings ===
   const sourceLang = (ui.settingsSourceLangSelect as HTMLSelectElement)?.value || 'Japanese';
   const targetLang = (ui.settingsTargetLangSelect as HTMLSelectElement)?.value || 'Indonesian';
   const translationMode = (ui.settingsTranslationModeSelect as HTMLSelectElement)?.value === 'htl' ? 'htl' : 'ai';
@@ -451,10 +444,8 @@ export function onSavePromptSettings(): void {
   if (ui.settingsGlossaryBatchSizeInput) (ui.settingsGlossaryBatchSizeInput as HTMLInputElement).value = String(glossaryBatchSize);
   if (ui.settingsAiCheckBatchSizeInput) (ui.settingsAiCheckBatchSizeInput as HTMLInputElement).value = String(aiCheckBatchSize);
 
-  // === Luca Settings ===
   saveLucaSettingsFromUI();
 
-  // === Prompt Settings ===
   if (ui.settingsPromptInput) state.aiInstructionHeader = (ui.settingsPromptInput as HTMLTextAreaElement).value.trim();
   if (ui.settingsGlossaryPromptInput) state.glossaryPrompt = (ui.settingsGlossaryPromptInput as HTMLTextAreaElement).value.trim();
   if (ui.settingsAiCheckPromptInput) state.aiCheckPrompt = (ui.settingsAiCheckPromptInput as HTMLTextAreaElement).value.trim();
@@ -487,7 +478,6 @@ export function onSavePromptSettings(): void {
   const aiChkSumPromptEl = document.getElementById('settingsAiCheckSummaryPromptInput') as HTMLTextAreaElement | null;
   if (aiChkSumPromptEl) state.aiCheckSummaryPrompt = aiChkSumPromptEl.value.trim();
 
-  // === Glossary Settings ===
   if (ui.settingsGlossaryInput) {
     state.glossaryText = (ui.settingsGlossaryInput as HTMLTextAreaElement).value.trim();
   }

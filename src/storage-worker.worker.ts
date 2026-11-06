@@ -1,6 +1,6 @@
-// @module storage-worker.worker.ts — Web Worker doing project JSON heavy lifting
-// off the UI thread. JSON.stringify/parse of multi-MB projects on the main thread
-// is what made autosave / open-project / back-to-dashboard stutter (worst on Android).
+// @module storage-worker.worker.ts: Web Worker doing the heavy project JSON work off
+// the UI thread. JSON.stringify/parse of multi-MB projects on the main thread made
+// autosave / open-project / back-to-dashboard stutter (worst on Android).
 
 import { normalizeLineDict } from './state';
 

@@ -1,4 +1,4 @@
-// @module state.ts — Shared application state, ui cache, and module-level variables
+// @module state.ts: shared application state, ui cache, and module-level variables.
 
 import type { AppState, UiCache, Line } from './types';
 import { escapeStoredNewlines } from './string-utils';
@@ -14,7 +14,6 @@ import {
   DEFAULT_AI_CHECK_BATCH_SIZE,
 } from './constants';
 
-// ─── Shared Application State ────────────────────────────────────────────────────
 export const state: AppState = {
   sourceLang: 'Japanese',
   targetLang: 'Indonesian',
@@ -57,7 +56,7 @@ export const state: AppState = {
   currentProjectId: null,
   projectName: '',
   projectType: '',
-  translationMode: 'ai', // "ai" or "htl" — HTL hides all AI features
+  translationMode: 'ai', // "ai" or "htl"; HTL hides all AI features
   jsonRefLang: '', // optional reference language code for json projects: "en", "zh", etc. (empty = disabled)
   epubTags: 'p',
   epubSourceId: null,
@@ -96,9 +95,8 @@ export const state: AppState = {
   aiThinkingMode: 'default',
   aiFilterThinkingOutput: true,
   aiMergeSystemPrompt: false,
-  // Streaming used to be hardcoded on in the providers while this checkbox
-  // did nothing; default true so existing behavior (live logs, idle-timeout
-  // re-arm on chunks) survives unless explicitly disabled.
+  // Streaming used to be hardcoded on while this checkbox did nothing; default
+  // true keeps existing behavior (live logs, idle-timeout re-arm on chunks).
   aiStreaming: true,
   glossaryPrompt: DEFAULT_GLOSSARY_PROMPT,
   aiCheckPrompt: DEFAULT_AI_CHECK_PROMPT,
@@ -141,11 +139,9 @@ export const state: AppState = {
   aiCheckDeepMode: false,
 };
 
-// ─── Shared UI Element Cache ──────────────────────────────────────────────────
 export const ui: UiCache = {};
 
-// ─── Module-Level Variables ───────────────────────────────────────────────────
-// These are mutable references shared across modules via getters/setters.
+// Mutable references shared across modules via getters/setters.
 
 let _mainScroller: any = null;
 let _proofreadScroller: any = null;
@@ -181,12 +177,9 @@ export function setSaveTimeout(t: ReturnType<typeof setTimeout> | null) { _saveT
 export function getHintToken() { return _hintToken; }
 export function incrementHintToken() { return ++_hintToken; }
 
-// ─── Core Helpers (used everywhere) ──────────────────────────────────────────
-
-/** Marker message used for EPUB illustration-only lines (no text to translate). */
+/** Marker message for EPUB illustration-only lines. */
 export const EPUB_ILUSTRASI_MARKER = '[Ilustrasi]';
 
-/** True for EPUB placeholder lines that only carry an illustration — nothing to translate. */
 export function isIlustrasiLine(line: any): boolean {
   return !!line && line.message === EPUB_ILUSTRASI_MARKER && !!line.epub_img_src;
 }
@@ -200,8 +193,8 @@ function fastNormalizeText(val: any, options: { preserveTrailingSpace?: boolean 
   if (val == null) return null;
   const s = String(val);
   if (!s) return '';
-  // Spasi di akhir teks terjemahan disimpan apa adanya (lihat
-  // escapeStoredNewlines), jadi jangan lewat jalur trim cepat untuk field itu.
+  // Spasi akhir teks terjemahan disimpan apa adanya (lihat escapeStoredNewlines),
+  // jadi field itu tidak lewat jalur trim cepat.
   if (options.preserveTrailingSpace) return escapeStoredNewlines(s, options);
   if (s.includes('\r') || s.includes('\n')) {
     return s.replace(/\r?\n/g, '\\n').trim();

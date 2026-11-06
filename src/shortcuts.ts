@@ -1,5 +1,6 @@
-// @module shortcuts.ts — Customizable Keyboard Shortcut System ported from CSTL-Next
-// Supports default actions, user overrides, live key recording, conflict detection, and dynamic plugin commands.
+// @module shortcuts.ts: customizable keyboard shortcut system.
+// Supports default actions, user overrides, live key recording, conflict detection,
+// and dynamic plugin commands.
 
 import * as SelectionModule from './selection';
 import * as ProjectModule from './project';
@@ -13,13 +14,11 @@ export interface ShortcutAction {
 }
 
 export const SHORTCUT_ACTIONS: ShortcutAction[] = [
-  // Dashboard
   { id: 'dash.new', label: 'Buat Project Baru', scope: 'dashboard', def: '', run: () => document.getElementById('btnNewProject')?.click() },
   { id: 'dash.restore', label: 'Pulihkan Project', scope: 'dashboard', def: '', run: () => document.getElementById('btnRestoreProject')?.click() },
   { id: 'dash.settings', label: 'Buka Default Pengaturan', scope: 'dashboard', def: '', run: () => document.getElementById('btnDashboardSettings')?.click() },
   { id: 'dash.search', label: 'Fokus Cari Project', scope: 'dashboard', def: '/', run: () => (document.getElementById('projectFilterInput') as HTMLElement)?.focus() },
   
-  // Workspace Import / Export / General
   { id: 'work.importFile', label: 'Impor File', scope: 'workspace', def: '', run: () => document.getElementById('btnImportFile')?.click() },
   { id: 'work.importFolder', label: 'Impor Folder', scope: 'workspace', def: '', run: () => document.getElementById('btnImportFolder')?.click() },
   { id: 'work.importZip', label: 'Impor ZIP', scope: 'workspace', def: '', run: () => document.getElementById('btnImportZip')?.click() },
@@ -34,14 +33,12 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'work.autoTranslate', label: 'Jalankan Auto Translate', scope: 'workspace', def: 'Alt+T', run: () => document.getElementById('btnAutoTranslate')?.click() },
   { id: 'work.immersive', label: 'Buka Mode Immersif', scope: 'workspace', def: 'Alt+I', run: () => { import('./immersive').then(m => m.Immersive.open()); } },
 
-  // Workspace Selection & Navigation
   { id: 'work.selectAll', label: 'Pilih Semua Baris', scope: 'workspace', def: 'Alt+A', run: () => document.getElementById('btnSelectAll')?.click() },
   { id: 'work.clearSelection', label: 'Batal Pilih Baris', scope: 'workspace', def: 'Alt+Q', run: () => document.getElementById('btnClearSelection')?.click() },
   { id: 'work.selectRange', label: 'Pilih Rentang Baris', scope: 'workspace', def: 'Alt+L', run: () => document.getElementById('btnSelectRange')?.click() },
   { id: 'work.batchPrev', label: 'Batch Sebelumnya', scope: 'workspace', def: 'Alt+ArrowUp', run: () => { Promise.resolve(SelectionModule).then(m => m.selectActiveWorkspaceBatch(-1)); } },
   { id: 'work.batchNext', label: 'Batch Berikutnya', scope: 'workspace', def: 'Alt+ArrowDown', run: () => { Promise.resolve(SelectionModule).then(m => m.selectActiveWorkspaceBatch(1)); } },
 
-  // Workspace Translation & Undo
   { id: 'work.copy', label: 'Copy untuk AI', scope: 'workspace', def: 'Alt+C', run: () => document.getElementById('btnCopyForAi')?.click() },
   { id: 'work.paste', label: 'Fokus Kolom Paste AI', scope: 'workspace', def: 'Alt+V', inInputs: true, run: () => (document.getElementById('pasteArea') as HTMLElement)?.focus() },
   { id: 'work.apply', label: 'Terapkan Terjemahan', scope: 'workspace', def: 'Ctrl+Enter', inInputs: true, run: () => document.getElementById('btnApply')?.click() },

@@ -1,4 +1,4 @@
-// @module translate.ts — Copy for AI, paste and apply translations, undo
+// @module translate.ts: Copy for AI, paste and apply translations, undo
 
 import * as FileListModule from './file-list';
 import { state, ui, normalizeLineDict } from './state';
@@ -96,7 +96,6 @@ export function buildCopyForAiPrompt(): string | null {
       // Follows the Safe Tags setting: <summary> when off, === SUMMARY === when on.
       sections.push(sanitizeTagsForChatgpt(`<summary>\n${state.currentBackground.trim()}\n</summary>`));
     }
-    // Inject summary prompt instruction (customizable by user)
     const customPrompt = (state.summaryPrompt || '').trim();
     let promptText = customPrompt;
     if (!promptText) {
@@ -152,7 +151,6 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
 
   const cleanFence = (s: string) => s.replace(/^```[^\n]*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
-  // 1. Explicit tags: <summary>...</summary>, <background>...</background>, === SUMMARY ===, === BACKGROUND ===
   const sumPair = text.match(/<\s*(?:summary|background)\s*>([\s\S]*?)<\s*\/\s*(?:summary|background)\s*>/i);
   if (sumPair) {
     summary = cleanFence(sumPair[1]);
@@ -166,16 +164,14 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
     }
   }
 
-  // Remove any leftover closing tags
   text = text.replace(/<\s*\/\s*(?:summary|background)\s*>/gi, '').trim();
 
-  // If explicit summary was found, clean up fences and return
   if (summary) {
     summary = cleanFence(summary);
     return { cleanText: text, summary };
   }
 
-  // 2. Untagged summary extraction: identify non-payload text before or after translation items
+  // Untagged summary: non-payload text before or after the translation items.
   const lines = text.split(/\r?\n/);
   const isPayloadStartLine = (line: string): boolean => {
     const t = line.trim();
@@ -206,7 +202,6 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
   }
 
   if (firstPayloadIdx !== -1) {
-    // Collect non-payload lines before the first translation line
     const topLines = lines.slice(0, firstPayloadIdx)
       .map(l => l.trim())
       .filter(l => l && !/^```(?:plaintext|text|json|jsonl|xml)?\s*$/i.test(l));
@@ -223,7 +218,6 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
       // In block mode, everything after the first [line \d+] is part of the payload
       text = lines.slice(firstPayloadIdx).join('\n').trim();
     } else {
-      // Collect non-payload lines after the last translation line (if non-empty)
       const bottomLines = lines.slice(lastPayloadIdx + 1)
         .map(l => l.trim())
         .filter(l => l && !/^```\s*$/i.test(l));
@@ -274,7 +268,7 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
 
   const { cleanText, summary } = extractSummaryAndPayload(rawText);
   rawText = cleanText;
-  // Ringkasan TIDAK disimpan di sini — baru disimpan setelah lolos semua validasi (lihat akhir fungsi),
+  // Ringkasan TIDAK disimpan di sini, baru disimpan setelah lolos semua validasi (lihat akhir fungsi),
   // supaya apply yang gagal tidak mengubah background/ringkasan cerita.
 
   const pasteFormat = detectTranslationPasteFormat(rawText);
@@ -456,7 +450,6 @@ export async function onUndoLastApply(): Promise<void> {
       },
     });
     
-    // Apply the undo
     const { applyFileAction } = await Promise.resolve(FileListModule);
     applyFileAction(snapshot.fileAction);
     
@@ -510,7 +503,6 @@ export async function onRedoLastUndo(): Promise<void> {
       },
     });
     
-    // Apply the redo
     const { redoFileAction } = await Promise.resolve(FileListModule);
     redoFileAction(snapshot.fileAction);
     
@@ -548,7 +540,6 @@ export function applyAgentTranslations(updates: {num: number, trans_message: str
     const l = state.lineByNum.get(it.num);
     if (!l) continue;
     
-    // Process newlines
     let msg = it.trans_message.replace(/<br>/gi, '\\n');
     msg = applyReplaceRules(msg, state.postReplaceRules, 'msg');
     

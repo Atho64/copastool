@@ -1,8 +1,6 @@
-/* ═══ IMMERSIVE READING MODE ═══
-   Full-screen distraction-free reader (ported from AETL immersive mode).
-   The view intentionally does NOT use .modal-backdrop so the global Escape
-   handler and Shortcuts.anyModalOpen() ignore it — Escape handling is owned
-   by immersive.ts (modals first, then panels, then the reader itself). */
+/* Fullscreen reader. It intentionally skips .modal-backdrop so the global Escape
+   handler and Shortcuts.anyModalOpen() ignore it; immersive.ts owns Escape
+   (modals first, then panels, then the reader itself). */
 
 #immersiveView {
   --im-font: Georgia, "Iowan Old Style", "Times New Roman", "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", ui-serif, serif;
@@ -22,9 +20,9 @@
 #immersiveView.is-medium { --im-measure: 38rem; }
 #immersiveView.is-wide { --im-measure: 48rem; }
 
-/* Themes derive from the main app palette (styles.css :root) so the reader
-   feels like the same product: warm charcoal dark, warm paper sepia, warm
-   off-white light — all with the app's burnt-orange --primary accent. */
+/* Themes derive from the app palette in styles.css :root so the reader matches
+   the product: charcoal dark, paper sepia, off-white light, all with the
+   burnt-orange --primary accent. */
 #immersiveView.theme-dark {
   --im-bg: #0f0e0d;
   --im-panel: rgba(29, 27, 25, 0.86);
@@ -74,7 +72,6 @@
   transform: none;
 }
 
-/* ── Top bar ─────────────────────────────────────────────────────────────── */
 .immersive-bar {
   position: relative;
   z-index: 2;
@@ -201,7 +198,6 @@
   color: var(--im-ink-muted);
 }
 
-/* ── Style panel ─────────────────────────────────────────────────────────── */
 .immersive-style-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -316,7 +312,6 @@
 .immersive-seg-btn:hover { color: var(--im-ink); }
 .immersive-seg-btn.active { color: var(--im-bg); }
 
-/* ── Viewport & rows ─────────────────────────────────────────────────────── */
 .immersive-viewport {
   flex: 1;
   min-height: 0;
@@ -469,10 +464,8 @@
   word-break: break-word;
 }
 .immersive-block.is-untranslated .immersive-text { color: var(--im-ink-muted); }
-.immersive-block .further-info { opacity: 0.75; }
 .immersive-block ruby rt { font-size: 0.45em; color: var(--im-ink-dim); }
 
-/* ── Bookmark panel ──────────────────────────────────────────────────────── */
 .immersive-bookmark-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -613,7 +606,6 @@
 }
 .immersive-bookmark-item-del:hover { background: var(--primary-soft, rgba(200, 78, 24, 0.14)); color: var(--danger); }
 
-/* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   #immersiveView { --im-size: 18px; }
   .immersive-bar {

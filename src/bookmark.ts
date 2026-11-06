@@ -1,4 +1,4 @@
-// @module bookmark.ts — Bookmark management, workstation bubble badge, and modal interactions
+// @module bookmark.ts: bookmark management, toolbar badge, and modal.
 
 import { state, ui, getMainScroller } from './state';
 import { pushUndoSnapshot, openLineEditor, flashHint } from './render';
@@ -41,7 +41,7 @@ export function toggleBookmark(lineNum: number, notify = true): void {
   pushUndoSnapshot();
   line.bookmarked = !line.bookmarked;
 
-  // Direct DOM update for instant visual feedback on the line row
+  // Direct DOM update so the row reacts without a re-render.
   const row = document.querySelector(`.preview-row[data-line-num="${lineNum}"]`);
   if (row) {
     const bmBtn = row.querySelector('.line-bookmark-btn');
@@ -60,12 +60,11 @@ export function toggleBookmark(lineNum: number, notify = true): void {
 
   updateBookmarkBadge();
 
-  // Keep the immersive reader's rows and panel in sync
+  // Keep the immersive reader in sync.
   if (ui.immersiveView?.classList.contains('open')) {
     import('./immersive').then(m => m.Immersive.syncBookmark(lineNum, !!line.bookmarked)).catch(() => {});
   }
 
-  // If bookmark modal is currently open, refresh list
   const modal = ui.bookmarkModal as HTMLElement | undefined;
   if (modal && modal.classList.contains('open')) {
     const searchInput = document.getElementById('bookmarkSearchInput') as HTMLInputElement | null;
@@ -125,7 +124,6 @@ export async function clearAllBookmarks(): Promise<void> {
     line.bookmarked = false;
   }
 
-  // Update rows currently in DOM
   document.querySelectorAll('.line-bookmark-btn.is-bookmarked').forEach(btn => {
     btn.classList.remove('is-bookmarked');
     btn.setAttribute('title', 'Bookmark baris ini');
@@ -138,7 +136,7 @@ export async function clearAllBookmarks(): Promise<void> {
     import('./immersive').then(m => m.Immersive.syncAllBookmarks()).catch(() => {});
   }
   queueAutoSave();
-  flashHint('Semua bookmark berhasil dihapus.');
+  flashHint('Semua bookmark dihapus.');
 }
 
 export function renderBookmarkList(filterQuery = ''): void {
@@ -261,7 +259,7 @@ export function renderBookmarkList(filterQuery = ''): void {
       transDiv.textContent = formatLineLabel(line, { translated: true });
     } else {
       transDiv.className += ' text-muted';
-      transDiv.textContent = '—— (Belum diterjemahkan)';
+      transDiv.textContent = '(Belum diterjemahkan)';
     }
 
     content.append(origDiv, transDiv);

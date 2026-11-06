@@ -1,4 +1,4 @@
-// @module custom-parser-modal.ts — UI kelola parser custom (list, editor, uji parser).
+// UI kelola parser custom: list, editor, uji parser.
 
 import { state, ui } from './state';
 import { openModal, closeModal } from './project';
@@ -26,7 +26,7 @@ let testFile: File | null = null;
 let editAssets: CustomParserAsset[] = []; // asset sesi editor (disimpan saat Simpan)
 let openedFromPluginManager = false;
 
-const CP_ASSETS_SOFT_LIMIT = 2 * 1024 * 1024; // 2MB — localStorage total ±5MB & dishare data lain
+const CP_ASSETS_SOFT_LIMIT = 2 * 1024 * 1024; // 2MB: localStorage total ±5MB & dishare data lain
 
 function formatBytes(n: number): string {
   if (n < 1024) return n + ' B';
@@ -34,13 +34,11 @@ function formatBytes(n: number): string {
   return (n / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-// ─── Templates ────────────────────────────────────────────────────────────────
-
-const JS_PARSE_TEMPLATE = `// Parser custom CSTL — JavaScript
+const JS_PARSE_TEMPLATE = `// Parser custom CSTL, JavaScript
 // ctx = { fileName, text, bytes, startLineNum }
-// Return: array of { name?, message, raw?, index? } — message wajib.
+// Return: array of { name?, message, raw?, index? }; message wajib.
 //   index = angka bebas (posisi entri/offset di file asli) yang dikembalikan
-//   ke serialize(ctx) sebagai line.index — berguna saat raw bisa duplikat.
+//   ke serialize(ctx) sebagai line.index, berguna saat raw bisa duplikat.
 async function parse(ctx) {
   const rows = [];
   for (const raw of ctx.text.split(/\\r?\\n/)) {
@@ -55,10 +53,10 @@ async function parse(ctx) {
   return rows;
 }`;
 
-const JS_SERIALIZE_TEMPLATE = `// serialize(ctx) — opsional, untuk ekspor round-trip.
-// ctx = { fileName, text, bytes, lines } — setiap line punya field:
+const JS_SERIALIZE_TEMPLATE = `// serialize(ctx): opsional, untuk ekspor round-trip.
+// ctx = { fileName, text, bytes, lines }; setiap line punya field:
 //   name, message, trans_name, trans_message, is_translated, raw,
-//   index (angka yang diberikan parse() saat impor — anchor patch by-index)
+//   index (angka yang diberikan parse() saat impor, anchor patch by-index)
 // Return: string (atau Uint8Array untuk file biner).
 async function serialize(ctx) {
   const out = ctx.text.split(/\\r?\\n/);
@@ -67,7 +65,7 @@ async function serialize(ctx) {
     const translated =
       (line.trans_name ? line.trans_name + ': ' : '') + (line.trans_message || '');
     // lastIndexOf: baris asli yang identik dipatch dari belakang agar tidak
-    // salib menimpa — cocokkan dengan urutan parse() yang mengambil dari depan.
+    // salib menimpa, cocokkan dengan urutan parse() yang mengambil dari depan.
     const idx = out.lastIndexOf(line.raw);
     if (idx >= 0) out[idx] = translated;
     else console.warn('serialize: raw tidak ditemukan di file asli:', line.raw.slice(0, 40));
@@ -75,11 +73,11 @@ async function serialize(ctx) {
   return out.join('\\n');
 }`;
 
-const PY_PARSE_TEMPLATE = `# Parser custom CSTL — Python (jalan di pyodide)
+const PY_PARSE_TEMPLATE = `# Parser custom CSTL, Python (jalan di pyodide)
 # ctx = {"fileName": str, "text": str, "bytes": bytes, "startLineNum": int}
-# Return: list of {"name", "message", "raw", "index"} — message wajib.
+# Return: list of {"name", "message", "raw", "index"}; message wajib.
 #   "index" = angka bebas (posisi entri/offset di file asli), dikembalikan ke
-#   serialize(ctx) sebagai line["index"] — berguna saat raw bisa duplikat.
+#   serialize(ctx) sebagai line["index"], berguna saat raw bisa duplikat.
 import re
 
 def parse(ctx):
@@ -92,10 +90,10 @@ def parse(ctx):
             rows.append({"message": raw, "raw": raw})
     return rows`;
 
-const PY_SERIALIZE_TEMPLATE = `# serialize(ctx) — opsional, untuk ekspor round-trip.
-# ctx = {"fileName", "text", "bytes", "lines"} — setiap line (dict) punya:
+const PY_SERIALIZE_TEMPLATE = `# serialize(ctx): opsional, untuk ekspor round-trip.
+# ctx = {"fileName", "text", "bytes", "lines"}; setiap line (dict) punya:
 #   name, message, trans_name, trans_message, is_translated, raw,
-#   index (angka yang diberikan parse() saat impor — anchor patch by-index)
+#   index (angka yang diberikan parse() saat impor, anchor patch by-index)
 # Return: str (atau bytes untuk format biner).
 def serialize(ctx):
     out = ctx["text"].splitlines()
@@ -105,14 +103,12 @@ def serialize(ctx):
         prefix = line["trans_name"] + ": " if line.get("trans_name") else ""
         translated = prefix + (line["trans_message"] or "")
         # rindex: baris asli yang identik dipatch dari belakang agar tidak
-        # salib menimpa — cocokkan dengan urutan parse() yang mengambil dari depan.
+        # salib menimpa, cocokkan dengan urutan parse() yang mengambil dari depan.
         try:
             out[out.rindex(line["raw"])] = translated
         except ValueError:
             print("serialize: raw tidak ditemukan di file asli:", line["raw"][:40])
     return "\\n".join(out)`;
-
-// ─── View helpers ─────────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
@@ -137,9 +133,7 @@ export function openCustomParserEditor(id: string | null): void {
   (ui.customParserModal as HTMLElement) && openModal(ui.customParserModal as HTMLElement);
 }
 
-// ─── Luca settings (pindahan dari modal Settings) ─────────────────────────────
-
-/** Isi dropdown profil/slot/MC dari state — dipanggil saat modal Parser Custom dibuka. */
+/** Isi dropdown profil/slot/MC dari state saat modal Parser Custom dibuka. */
 function populateLucaSettingsUI(): void {
   const showLuca = state.projectType !== 'epub';
   if (ui.settingsLucaWrap) (ui.settingsLucaWrap as HTMLElement).style.display = showLuca ? '' : 'none';
@@ -165,7 +159,7 @@ function populateLucaSettingsUI(): void {
   }
 }
 
-/** Simpan nilai Luca dari UI ke state — dipanggil saat modal Parser Custom ditutup. */
+/** Simpan nilai Luca dari UI ke state saat modal Parser Custom ditutup. */
 function saveLucaSettingsFromUI(): void {
   if (ui.settingsLucaWrap && (ui.settingsLucaWrap as HTMLElement).style.display === 'none') return; // epub
   state.lucaExportLang = (ui.settingsLucaExportLangSelect as HTMLSelectElement)?.value || state.lucaExportLang || 'en';
@@ -236,8 +230,6 @@ function readSettingsSpec(): CpSettingSpec[] | undefined {
   return arr as CpSettingSpec[];
 }
 
-// ─── Asset editor ─────────────────────────────────────────────────────────────
-
 function renderAssetList(): void {
   const list = ui.cpAssetList as HTMLElement | undefined;
   const sizeEl = ui.cpAssetsSize as HTMLElement | undefined;
@@ -277,7 +269,7 @@ function renderParserList(): void {
   if (parsers.length === 0) {
     container.innerHTML =
       '<div class="cp-empty">Belum ada parser custom. Klik <b>Parser Baru</b> untuk membuat parser ' +
-      'JavaScript/Python untuk format file game apa pun — atau salin template contoh yang tersedia.</div>';
+      'JavaScript/Python untuk format file game apa pun, atau salin template contoh yang tersedia.</div>';
     return;
   }
   container.innerHTML = parsers.map(p => {
@@ -300,15 +292,13 @@ function renderParserList(): void {
         <button class="btn btn-sm btn-icon" data-action="toggle" type="button" aria-label="${p.enabled ? 'Nonaktifkan' : 'Aktifkan'}" title="${p.enabled ? 'Nonaktifkan' : 'Aktifkan'}">${icon(p.enabled ? 'power' : 'check', 16)}</button>
         <button class="btn btn-sm btn-icon" data-action="edit" type="button" aria-label="Edit" title="Edit">${icon('pencil', 16)}</button>
         ${p.settings?.length ? `<button class="btn btn-sm btn-icon" data-action="settings" type="button" aria-label="Setelan" title="Setelan">${icon('sliders', 16)}</button>` : ''}
-        <button class="btn btn-sm btn-icon" data-action="export" type="button" aria-label="Ekspor" title="Ekspor — zip berisi parser.json + file asset asli (folder assets/)">${icon('download', 16)}</button>
+        <button class="btn btn-sm btn-icon" data-action="export" type="button" aria-label="Ekspor" title="Ekspor: zip berisi parser.json + file asset asli (folder assets/)">${icon('download', 16)}</button>
         <button class="btn btn-sm btn-danger btn-icon" data-action="delete" type="button" aria-label="Hapus" title="Hapus">${icon('trash', 16)}</button>
       </div>
     </div>
   `;
   }).join('');
 }
-
-// ─── Editor read/validate ─────────────────────────────────────────────────────
 
 /** Serialisasi pattern magic -> teks "HEX@offset" dipisah koma, mis. "4D41@0, 00FF@4". */
 function magicToInput(patterns: CpMagicPattern[] | undefined): string {
@@ -392,7 +382,7 @@ function readEditorIntoParser(existing: CustomParser | null): CustomParser {
   };
 }
 
-/** Parser dari isi editor saat ini (tanpa menyimpan) — untuk Uji Parser. */
+/** Parser dari isi editor saat ini (tanpa menyimpan), untuk Uji Parser. */
 function parserFromEditorUnchecked(): CustomParser {
   const language = (ui.cpLanguageSelect as HTMLSelectElement).value === 'python' ? 'python' : 'js';
   return {
@@ -408,8 +398,6 @@ function parserFromEditorUnchecked(): CustomParser {
   };
 }
 
-// ─── Test run ─────────────────────────────────────────────────────────────────
-
 function setTestFile(f: File | null): void {
   testFile = f;
   (ui.cpTestFileName as HTMLElement).textContent = f ? f.name : '';
@@ -422,7 +410,7 @@ function renderTestResult(result: { entries: CustomParsedEntry[]; logs?: string[
   if (!result) { el.innerHTML = ''; el.classList.remove('cp-test-error'); return; }
   if (result.error) {
     el.classList.add('cp-test-error');
-    // Log tetap ditampilkan walau error — sering justru di situlah petunjuknya.
+    // Log tetap ditampilkan walau error: sering justru di situ petunjuknya.
     const errLogs = (result.logs && result.logs.length)
       ? `<details class="cp-test-logs"><summary>${result.logs.length} baris log parser</summary><pre class="mono">${escapeHtml(result.logs.join('\n'))}</pre></details>`
       : '';
@@ -435,14 +423,14 @@ function renderTestResult(result: { entries: CustomParsedEntry[]; logs?: string[
     ? `<details class="cp-test-logs"><summary>${result.logs.length} baris log parser</summary><pre class="mono">${escapeHtml(result.logs.join('\n'))}</pre></details>`
     : '';
   if (entries.length === 0) {
-    el.innerHTML = `<em>parse() tidak mengembalikan baris dengan message — cek script.</em>${logsHtml}`;
+    el.innerHTML = `<em>parse() tidak mengembalikan baris dengan message, cek script.</em>${logsHtml}`;
     return;
   }
   const rows = entries.slice(0, 30).map((e, i) => `
     <tr><td>${i + 1}</td><td>${escapeHtml(e.name || '')}</td><td>${escapeHtml(e.message)}</td></tr>
   `).join('');
   const more = entries.length > 30 ? `<tr><td colspan="3"><em>...dan ${entries.length - 30} baris lainnya (total ${entries.length})</em></td></tr>` : '';
-  el.innerHTML = `<div class="cp-test-count">${entries.length} baris terdeteksi — pratinjau 30 pertama:</div>
+  el.innerHTML = `<div class="cp-test-count">${entries.length} baris terdeteksi, pratinjau 30 pertama:</div>
     <table class="cp-test-table"><thead><tr><th>#</th><th>Nama</th><th>Message</th></tr></thead><tbody>${rows}${more}</tbody></table>${logsHtml}`;
 }
 
@@ -474,7 +462,7 @@ async function runTestParse(): Promise<void> {
         if (!el) return;
         let bar = document.getElementById('cpTestProgress') as HTMLElement | null;
         if (!bar) { bar = document.createElement('div'); bar.id = 'cpTestProgress'; el.prepend(bar); }
-        bar.textContent = `Progres: ${done}/${total}${label ? ' — ' + label : ''}`;
+        bar.textContent = `Progres: ${done}/${total}${label ? ', ' + label : ''}`;
       },
     });
     renderTestResult({ entries, logs });
@@ -486,8 +474,6 @@ async function runTestParse(): Promise<void> {
     (ui.btnCpTestRun as HTMLButtonElement).disabled = false;
   }
 }
-
-// ─── Settings editor (form nilai dari spec, di list view) ─────────────────────
 
 let settingsEditorId: string | null = null; // parser yang sedang diedit setelannya
 
@@ -562,7 +548,7 @@ async function collectAndSaveSettings(parser: CustomParser): Promise<void> {
 
 
 
-/** Bangun bungkusan standar {type, version, exportedAt, parsers} — dipakai ekspor JSON & zip. */
+/** Bungkusan standar {type, version, exportedAt, parsers} untuk ekspor JSON & zip. */
 function buildParsersPayload(id?: string): any {
   const parsers = id ? loadCustomParsers().filter(p => p.id === id) : loadCustomParsers();
   if (parsers.length === 0) return null;
@@ -578,8 +564,7 @@ function downloadBlob(blob: Blob, filename: string): void {
   saveOrDownloadBlob(blob, filename);
 }
 
-/** Unduh satu parser (atau semua) sebagai file .json — bisa diimpor lagi di
- *  browser/perangkat lain lewat tombol Impor Parser. */
+/** Unduh satu parser (atau semua) sebagai file .json yang bisa diimpor lagi. */
 function exportParsersToJson(id?: string): void {
   const payload = buildParsersPayload(id);
   if (!payload) return;
@@ -590,11 +575,11 @@ function exportParsersToJson(id?: string): void {
     : 'cstl-parsers-semua.json');
 }
 
-/** Ekspor satu parser sebagai .zip distribusi: parser.json (bungkusan standar)
- *  + folder assets/ berisi file asli (bukan base64) — mudah diedit manusia. */
+/** Ekspor satu parser sebagai .zip: parser.json + folder assets/ berisi file asli
+ *  (bukan base64), mudah diedit manusia. */
 export async function exportParsersToZip(id: string): Promise<void> {
   const JSZipCtor = (window as any).JSZip;
-  if (!JSZipCtor) { alert('JSZip tidak tersedia — gunakan Ekspor JSON.'); return; }
+  if (!JSZipCtor) { alert('JSZip tidak tersedia. Gunakan Ekspor JSON.'); return; }
   const parser = getCustomParser(id);
   const payload = buildParsersPayload(id);
   if (!parser || !payload) return;
@@ -661,7 +646,7 @@ async function importParsersFromJson(file: File): Promise<void> {
  *  -> ambigu -> pakai base64 yang embedded di parser.json). */
 async function importParsersFromZip(file: File): Promise<void> {
   const JSZipCtor = (window as any).JSZip;
-  if (!JSZipCtor) { alert('JSZip tidak tersedia — gunakan file .json.'); return; }
+  if (!JSZipCtor) { alert('JSZip tidak tersedia. Gunakan file .json.'); return; }
   let zip: any;
   try {
     zip = await JSZipCtor.loadAsync(await file.arrayBuffer());
@@ -692,8 +677,6 @@ async function importParsersFromZip(file: File): Promise<void> {
     else alert('Impor gagal: ' + (err?.message || err));
   }
 }
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initCustomParserModal(): void {
   ui.btnCpExportAll?.addEventListener('click', () => {
@@ -763,8 +746,8 @@ export function initCustomParserModal(): void {
     }
   });
 
-  // Tombol Simpan/Batal di dalam settings editor — editor ada DI LUAR
-  // #cpParserList, jadi butuh listener sendiri (bug lama: klik tidak sampai).
+  // Tombol Simpan/Batal di dalam settings editor: editor ada DI LUAR
+  // #cpParserList, jadi butuh listener sendiri.
   ui.cpSettingsEditor?.addEventListener('click', async (ev: Event) => {
     const btn = (ev.target as HTMLElement).closest?.('[data-action]') as HTMLElement | null;
     if (!btn || !settingsEditorId) return;
@@ -845,7 +828,7 @@ export function initCustomParserModal(): void {
     if (assetBytes > CP_ASSETS_SOFT_LIMIT) {
       const ok = await cstlConfirm(
         `Total aset ${formatBytes(assetBytes)} melebihi batas nyaman ${formatBytes(CP_ASSETS_SOFT_LIMIT)}. ` +
-        'localStorage browser ±5MB dan dipakai bersama data lain — terlalu besar berisiko gagal simpan. Tetap simpan?'
+        'localStorage browser ±5MB dan dipakai bersama data lain, terlalu besar berisiko gagal simpan. Tetap simpan?'
       );
       if (!ok) return;
     }

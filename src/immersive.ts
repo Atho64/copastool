@@ -1,10 +1,9 @@
-// @module immersive.ts — Immersive reading mode (ported from AETL / LuKazuu)
-// Full-screen distraction-free reader over state.displayRows. It is a *view*,
-// not a copy: rows render the same objects the main list uses, so translations,
-// regex filters, furigana state and bookmarks stay consistent automatically.
-// The overlay intentionally does not use .modal-backdrop (see immersive.css):
-// Escape handling is owned here and modals (line editor, bookmark list, etc.)
-// open above the reader because their z-index is higher.
+// @module immersive.ts: immersive reading mode (ported from AETL / LuKazuu).
+// Full-screen reader over state.displayRows. It is a view, not a copy: rows render
+// the same objects the main list uses, so translations, regex filters, furigana
+// state and bookmarks stay consistent automatically. The overlay intentionally
+// does not use .modal-backdrop (see immersive.css): Escape handling is owned here
+// and modals open above the reader because their z-index is higher.
 
 import * as BookmarkModule from './bookmark';
 import { state, isTranslated } from './state';
@@ -13,8 +12,6 @@ import { getLineDisplayName } from './luca-engine';
 import { getBookmarkedLines } from './bookmark';
 import { loadEpubImage, getEpubImageBlobUrl } from './epub-images';
 import { flashHint } from './render';
-
-// ─── Config ───────────────────────────────────────────────────────────────────
 
 const READER = {
   modes: ['original', 'translation'] as const,
@@ -49,8 +46,6 @@ function baseName(file: string): string {
   return String(file || '').replace(/\.[^.]+$/, '');
 }
 
-// ─── Immersive controller ─────────────────────────────────────────────────────
-
 class ImmersiveController {
   private scroller: VirtualScroller<DisplayRowLike> | null = null;
   private prefs: ReaderPrefs = { ...DEFAULT_PREFS };
@@ -59,8 +54,6 @@ class ImmersiveController {
   // HMR-safe: module reloads re-run init(), which must not stack listeners.
   private static BOUND_FLAG = '__imBound';
 
-  // ── Setup ──
-
   init(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -68,8 +61,8 @@ class ImmersiveController {
     const viewport = document.getElementById('immersiveViewport');
     const container = document.getElementById('immersiveContainer');
     if (viewport && container) {
-      // The viewport element survives HMR module reloads; reset its scroll so a
-      // freshly constructed scroller doesn't inherit a stale scrollTop.
+      // The viewport survives HMR module reloads; reset its scroll so a fresh
+      // scroller does not inherit a stale scrollTop.
       viewport.scrollTop = 0;
       this.scroller = new VirtualScroller<DisplayRowLike>(viewport, container, 90, (item, recycled) => this.createRow(item, recycled), true);
     }
@@ -113,9 +106,9 @@ class ImmersiveController {
     on('btnShowImmersiveHeader', () => this.setHeaderHidden(false));
     on('btnImmersiveBookmarks', () => this.setBookmarkPanel(!this.bookmarkPanelOpen()));
 
-    // Bookmark panel interactions (click = jump, ✕ = remove) + row-level
-    // delegation (guard flag above covers the whole bind — a re-bound handler
-    // would toggle bookmarks twice and cancel itself out).
+    // Bookmark panel interactions (click = jump, x = remove) plus row-level
+    // delegation. The guard flag above covers the whole bind: a re-bound handler
+    // would toggle bookmarks twice and cancel itself out.
     {
       document.addEventListener('click', (e) => {
         const target = e.target as Element;
@@ -165,8 +158,6 @@ class ImmersiveController {
       }
     });
   }
-
-  // ── Prefs ──
 
   private loadPrefs(): void {
     try {
@@ -225,8 +216,6 @@ class ImmersiveController {
     if (btn) btn.title = translated ? 'Terjemahan (klik untuk teks asli)' : 'Teks Asli (klik untuk terjemahan)';
   }
 
-  // ── Open / close ──
-
   isOpen(): boolean {
     return !!this.q('immersiveView')?.classList.contains('open');
   }
@@ -264,8 +253,6 @@ class ImmersiveController {
   closeIfOpen(): void {
     if (this.isOpen()) this.close();
   }
-
-  // ── Panels ──
 
   stylePanelOpen(): boolean {
     return !!this.q('immersiveStylePanel')?.classList.contains('show');
@@ -311,9 +298,7 @@ class ImmersiveController {
     this.q('btnShowImmersiveHeader')?.classList.toggle('visible', hidden);
   }
 
-  // ── Data refresh ──
-
-  /** Rebuild items from state.displayRows. Call after imports / filter changes / refreshAll. */
+  /** Rebuild items from state.displayRows. Call after imports, filter changes, refreshAll. */
   refresh(keepPosition = true): void {
     if (!this.scroller) return;
     const anchor = keepPosition ? this.captureAnchor() : null;
@@ -340,8 +325,8 @@ class ImmersiveController {
     const item = scroller.items[index];
     const num = item.type === 'line' && item.line ? item.line.line_num : null;
     if (num == null) return null;
-    // Measure the row's pixel offset inside the viewport so the anchor survives
-    // full remeasures (font/width changes shift every position).
+    // Measure the row's pixel offset in the viewport so the anchor survives full
+    // remeasures (font/width changes shift every position).
     const el = scroller.getRenderedElement(index);
     const vpTop = scroller.viewport.getBoundingClientRect().top;
     const rowTop = el ? el.getBoundingClientRect().top : vpTop;
@@ -376,8 +361,6 @@ class ImmersiveController {
       }
     }, 60);
   }
-
-  // ── Bookmark sync (called from bookmark.ts) ──
 
   syncBookmark(num: number, added: boolean): void {
     if (!this.isOpen()) return;
@@ -448,8 +431,6 @@ class ImmersiveController {
     list.appendChild(frag);
   }
 
-  // ── Preference setters ──
-
   private setMode(mode: ReaderMode): void {
     if (mode === this.prefs.mode) return;
     this.prefs.mode = mode;
@@ -494,8 +475,6 @@ class ImmersiveController {
     this.savePrefs();
     this.applyPrefs();
   }
-
-  // ── Row rendering (virtual scroller callbacks) ──
 
   private createRow(item: DisplayRowLike, recycled?: HTMLElement): HTMLElement {
     let row = (recycled as unknown as ImmersiveRow | undefined);
@@ -607,7 +586,7 @@ class ImmersiveController {
   }
 }
 
-// Minimal structural type so we don't import Line/DisplayRow into the class body.
+// Minimal structural type so Line/DisplayRow stay out of the class body.
 type DisplayRowLike = {
   type: 'line' | 'separator' | 'image';
   line?: any;

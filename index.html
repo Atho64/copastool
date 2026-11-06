@@ -115,7 +115,7 @@
     <div id="storageWarningBanner" class="storage-warning-banner" style="display:none;">
       <div class="storage-warning-inner">
         <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span id="storageWarningText">Penyimpanan perangkat hampir penuh. Harap backup proyek kamu ke .zip untuk mencegah kehilangan data.</span>
+        <span id="storageWarningText">Penyimpanan perangkat hampir penuh. Backup proyek ke .zip untuk mencegah kehilangan data.</span>
       </div>
     </div>
 
@@ -291,7 +291,7 @@
             <div class="flex gap-2"><select id="aiTranslateModeSelect" class="text-input" style="width: auto;"><option value="auto">Auto</option><option value="agent">Agent</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoTranslate" class="btn btn-success grow" disabled>Auto Translate</button></div>
             <div id="copasRowTranslate" class="flex gap-2 wrap mt-1 mb-1" style="display: none;">
               <select id="copasTargetSelectTranslate" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
-              <button id="btnCopasOpenBrowserTranslate" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+              <button id="btnCopasOpenBrowserTranslate" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali, sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
             </div>
             <div id="copasStatusTranslate" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
             <div class="flex gap-2 wrap mb-1 mt-1">
@@ -344,7 +344,7 @@
           <div id="viewHtlPlaceholder" data-htl-show="true" style="display: none;">
             <div class="card-box mb-2" style="border-color: rgba(200, 78, 24, 0.25);">
               <label class="section-label mt-0">Mode HTL (Human Translation)</label>
-              <p class="hint">Klik baris manapun untuk membuka editor dan mengetik terjemahan secara manual.</p>
+              <p class="hint">Klik baris untuk membuka editor dan mengetik terjemahan manual.</p>
             </div>
             <div class="card-box mb-2" id="htlRefLang1Box" data-htl-show="true" style="display: none;">
               <label class="section-label mt-0" id="htlRefLang1Label">Referensi 1</label>
@@ -371,7 +371,7 @@
             <div class="flex gap-2 mb-1"><select id="glossaryEngineSelect" class="text-input" style="width: auto;" title="Mesin Auto Ekstrak: API (HTTP) atau Copas (browser otomatis)"><option value="api">API</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoGlossaryAi" class="btn btn-success grow" disabled>Auto Ekstrak</button></div>
             <div id="copasRowGlossary" class="flex gap-2 wrap mb-1" style="display: none;">
               <select id="copasTargetSelectGlossary" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
-              <button id="btnCopasOpenBrowserGlossary" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+              <button id="btnCopasOpenBrowserGlossary" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali, sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
             </div>
             <div id="copasStatusGlossary" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
           </div>
@@ -423,7 +423,7 @@
             <div class="flex gap-2 mb-1"><select id="aiCheckEngineSelect" class="text-input" style="width: auto;" title="Mesin Auto Check: API (HTTP) atau Copas (browser otomatis)"><option value="api">API</option><option value="copas">Copas (Beta)</option></select><button id="btnAutoAiCheck" class="btn btn-success grow" disabled>Auto Check</button></div>
             <div id="copasRowAiCheck" class="flex gap-2 wrap mb-1" style="display: none;">
               <select id="copasTargetSelectAiCheck" class="text-input grow" style="width: auto;" title="Situs AI yang dijalankan browser otomatis"></select>
-              <button id="btnCopasOpenBrowserAiCheck" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali — sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
+              <button id="btnCopasOpenBrowserAiCheck" type="button" class="btn btn-outline btn-sm flex-center gap-1" title="Buka situs di browser otomatis untuk login sekali, sesi tersimpan"><svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg><span>Buka Browser</span></button>
             </div>
             <div id="copasStatusAiCheck" class="hint m-0 mb-1" style="display: none; font-size: 11px; line-height: 1.4;"></div>
           </div>
@@ -467,7 +467,6 @@
   <input id="refLang1FolderInput" type="file" accept=".json" webkitdirectory directory multiple hidden />
   <input id="refLang2FolderInput" type="file" accept=".json" webkitdirectory directory multiple hidden />
 
-  <!-- Dashboard Default Settings Modal -->
   <div id="dashboardSettingsModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -475,7 +474,6 @@
       </div>
       <div class="modal-body">
 
-        <!-- SECTION: Bahasa & Mode -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
@@ -519,7 +517,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Tampilan & Kamus -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
@@ -565,7 +562,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Validasi & QC -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
@@ -633,7 +629,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Batch & Konteks -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -697,7 +692,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Auto-Increment Baris -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
@@ -709,7 +703,6 @@
           </label>
         </div>
 
-        <!-- SECTION: Penyimpanan (Backup & Export) -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
@@ -719,10 +712,9 @@
             <input id="dsSaveAskEveryTime" type="checkbox" />
             <span>Selalu tanya lokasi simpan (dialog Save As) setiap backup &amp; export</span>
           </label>
-          <p class="hint-sm m-0 mt-1">Aktif: dialog Save As muncul tiap simpan — folder &amp; nama file bisa diganti. Nonaktif: otomatis ke folder simpan terpilih (Download di Android jika belum ada).</p>
+          <p class="hint-sm m-0 mt-1">Aktif: dialog Save As muncul tiap simpan, folder &amp; nama file bisa diganti. Nonaktif: otomatis ke folder simpan terpilih (Download di Android jika belum ada).</p>
         </div>
 
-        <!-- SECTION: Auto Copas -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2"/><path d="m15.194 13.707 1.126-1.125a2 2 0 0 1 2.829 0l1.379 1.379a2 2 0 0 1 0 2.828L18.65 18.66a2 2 0 0 1-2.828 0l-1.379-1.379a2 2 0 0 1 0-2.828Z"/><path d="m21.082 11.5 1.379 1.379a2 2 0 0 1 0 2.828l-1.877 1.877"/></svg>
@@ -742,10 +734,9 @@
               <option value="off">Selalu OFF</option>
             </select>
           </div>
-          <p class="hint-sm m-0 mt-1">Chat baru: mulai percakapan baru tiap X batch (0 = tidak pernah, 1 = tiap batch). Thinking: DeepSeek pakai tombol Pikir Mendalam/DeepThink, Gemini pakai varian Thinking/Penalaran di pemilih model. Diterapkan tiap batch sebelum kirim; target lain mengabaikannya.</p>
+          <p class="hint-sm m-0 mt-1">Chat baru: percakapan baru tiap X batch (0 = tidak pernah, 1 = tiap batch). Thinking: DeepSeek pakai tombol Pikir Mendalam/DeepThink, Gemini pakai varian Thinking/Penalaran di pemilih model. Diterapkan tiap batch sebelum kirim; target lain mengabaikannya.</p>
         </div>
 
-        <!-- SECTION: Preferensi & Eksternal -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 17 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>
@@ -781,20 +772,19 @@
           </div>
         </div>
 
-        <!-- SECTION: Plugin & Integrasi -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
             Plugin &amp; Parser
           </div>
-          <p class="hint-sm m-0 mb-2">Kelola paket plugin (.zip) atau buat script parser baru.</p>
+          <p class="hint-sm m-0 mb-2">Kelola plugin (.zip) atau buat parser baru.</p>
           <button id="btnOpenPluginManagerFromDashboardSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
             <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
             <span>Buka Plugin &amp; Parser Manager</span>
           </button>
         </div>
 
-      </div><!-- end modal-body -->
+      </div>
       <div class="modal-actions mt-3">
         <span class="grow"></span>
         <button id="btnDashboardSettingsCancel" class="btn">Batal</button>
@@ -804,7 +794,6 @@
     </div>
   </div>
 
-  <!-- Dashboard Default Prompts Modal -->
   <div id="dashboardPromptsModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -835,9 +824,9 @@
             <label class="checkbox-line mb-1"><input type="checkbox" id="dpEnableAiCheckChaining" /><span>Estafet Riwayat Koreksi AI Check (Chaining)</span></label>
             <label class="checkbox-line mb-1"><input type="checkbox" id="dpEnableAiCheckStoryContext" /><span>Sertakan Ringkasan Cerita pada AI Check</span></label>
             <label class="checkbox-line mb-2"><input type="checkbox" id="dpEnableAiCheckAgentMemory" /><span>Koneksikan Memori AI Agent ke AI Check</span></label>
-            <label class="checkbox-line mb-1"><input type="checkbox" id="dpAiCheckReviewMode" /><span>Review mode — pause tiap batch, semua koreksi masuk antrean review manual</span></label>
+            <label class="checkbox-line mb-1"><input type="checkbox" id="dpAiCheckReviewMode" /><span>Review mode: pause tiap batch, semua koreksi masuk antrean review manual</span></label>
             <label class="checkbox-line mb-1"><input type="checkbox" id="dpAiCheckAutoApplyHigh" /><span>Auto-apply koreksi high confidence (matikan agar high tetap direview manual)</span></label>
-            <label class="checkbox-line mb-1"><input type="checkbox" id="dpAiCheckDeepMode" /><span>Deep Check — 2 pass spesialis (Akurasi lalu Naturalness, 2x request per batch)</span></label>
+            <label class="checkbox-line mb-1"><input type="checkbox" id="dpAiCheckDeepMode" /><span>Deep Check: 2 pass spesialis (Akurasi lalu Naturalness, 2x request per batch)</span></label>
             <label class="form-label m-0" for="dpAiCheckStoryContextInput">Ringkasan Cerita AI Check:</label>
             <textarea id="dpAiCheckStoryContextInput" class="prompt-input mt-1 w-full" rows="2" placeholder="(Kosong)"></textarea>
             <label class="form-label m-0 mt-2" for="dpAiCheckSummaryPromptInput">Prompt Ringkasan Cerita AI Check:</label>
@@ -883,9 +872,7 @@
       </div>
       <div class="modal-body">
         
-        <!-- PANE: UMUM -->
         <div id="settingsTabGeneral" class="settings-tab-pane">
-          <!-- SECTION: Bahasa & Mode -->
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
@@ -930,7 +917,6 @@
             <div class="mt-3" id="settingsRefLangWrap">
               <label class="form-label" style="margin-bottom: 6px;">Referensi Bahasa Tambahan (JSON)</label>
               <div class="ref-lang-grid">
-                <!-- Slot 1 -->
                 <div class="ref-lang-card">
                   <div class="ref-lang-card-header">
                     <span class="ref-lang-badge">Ref 1</span>
@@ -943,7 +929,6 @@
                   </div>
                 </div>
 
-                <!-- Slot 2 -->
                 <div class="ref-lang-card">
                   <div class="ref-lang-card-header">
                     <span class="ref-lang-badge">Ref 2</span>
@@ -959,7 +944,6 @@
             </div>
           </div>
 
-          <!-- SECTION: Tampilan & Kamus -->
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
@@ -1005,7 +989,6 @@
             </div>
           </div>
 
-          <!-- SECTION: Validasi & QC -->
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
@@ -1069,7 +1052,6 @@
             </div>
           </div>
 
-          <!-- SECTION: Batch & Konteks -->
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -1127,7 +1109,6 @@
             </label>
           </div>
 
-          <!-- SECTION: Format & Eksternal -->
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1156,7 +1137,6 @@
           </div>
         </div>
 
-        <!-- PANE: PROMPT -->
         <div id="settingsTabPrompts" class="settings-tab-pane" style="display: none;">
           <div class="settings-section">
             <div class="flex-between mb-1">
@@ -1216,7 +1196,7 @@
               </label>
               <label class="checkbox-line mb-1">
                 <input type="checkbox" id="settingsAiCheckReviewMode" />
-                <span>Review mode — pause tiap batch, semua koreksi masuk antrean review manual</span>
+                <span>Review mode: pause tiap batch, semua koreksi masuk antrean review manual</span>
               </label>
               <label class="checkbox-line mb-1">
                 <input type="checkbox" id="settingsAiCheckAutoApplyHigh" />
@@ -1224,7 +1204,7 @@
               </label>
               <label class="checkbox-line mb-1">
                 <input type="checkbox" id="settingsAiCheckDeepMode" />
-                <span>Deep Check — 2 pass spesialis (Akurasi lalu Naturalness, 2x request per batch)</span>
+                <span>Deep Check: 2 pass spesialis (Akurasi lalu Naturalness, 2x request per batch)</span>
               </label>
               <div class="mt-1 mb-2">
                 <label class="form-label m-0" for="settingsAiCheckOutputFormat">Format Output AI Check (mesin API):</label>
@@ -1296,7 +1276,6 @@
           </div>
         </div>
 
-        <!-- PANE: GLOSARIUM -->
         <div id="settingsTabGlossary" class="settings-tab-pane" style="display: none;">
           <div class="settings-section">
             <label class="form-label m-0">Daftar Istilah &amp; Glosarium Proyek</label>
@@ -1305,14 +1284,13 @@
           </div>
         </div>
 
-        <!-- PANE: SHORTCUT -->
         <div id="settingsTabShortcuts" class="settings-tab-pane" style="display: none;">
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
               Shortcut Keyboard
             </div>
-            <p class="hint-sm m-0 mb-2">Kustomisasi tombol pintasan keyboard untuk Dashboard dan Workspace.</p>
+            <p class="hint-sm m-0 mb-2">Atur pintasan keyboard untuk Dashboard dan Workspace.</p>
             <button id="btnOpenShortcutsFromSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
               <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
               <span>Buka Konfigurasi Shortcut Keyboard</span>
@@ -1320,14 +1298,13 @@
           </div>
         </div>
 
-        <!-- PANE: PLUGIN -->
         <div id="settingsTabPlugins" class="settings-tab-pane" style="display: none;">
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
               Plugin &amp; Parser
             </div>
-            <p class="hint-sm m-0 mb-2">Kelola paket plugin (.zip), script parser, atau buka pengaturan plugin format.</p>
+            <p class="hint-sm m-0 mb-2">Kelola plugin (.zip), parser, atau buka pengaturan plugin format.</p>
             <button id="btnOpenPluginManagerFromSettings" type="button" class="btn btn-outline w-full flex-center gap-2">
               <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h4.5a2.5 2.5 0 1 1 5 0H19v4.5a2.5 2.5 0 1 1 0 5V19h-4.5a2.5 2.5 0 1 0-5 0H5v-4.5a2.5 2.5 0 1 0 0-5z"/></svg>
               <span>Buka Plugin &amp; Parser Manager</span>
@@ -1336,7 +1313,7 @@
           <div id="pluginSettingsSectionsContainer"></div>
         </div>
 
-      </div><!-- end modal-body -->
+      </div>
       <div class="modal-actions mt-3">
         <span class="grow"></span>
         <button id="btnSettingsCancel" class="btn" type="button">Batal</button>
@@ -1407,9 +1384,9 @@
       <label class="section-label">Teks Asli</label>
       <textarea id="lineOriginalView" class="mono input-area small" readonly></textarea>
       <div id="lucaRefWrap" style="display:none;">
-        <label class="section-label mt-2 luca-ref-label">🇬🇧 English (Referensi)</label>
+        <label class="section-label mt-2 luca-ref-label">English (Referensi)</label>
         <textarea id="lineRefEnView" class="mono input-area small luca-ref" readonly></textarea>
-        <label class="section-label mt-2 luca-ref-label">🇨🇳 中文 (Referensi)</label>
+        <label class="section-label mt-2 luca-ref-label">中文 (Referensi)</label>
         <textarea id="lineRefZhView" class="mono input-area small luca-ref" readonly></textarea>
       </div>
       <div id="jsonRefLang1Wrap" style="display:none;">
@@ -1430,7 +1407,7 @@
         <input id="lineTranslatedCheck" type="checkbox" />
         Tandai sebagai sudah diterjemahkan
       </label>
-      </div><!-- end modal-body -->
+      </div>
       <div class="modal-actions">
         <span class="grow"></span>
         <button id="btnLineCancel" class="btn">Batal</button>
@@ -1499,7 +1476,7 @@
   <div id="qaModal" class="modal-backdrop">
     <div class="modal modal-xl">
       <div class="modal-head">
-        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg> Validasi Quality Control (QC)</h3>
+        <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg> Validasi QC</h3>
       </div>
       <div class="modal-body">
         <div class="settings-section">
@@ -1535,7 +1512,7 @@
             <div id="qaResults" class="preview-container"></div>
           </div>
         </div>
-      </div><!-- end modal-body -->
+      </div>
       <div class="modal-actions">
         <span class="grow"></span>
         <button id="btnQaClose" class="btn btn-primary">Tutup</button>
@@ -1566,7 +1543,7 @@
   <div id="aiAgentChatPanel" class="agent-panel" style="display: none;">
     <div class="agent-header">
       <span style="font-weight: bold; color: var(--text-base);">CSTL AI Agent</span>
-      <span id="agentTokenMeter" class="agent-token-meter" title="Estimasi token percakapan vs context window model">—</span>
+      <span id="agentTokenMeter" class="agent-token-meter" title="Estimasi token percakapan vs context window model">-</span>
       <button id="btnAgentSessions" class="icon-btn" title="Sesi Chat"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg></button>
       <button id="btnAgentMemory" class="icon-btn" title="Memori Agent"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /><path d="M18 18a4 4 0 0 0 2-7.464" /><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /><path d="M6 18a4 4 0 0 1-2-7.464" /><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg></button>
       <button id="btnAgentStop" class="icon-btn icon-btn-danger" title="Hentikan agent" style="display: none;"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" /></svg></button>
@@ -1594,11 +1571,10 @@
   <div id="apiSettingsModal" class="modal-backdrop">
     <div class="modal modal-md">
       <div class="modal-head">
-        <h3>Pengaturan API Global (AI)</h3>
+        <h3>Pengaturan API Global</h3>
       </div>
       <div class="modal-body">
         
-        <!-- SECTION: Profil API -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
@@ -1617,7 +1593,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Koneksi Model & Provider -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
@@ -1627,7 +1602,7 @@
             <label class="form-label" for="apiTypeSelect">Tipe API Provider</label>
             <select id="apiTypeSelect" class="text-input w-full">
               <option value="openai">OpenAI Compatible (GPT, DeepSeek, OpenRouter, Local LLM)</option>
-              <option value="anthropic">Anthropic Compatible (/v1/messages — Claude)</option>
+              <option value="anthropic">Anthropic Compatible (/v1/messages, Claude)</option>
               <option value="gemini">Gemini API (Google AI Studio)</option>
             </select>
           </div>
@@ -1650,7 +1625,7 @@
             <span class="hint-sm">
               Key disimpan <strong>tanpa enkripsi</strong> di penyimpanan lokal aplikasi ini
               (sama seperti file konfigurasi biasa). Siapa pun yang punya akses ke perangkat
-              atau profil browser ini bisa membacanya — gunakan key dengan kuota terbatas,
+              atau profil browser ini bisa membacanya. Gunakan key dengan kuota terbatas,
               dan jangan pakai di komputer bersama.
             </span>
           </div>
@@ -1673,7 +1648,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Backup API Keys -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="m5 12-3 3 3 3"/></svg>
@@ -1691,7 +1665,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Parameter Model & Rate Limit -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1734,12 +1707,11 @@
             </div>
           </div>
           <p class="hint-sm m-0 mt-3">
-            Timeout Diam dihitung ulang setiap kali ada potongan balasan masuk — jadi ia mengukur
+            Timeout Diam dihitung ulang setiap kali ada potongan balasan masuk. Jadi ia mengukur
             <em>sepi</em>, bukan total durasi. Naikkan kalau memakai model lokal yang lambat.
           </p>
         </div>
 
-        <!-- SECTION: Reasoning & Streaming -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 18v4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M18 12h4"/><path d="m19.07 4.93-2.83 2.83"/></svg>
@@ -1779,7 +1751,6 @@
           </div>
         </div>
 
-        <!-- SECTION: Web Search Tool -->
         <div class="settings-section">
           <div class="settings-section-title">
             <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1791,7 +1762,7 @@
           </div>
         </div>
 
-      </div><!-- end modal-body -->
+      </div>
       <div class="modal-actions mt-3">
         <span class="grow"></span>
         <button id="btnApiSettingsCancel" class="btn">Batal</button>
@@ -1799,7 +1770,6 @@
       </div>
     </div>
   </div>
-  <!-- Dictionary History Modal -->
   <div id="dictHistoryModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -1807,7 +1777,6 @@
       </div>
       <div class="modal-body">
         <div id="dictHistoryList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-          <!-- History items will be populated here -->
         </div>
       </div>
       <div class="modal-actions" style="justify-content: space-between;">
@@ -1817,7 +1786,6 @@
     </div>
   </div>
 
-  <!-- Text Replacer Modal -->
   <div id="textReplacerModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -1847,7 +1815,6 @@
     </div>
   </div>
 
-  <!-- Custom Parser Modal -->
   <div id="customParserModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -1863,8 +1830,8 @@
               <button id="btnCpExportAll" class="btn btn-outline" title="Semua parser dalam satu file JSON (aset base64)"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>Ekspor Semua</button>
               <button id="btnCpImportParsers" class="btn btn-outline" title="Impor parser dari file JSON atau zip hasil Ekspor Parser"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Impor Parser…</button>
               <span class="toolbar-sep"></span>
-              <button id="btnImportLucaTxt" class="btn btn-outline text-luca" title="Impor file TXT LucaSystem (Summer Pockets, CLANNAD, Tomoyo After) — mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>TXT (Luca)</button>
-              <button id="btnImportLucaTxtFolder" class="btn btn-outline text-luca" title="Impor satu folder file TXT LucaSystem — mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>TXT Folder (Luca)</button>
+              <button id="btnImportLucaTxt" class="btn btn-outline text-luca" title="Impor file TXT LucaSystem (Summer Pockets, CLANNAD, Tomoyo After), mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>TXT (Luca)</button>
+              <button id="btnImportLucaTxtFolder" class="btn btn-outline text-luca" title="Impor satu folder file TXT LucaSystem, mesin natif"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>TXT Folder (Luca)</button>
               <input id="cpParserImportInput" type="file" accept=".json,.zip" hidden />
             </div>
           </div>
@@ -1896,8 +1863,8 @@
             <summary>Cara kerja parser custom?</summary>
             <div class="cp-help-body">
               <p>Tulis fungsi <code>parse(ctx)</code> untuk impor dan (opsional) <code>serialize(ctx)</code> untuk ekspor round-trip. JavaScript jalan di Web Worker, Python jalan di pyodide (unduhan pertama ~10MB, butuh internet sekali).</p>
-              <p><b>parse(ctx)</b> — <code>ctx = { fileName, text, bytes, startLineNum }</code>. Return array <code>[{ name?, message, raw?, index? }</code>; field <code>message</code> wajib, <code>raw</code> = potongan baris asli yang disimpan untuk dipatch saat ekspor, dan <code>index</code> (angka, opsional) = penanda posisi bebas buatan parser — dikembalikan di serialize() sebagai <code>line.index</code>, berguna saat raw bisa duplikat.</p>
-              <p><b>serialize(ctx)</b> — <code>ctx = { fileName, text, bytes, lines }</code> berisi file asli + baris proyek (<code>name, message, trans_name, trans_message, is_translated, raw, index</code>). Return string (atau bytes untuk format biner). Tanpa serialize(), ekspor jatuh ke JSON generik.</p>
+              <p><b>parse(ctx)</b>: <code>ctx = { fileName, text, bytes, startLineNum }</code>. Return array <code>[{ name?, message, raw?, index? }</code>; field <code>message</code> wajib, <code>raw</code> = potongan baris asli yang disimpan untuk dipatch saat ekspor, dan <code>index</code> (angka, opsional) = penanda posisi bebas buatan parser, dikembalikan di serialize() sebagai <code>line.index</code>, berguna saat raw bisa duplikat.</p>
+              <p><b>serialize(ctx)</b>: <code>ctx = { fileName, text, bytes, lines }</code> berisi file asli + baris proyek (<code>name, message, trans_name, trans_message, is_translated, raw, index</code>). Return string (atau bytes untuk format biner). Tanpa serialize(), ekspor jatuh ke JSON generik.</p>
               <p>Satu proyek terkunci ke satu parser. Parser tersimpan global di browser dan bisa dipakai lintas proyek.</p>
             </div>
           </details>
@@ -1925,13 +1892,13 @@
           <div class="replacer-grid">
             <div class="settings-section mb-0">
               <div class="settings-section-title">
-                parse(ctx) — Impor <button id="btnCpParseTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
+                parse(ctx): Impor <button id="btnCpParseTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
               </div>
               <textarea id="cpParseInput" class="mono input-area w-full" style="height: 250px; font-size: 13px;" placeholder="async function parse(ctx) { ... return [{ name, message, raw }] }"></textarea>
             </div>
             <div class="settings-section mb-0">
               <div class="settings-section-title">
-                serialize(ctx) — Ekspor (opsional) <button id="btnCpSerializeTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
+                serialize(ctx): Ekspor (opsional) <button id="btnCpSerializeTemplate" class="btn btn-sm btn-outline" type="button" title="Isi contoh template">Contoh</button>
               </div>
               <textarea id="cpSerializeInput" class="mono input-area w-full" style="height: 250px; font-size: 13px;" placeholder="async function serialize(ctx) { ... return teksHasil }"></textarea>
             </div>
@@ -1956,7 +1923,7 @@
           </div>
           <div class="settings-section mb-2">
             <div class="settings-section-title">Setelan Parser (opsional)</div>
-            <textarea id="cpSettingsInput" class="mono input-area w-full" style="height:140px; font-size:12.5px;" placeholder='[]  — atau contoh:
+            <textarea id="cpSettingsInput" class="mono input-area w-full" style="height:140px; font-size:12.5px;" placeholder='[]  atau contoh:
 [
   {"key":"encoding","label":"Encoding","type":"select","default":"auto",
    "options":[{"value":"auto","label":"Auto"},{"value":"sjis","label":"Shift_JIS"}]},
@@ -1977,7 +1944,6 @@
     </div>
   </div>
 
-  <!-- File List Modal -->
   <div id="fileListModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head">
@@ -2001,7 +1967,6 @@
     </div>
   </div>
 
-  <!-- Dictionary Popup -->
   <div id="dictionaryPopup" class="dict-popup" style="display: none;">
     <div id="dictPopupHeader" class="dict-popup-header">
       <span id="dictPopupWord" class="dict-popup-word"></span>
@@ -2083,7 +2048,6 @@
     </div>
   </div>
 
-  <!-- Bookmark Modal -->
   <div id="bookmarkModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head flex-between">
@@ -2108,7 +2072,6 @@
     </div>
   </div>
 
-  <!-- EPUB Image Lightbox Modal -->
   <div id="imageLightboxModal" class="modal-backdrop image-lightbox-backdrop">
     <div class="image-lightbox-container">
       <button id="btnImageLightboxClose" class="image-lightbox-close" title="Tutup preview" type="button">
@@ -2118,7 +2081,6 @@
     </div>
   </div>
 
-  <!-- OPFS Explorer Modal -->
   <div id="opfsExplorerModal" class="modal-backdrop backdrop">
     <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="opfsTitle">
       <div class="modal-head flex-between">
@@ -2132,7 +2094,7 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="hint hint-danger m-0 mt-1 mb-2">Hati-hati, menghapus file atau folder sistem di sini dapat membuat proyek tidak bisa dibuka. Hanya hapus file yang Anda kenali.</p>
+        <p class="hint hint-danger m-0 mt-1 mb-2">Hati-hati: menghapus file atau folder sistem bisa membuat proyek tidak bisa dibuka. Hapus hanya file yang Anda kenali.</p>
         <div class="opfs-explorer">
           <div id="opfsCrumbs" class="opfs-crumbs" hidden></div>
           <div id="opfsList" class="opfs-list" role="list"></div>
@@ -2153,7 +2115,6 @@
     </div>
   </div>
 
-  <!-- Plugin & Parser Manager Modal -->
   <div id="pluginManagerModal" class="modal-backdrop backdrop">
     <div class="modal modal-wide" role="dialog" aria-modal="true">
       <div class="modal-head flex-between">
@@ -2167,7 +2128,7 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="hint m-0 mt-1 mb-2">Kelola paket plugin (.zip) dan script custom parser (JavaScript/Python) untuk membaca dan mengekspor berbagai format game visual novel.</p>
+        <p class="hint m-0 mt-1 mb-2">Kelola plugin (.zip) dan parser custom (JavaScript/Python) untuk membaca dan mengekspor format game visual novel.</p>
         <div class="flex gap-2 wrap mb-2">
           <button id="btnInstallPlugin" class="btn btn-primary grow">
             <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2190,7 +2151,6 @@
     </div>
   </div>
 
-  <!-- Dedicated Shortcut Keyboard Modal -->
   <div id="shortcutModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head flex-between">
@@ -2204,7 +2164,7 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="hint m-0 mb-2">Klik tombol kombinasi lalu tekan tombol keyboard untuk mengubah. Gunakan <kbd>Backspace</kbd> untuk menghapus atau <kbd>Escape</kbd> untuk membatalkan.</p>
+        <p class="hint m-0 mb-2">Klik kombinasi lalu tekan tombol keyboard. <kbd>Backspace</kbd> untuk menghapus, <kbd>Escape</kbd> untuk membatalkan.</p>
         <p id="shortcutStatus" class="hint shortcut-status m-0 mb-2" hidden></p>
         <div id="shortcutList" class="shortcut-list"></div>
       </div>
@@ -2215,7 +2175,6 @@
     </div>
   </div>
 
-  <!-- Dedicated LunaTranslator Hooker & VN Overlay Modal -->
   <div id="lunaHookerModal" class="modal-backdrop">
     <div class="modal modal-wide">
       <div class="modal-head flex-between">
@@ -2252,14 +2211,13 @@
           <div class="flex gap-4 wrap mb-2">
             <label class="radio-label flex-center gap-1" style="cursor: pointer;">
               <input type="radio" name="lunaOperatingMode" id="rbLunaModeCheck" value="check" checked />
-              <span><strong>Check</strong> — cek sinkronisasi dialog</span>
+              <span><strong>Check</strong>: cek sinkronisasi dialog</span>
             </label>
             <label class="radio-label flex-center gap-1" style="cursor: pointer;">
               <input type="radio" name="lunaOperatingMode" id="rbLunaModeTl" value="tl" />
-              <span><strong>TL</strong> — terjemahkan otomatis saat bermain</span>
+              <span><strong>TL</strong>: terjemahkan otomatis saat bermain</span>
             </label>
           </div>
-          <!-- Info box saat TL Mode dipilih -->
           <div id="lunaTlModeInfo" class="sub-card p-2 mb-2" style="display: none; background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; border-radius: 4px; font-size: 12px; line-height: 1.45;">
             <div class="luna-tl-info-head">
               <strong style="color: #38bdf8;">TL Mode aktif</strong>
@@ -2323,10 +2281,9 @@
           <pre id="overlayDiagnosticOut" class="hint" style="display: none; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.35); border-radius: 4px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;"></pre>
         </div>
 
-        <!-- Android / PWA: the floating overlay needs Win32 SetWindowPos + DWM
-             to win the z-order fight against a fullscreen game, so the Rust
-             command refuses outside desktop. Hide the controls instead of
-             offering a button that can only error (see luna-modal.ts). -->
+        <!-- Android/PWA: the overlay needs Win32 SetWindowPos + DWM to beat a
+             fullscreen game's z-order; the Rust command refuses outside desktop,
+             so hide the controls instead (see luna-modal.ts). -->
         <p class="hint m-0 mb-3" id="vnOverlayUnsupportedNote" style="display: none;">
           VN Overlay hanya tersedia di aplikasi desktop Windows. Hook LunaTranslator tetap bisa dipakai di sini.
         </p>

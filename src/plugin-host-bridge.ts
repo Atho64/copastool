@@ -1,4 +1,4 @@
-// @module plugin-host-bridge.ts — Host adapter bridging CSTL core to the plugin engine
+// @module plugin-host-bridge.ts: host adapter bridging CSTL core to the plugin engine.
 
 import type { PluginHostBridge, PluginMeta } from './plugin-types';
 import { state, ui, getOpfsRoot } from './state';

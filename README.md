@@ -23,7 +23,7 @@ Alur utamanya ada dua: kirim teks terpilih ke Web AI lewat clipboard lalu tempel
 - **Terjemahan**: gabungkan hasil terjemahan ke proyek yang sudah ada.
 - **Referensi bahasa**: impor teks bahasa lain (Inggris, Mandarin) per file atau seluruh folder, lalu dipakai sebagai referensi tambahan saat menerjemahkan.
 
-### Sistem Plugin & Parser
+### Sistem plugin & parser
 Format game yang belum didukung bisa ditambahkan lewat paket plugin `.zip`, atau dengan menulis parser sendiri di menu **Setting → Plugin & Parser Manager** (`Alt + P`).
 
 Yang bisa dipasang:
@@ -37,7 +37,7 @@ Yang bisa dipasang:
 
 Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggilan API yang izinnya belum dideklarasikan, jadi `permissions` adalah kontrak kepercayaan, bukan pengaman. Detail arsitektur, `manifest.json`, dan contoh kode ada di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
 
-### Terjemahan Copy-Paste
+### Terjemahan copy-paste
 Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetakan hasil AI ke nomor baris yang benar.
 
 - Format prompt bisa dipilih: numbered list, block, XML, JSONL, atau JSON array.
@@ -45,7 +45,7 @@ Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetak
 - **AI Check**: salin terjemahan yang sudah ada untuk diperiksa ulang, lalu terapkan koreksinya.
 - Undo dan redo untuk setiap penerapan terjemahan.
 
-### API Global (AI)
+### API global (AI)
 Hubungkan aplikasi ke API AI supaya terjemahan, ekstraksi glosarium, AI Check, dan AI Agent berjalan tanpa copy-paste.
 
 - **OpenAI Compatible** (GPT, Claude via OpenRouter, DeepSeek, LLM lokal), **Gemini API** (Google AI Studio), dan **Anthropic**.
@@ -66,7 +66,7 @@ Mode alternatif untuk Auto Translate, Auto Ekstrak, dan Auto Check yang tidak me
 - **Thinking**: paksa **Selalu ON / Selalu OFF / Default situs**. Hanya berlaku untuk DeepSeek (tombol Pikir Mendalam/DeepThink) dan Gemini (baris Thinking/Penalaran). Diterapkan tiap batch sebelum kirim, dan kegagalan mengatur thinking tidak menggagalkan batch.
 - **Retry**: 1x dengan chat baru. Kalau **Ulangi jika gagal** aktif, batch yang sama diulang terus sampai dihentikan.
 - Hanya tersedia di aplikasi native, tidak di PWA.
-- **Status beta.** Situs AI sering mengubah struktur halamannya, jadi otomasi bisa gagal kapan saja.
+- Situs AI sering mengubah struktur halamannya, jadi otomasi bisa gagal kapan saja.
 
 ### AI Agent
 Chat dengan AI yang punya akses langsung ke data proyek. Agent bisa membaca, menganalisis, dan mengubah terjemahan lewat percakapan.
@@ -135,26 +135,26 @@ Nama karakter, tempat, dan istilah khusus supaya terjemahan konsisten.
 ### Editor Baris
 Klik baris mana pun untuk mengedit nama karakter, teks asli, terjemahan, dan status terjemahan. Di Android editor muncul sebagai panel dari bawah supaya tidak tertutup keyboard.
 
-Spasi di akhir kalimat terjemahan disimpan apa adanya (dipakai untuk mengatur jarak teks di dalam game), dan nama karakter boleh memuat koma — mis. `123. Nino, Menoa, Ichito: halo` tetap terbaca sebagai satu nama saat menempel hasil AI berformat nomor.
+Spasi di akhir kalimat terjemahan disimpan apa adanya (dipakai untuk mengatur jarak teks di dalam game), dan nama karakter boleh memuat koma, mis. `123. Nino, Menoa, Ichito: halo` tetap terbaca sebagai satu nama saat menempel hasil AI berformat nomor.
 
 ### EPUB
 - Gambar berdiri sendiri tampil sebagai ilustrasi di antara baris dan tidak menambah nomor baris.
 - Gambar yang menyertai paragraf tetap tampil pada baris teksnya.
 
-### Mode Immersif
+### Mode immersif
 Pembaca layar penuh untuk novel dan visual novel.
 - Toggle teks asli dan terjemahan dari header.
 - Ukuran font dengan stepper, lebar teks (Sempit, Sedang, Lebar), dan tema (Gelap, Sepia, Terang).
 - Drawer bookmark untuk lompat ke baris tertentu tanpa keluar dari mode baca.
 - `Alt + I` untuk buka tutup, `Esc` untuk keluar, dan tombol sembunyikan header untuk membaca tanpa distraksi.
 
-### Furigana & Kamus
+### Furigana & kamus
 - Konversi furigana memakai Kuroshiro dan Kuromoji di Web Worker terpisah, jadi UI tidak ikut menunggu saat membaca naskah panjang.
 - Format keluaran: Hiragana (default), Katakana, atau Romaji.
 - Hasil konversi kanji di-cache, jadi scrolling berulang tidak mengulang perhitungan.
 - Pencarian arti kata menampilkan cara baca, bentuk dasar, kelas kata, dan terjemahan.
 
-### Seleksi & Auto-Increment
+### Seleksi & auto-increment
 - Pilih semua, pilih rentang, atau klik manual.
 - Setelah terjemahan diterapkan, rentang "Dari - Sampai" otomatis maju dan rentang berikutnya langsung terpilih mengikuti ukuran Batch Translate.
 - Undo untuk penerapan terakhir, plus progress bar.
@@ -192,7 +192,7 @@ Proyek disimpan di penyimpanan aplikasi: filesystem native kalau berjalan sebaga
 
 Data biner dan aset file disimpan terpisah dari metadata, jadi auto-save tetap ringan dan dashboard tidak perlu memuat seluruh isi proyek.
 
-#### Backup ke Folder
+#### Backup ke folder
 
 Tersedia di Chrome, Edge, Brave, Opera, aplikasi Windows, dan aplikasi Android. Desktop memakai File System Access API, aplikasi Windows memakai dialog pemilih folder native (`tauri-plugin-dialog`), Android memakai izin folder Storage Access Framework. Firefox, Safari, dan browser mobile lain memakai **Backup Semua ZIP**.
 
@@ -207,7 +207,7 @@ Tersedia di Chrome, Edge, Brave, Opera, aplikasi Windows, dan aplikasi Android. 
 
 **Sinkron ke cloud:** folder tujuannya folder biasa, jadi bisa diarahkan ke folder milik aplikasi sinkron. Contoh: pilih folder di dalam `Drive saya` milik Google Drive for Desktop, atau jalankan `rclone sync D:\CSTLBackups drive:CSTL` lewat Task Scheduler. Dropbox, OneDrive, dan Syncthing bekerja dengan cara yang sama.
 
-#### Folder Simpan Backup & Export (Aplikasi Native)
+#### Folder simpan backup & export (aplikasi native)
 
 Di aplikasi Windows dan Android, semua backup dan export (Backup, Backup Semua ZIP, Export, ekspor glosarium) ditulis ke satu folder simpan.
 
@@ -231,7 +231,7 @@ Proyek bisa diekspor ke `.xlsx`, diedit bersama penerjemah lain di Excel, LibreO
 
 **Di Google Sheets:** buka [sheets.google.com](https://sheets.google.com), pilih **File → Import**, unggah `.xlsx`, lalu *Replace spreadsheet*. Setelah diedit, unduh lagi lewat **File → Download → Microsoft Excel (.xlsx)**.
 
-**Impor** punya dua pintu masuk, dan keduanya harus diklik sendiri:
+**Impor** punya dua pintu masuk:
 
 - **Workspace → Tools → Impor Spreadsheet ke Proyek Ini**, dipakai saat proyek sedang terbuka.
 - **Dashboard → ⚙ → Pulihkan dari Spreadsheet (.xlsx)**, dipakai saat tidak ada proyek terbuka. Hasilnya selalu proyek baru, karena dashboard selalu menutup proyek.
@@ -247,7 +247,7 @@ Kolom dibaca berdasarkan nama header, jadi urutan kolom boleh diubah dan nama ta
 
 Yang tidak ikut dalam spreadsheet: file EPUB asli, source mentah Luca dan custom parser (`lucaRawFiles`, `customRawFiles`), dan aset gambar EPUB. Untuk pindah perangkat lengkap dengan file aslinya, pakai **Backup** (`.copas`).
 
-### Shortcut Keyboard
+### Shortcut keyboard
 Semua pintasan bisa direkam ulang lewat menu **Shortcut Keyboard**.
 
 | Kategori | Aksi | Bawaan |
@@ -281,13 +281,13 @@ Untuk mengubah: buka menu **Shortcut Keyboard**, klik kombinasi pada aksi yang i
 
 ## Tutorial
 
-### Mulai Proyek Baru
+### Mulai proyek baru
 Klik **Buat Project**, isi nama proyek, pilih tipe file yang akan diimpor (JSON atau EPUB), lalu klik **Buka**.
 
-### Impor Script
+### Impor script
 Di workspace, klik **Impor** di toolbar dan pilih file atau folder. Semua baris langsung muncul di tabel. File yang sudah pernah diimpor dilewati otomatis.
 
-### Terjemahan Manual (Copy-Paste)
+### Terjemahan manual (copy-paste)
 1. Pilih baris satu per satu, atau pakai **Pilih Range** untuk memilih banyak sekaligus.
 2. Klik **Copy Terjemahan**, lalu tempel ke ChatGPT, Gemini, atau AI lain.
 3. Setelah AI selesai, salin seluruh responsnya dan tempel ke kotak **Paste Hasil AI**.
@@ -295,7 +295,7 @@ Di workspace, klik **Impor** di toolbar dan pilih file atau folder. Semua baris 
 
 Kalau hasilnya meleset, klik **Undo**.
 
-### Auto Translate via API
+### Auto translate via API
 1. Klik tombol pengaturan API di pojok kanan bawah workspace (ikon robot).
 2. Pilih **Tipe API**: OpenAI Compatible, Gemini, atau Anthropic.
 3. Isi **API Key** dan **Model**. Tombol ↻ mengambil daftar model langsung dari API.
@@ -307,7 +307,7 @@ Untuk model thinking yang mengeluarkan blok `<think>...</think>`, aktifkan **Fil
 #### Auto Translate / Auto Ekstrak / Auto Check via Copas
 Kalau tidak punya API key:
 1. Pilih **Copas** di dropdown mode (Translate: Auto/Agent/Copas; Glossary & AI Check: API/Copas), lalu pilih target situsnya.
-2. Klik **Buka Browser**, lalu login sekali di jendela yang muncul. Windows memakai Camoufox, Android memakai WebView in-app. Sesi tersimpan.
+2. Klik **Buka Browser**, lalu login sekali di jendela yang muncul. Sesi tersimpan.
 3. Klik tombol Auto seperti biasa. Prompt ditempel otomatis, respons diambil lewat tombol Copy situs, hasilnya diterapkan per batch.
 
 ### Glosarium
@@ -340,20 +340,20 @@ Yang ikut bekerja saat Auto Check:
 - **Konteks dua arah**: selain konteks baris sebelumnya, tersedia konteks baris sesudah dari Dashboard Settings.
 - **Format JSON** untuk jalur API, dengan perbaikan JSON otomatis. Plaintext tetap didukung untuk jalur Copas.
 - **Memori penolakan**: koreksi yang kamu tolak dicatat sebagai entri `REJECTED`, jadi batch berikutnya tidak mengusulkan perubahan yang sama.
-- **Deep Check**: dua pass per batch. Pass pertama fokus akurasi makna, pass kedua fokus naturalness. Dua request per batch.
+- **Deep Check**: dua pass per batch. Pass pertama fokus akurasi makna, pass kedua naturalness.
 - Prompt bawaan menganut prinsip minimal edit: AI hanya mengubah bagian yang bermasalah.
 
-### Proofread & Replace
+### Proofread & replace
 Buka tab **Proofread**. Aktifkan **Regex** kalau perlu pola kompleks, centang **Case Sensitive** atau **Exact Match** sesuai kebutuhan, lalu klik **Replace All**.
 
 ### Ekspor
 Klik **Ekspor** di toolbar. File hasil terjemahan diunduh dalam format aslinya (`.json` atau `.epub`). Untuk format game lain, plugin parser terpasang yang menjalankan `pack()`, termasuk format biner dan arsip multi-file.
 
-Untuk backup proyek beserta seluruh datanya, klik **Backup** di dashboard. File `.copas` bisa dipulihkan kapan pun lewat tombol **Pulihkan**. Format lama `.cstl` juga tetap didukung.
+Untuk backup proyek beserta seluruh datanya, klik **Backup** di dashboard. File `.copas` bisa dipulihkan kapan pun lewat tombol **Pulihkan**.
 
 ---
 
-## Format yang Didukung
+## Format yang didukung
 
 | Format | Impor | Ekspor | Catatan |
 |--------|:-----:|:------:|---------|
@@ -401,7 +401,7 @@ TypeScript dan Vite, dikompilasi ke vanilla JS tanpa runtime framework.
 
 ---
 
-## Pengembangan & Build
+## Pengembangan & build
 
 ### Prasyarat
 
@@ -447,7 +447,7 @@ Kamus Kuromoji di `public/dict/` berukuran sekitar 17 MB. Item ini tetap dibundl
 
 ---
 
-## Platform & Kompatibilitas
+## Platform & kompatibilitas
 
 **Windows Desktop (native):**
 - Windows 10 dan Windows 11, 64-bit.
@@ -472,7 +472,7 @@ Dibuat oleh [Atho64](https://github.com/atho64), di-fork oleh [LuKazuu](https://
 
 ---
 
-## Lisensi & Atribusi Pihak Ketiga
+## Lisensi & atribusi pihak ketiga
 
 CopasTool dirilis di bawah **[MIT License](./LICENSE)**.
 

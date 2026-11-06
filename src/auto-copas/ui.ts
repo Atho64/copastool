@@ -1,9 +1,7 @@
-// @module auto-copas/ui.ts — DOM sync for the Auto Copas controls.
-//
-// Kept free of heavy imports so both ui-init (event wiring) and
-// auto-translate.loadApiSettings (post-restore refresh) can call it without
-// cycles. syncCopasUi must run AFTER saved settings are restored, otherwise a
-// reload hides the target row even though the dropdown still says "Copas".
+// @module auto-copas/ui.ts: DOM sync for the Auto Copas controls. Kept free of
+// heavy imports so ui-init (event wiring) and auto-translate.loadApiSettings
+// (post-restore refresh) can both call it without cycles. syncCopasUi must run
+// AFTER saved settings are restored, or a reload hides the target row.
 
 import { state } from '../state';
 import { isTauri } from '../native-storage';
@@ -52,12 +50,12 @@ export function syncCopasUi(): void {
   showRow('copasRowAiCheck', state.aiCheckEngine === 'copas');
   // Keep the Live TL engine select in step with state. auto-translate's restore
   // path sets it too, but the Luna modal calls this on every open, and a stale
-  // "API" label next to a "Copas: …" badge would misreport the active engine.
+  // "API" label next to a "Copas: …" badge would misreport the engine.
   const liveEngineSel = document.getElementById('liveEngineSelect') as HTMLSelectElement | null;
   if (liveEngineSel) liveEngineSel.value = state.liveTranslateEngine || 'api';
-  // The Live TL target/browser row lives inside the TL info box, which the
-  // Luna modal shows or hides by mode. Toggle the Copas-only children instead
-  // of the box itself so the TL badge stays visible in API mode.
+  // The Live TL target/browser row lives inside the TL info box, which the Luna
+  // modal shows or hides by mode. Toggle the Copas-only children instead of the
+  // box so the TL badge stays visible in API mode.
   const liveCopasControls = ['copasTargetSelectLive', 'btnCopasOpenBrowserLive'];
   for (const id of liveCopasControls) {
     const el = document.getElementById(id);

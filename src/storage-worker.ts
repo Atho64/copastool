@@ -1,6 +1,6 @@
-// @module storage-worker.ts — Main-thread client for storage-worker.worker.ts.
-// Keeps JSON.stringify / JSON.parse of whole projects off the UI thread so
-// autosave, project open and back-to-dashboard never jank the interface.
+// @module storage-worker.ts: main-thread client for storage-worker.worker.ts. Keeps
+// JSON.stringify / JSON.parse of whole projects off the UI thread so autosave,
+// project open, and back-to-dashboard do not jank the interface.
 
 let worker: Worker | null = null;
 let seq = 0;
@@ -53,7 +53,7 @@ function run(op: 'stringify' | 'parse' | 'parse-json-entries' | 'export-json-lin
     try {
       w.postMessage({ id, op, ...payload });
     } catch (err: any) {
-      // e.g. DataCloneError — caller falls back to the synchronous path.
+      // e.g. DataCloneError; the caller falls back to the synchronous path.
       pending.delete(id);
       reject(new Error(String(err?.message || err)));
     }
@@ -66,16 +66,16 @@ export async function stringifyAsync(data: unknown): Promise<string> {
     const res = await run('stringify', { payload: data });
     return res.text as string;
   } catch (err: any) {
-    // If the worker is unavailable on a WebView build, preserve functionality
-    // with a synchronous fallback; normal Android builds use the worker path.
+    // WebView builds without a worker still work via the synchronous path;
+    // normal Android builds use the worker.
     return JSON.stringify(data);
   }
 }
 
 /**
- * JSON.parse off the main thread. With `normalizeLines` the project's `lines`
- * array is passed through normalizeLineDict in the worker and flagged
- * `__linesNormalized` so callers skip the main-thread mapping.
+ * JSON.parse off the main thread. With `normalizeLines`, `lines` is passed through
+ * normalizeLineDict in the worker and flagged `__linesNormalized` so callers skip
+ * the main-thread mapping.
  */
 export async function parseAsync(text: string, normalizeLines = false): Promise<any> {
   try {
@@ -109,7 +109,7 @@ function parseJsonEntriesFallback(text: string, fileName: string, startLineNum: 
 }
 
 /** Parse and project imported JSON rows in the worker, avoiding a large
- * JSON.parse + object mapping pass on Android's UI thread. */
+ * JSON.parse + mapping pass on Android's UI thread. */
 export async function parseJsonEntriesAsync(text: string, fileName: string, startLineNum: number): Promise<any[]> {
   try {
     const res = await run('parse-json-entries', { text, fileName, startLineNum });

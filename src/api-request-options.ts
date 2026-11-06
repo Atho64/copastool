@@ -63,12 +63,9 @@ export function applyAnthropicOptions(body: Record<string, any>): void {
 /**
  * Applies generation settings for Gemini.
  *
- * `includeThinking` exists so the caller can retry once without `thinkingConfig`.
- * Models that do not support thinking reject the field with a bare
- * 400 INVALID_ARGUMENT that never names it, so the user only ever sees
- * "Request contains an invalid argument" and has no way to tell what was wrong.
- * Omitting the field on retry is more robust than keeping a list of which models
- * support thinking, which would go stale with every model release.
+ * `includeThinking` lets the caller retry once without `thinkingConfig`: models
+ * without thinking support reject the field with a bare 400 INVALID_ARGUMENT that
+ * never names it. Omitting it on retry beats keeping a list of supported models.
  */
 export function applyGeminiOptions(
   generationConfig: Record<string, any>,

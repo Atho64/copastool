@@ -1,4 +1,4 @@
-// @module selection.ts — Line selection management, batch select, and history
+// @module selection.ts: line selection, batch select, and history.
 
 import * as RenderModule from './render';
 import { state, ui, getMainScroller } from './state';
@@ -7,21 +7,18 @@ import { DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE, DEFAULT_SELEC
 import { getFileDisplayOrder } from './file-list';
 import type { Line, WorkspaceTab } from './types';
 
-// ─── Utility: normalizeSelectionBatchSize ────────────────────────────────────
 export function normalizeSelectionBatchSize(value: any, fallback = DEFAULT_SELECTION_BATCH_SIZE): number {
   const n = parseInt(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-// ─── Lazy helpers (break circular deps) ──────────────────────────────────────
+// Lazy imports to break circular deps.
 function flashHint(msg: string, keepAlive = false) {
   Promise.resolve(RenderModule).then(m => m.flashHint(msg, keepAlive)).catch(() => console.log('[hint]', msg));
 }
 function syncCheckboxUI() {
   Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
 }
-
-// ─── Selection Filtering ──────────────────────────────────────────────────────
 
 export function isSelectableForActiveTab(line: Line): boolean {
   if (!line || line._hidden || isIlustrasiLine(line)) return false;
@@ -37,18 +34,17 @@ export function pruneSelectionForActiveTab(): void {
   }
 }
 
-// ─── Display-ordered line helpers ────────────────────────────────────────────
 // Lines grouped by the current file display order (state.fileOrder), so batch
-// selection shortcuts (Alt+↑/↓) navigate in the same order the user sees on
-// screen — even after files have been reordered in the File List manager.
+// shortcuts (Alt+↑/↓) navigate in the order the user sees, even after reordering
+// in the File List manager.
 
 export function getDisplayOrderedLines(): Line[] {
   const order = getFileDisplayOrder();
   const fileKey = order.join('\0');
   // The sorted order only depends on (file, line_num) per line, so the result
   // stays valid while the line array identity, its length, and the file order
-  // are unchanged. Translation applies mutate line contents (not order), so a
-  // Full Auto loop over 60k+ lines sorts once instead of once per batch.
+  // are unchanged. Translation applies mutate contents, not order, so a Full
+  // Auto loop over 60k+ lines sorts once instead of once per batch.
   if (
     orderedCacheSrc === state.lines &&
     orderedCacheKey === fileKey &&
@@ -93,9 +89,8 @@ function getOrderRankMap(): Map<number, number> {
 }
 
 export function getSelectionHistorySnapshot(): number[] {
-  // Sort by display order (fileOrder) so selection history reflects what the
-  // user sees, not the internal line_num order. Falls back to line_num for any
-  // line not present in the ordered list.
+  // Sort by display order (fileOrder) so history matches what the user sees;
+  // lines missing from the ordered list fall back to line_num.
   const orderRank = getOrderRankMap();
   return Array.from(state.selectedLines)
     .map(Number)
@@ -143,8 +138,7 @@ export function restoreSelectionHistory(direction: number): boolean {
   }
   syncCheckboxUI();
 
-  // Scroll to the first selected line in display order (file list order),
-  // not the lowest line_num, so the viewport matches what the user sees.
+  // Scroll to the first selected line in display order, not the lowest line_num.
   if (state.selectedLines.size > 0) {
     const ordered = getDisplayOrderedLines();
     const firstInDisplay = ordered.find(l => state.selectedLines.has(l.line_num));
@@ -176,8 +170,7 @@ export function isEditableShortcutTarget(target: EventTarget | null): boolean {
 }
 
 export function getActiveBatchConfig() {
-  // Use display-ordered lines so batch navigation follows the file list order
-  // the user sees (including reorders), not the internal import order.
+  // Display-ordered lines so batch navigation follows the file list order.
   const orderedLines = getDisplayOrderedLines();
   if (state.activeWorkspaceTab === 'glossary') {
     return {
@@ -221,9 +214,8 @@ export function selectActiveWorkspaceBatch(direction: number): boolean {
   }
 
   const batchSize = config.batchSize;
-  // Map line_num -> index in the display-ordered list. After a file reorder,
-  // line_num order no longer matches the on-screen order, so batch navigation
-  // must use this index, not line_num comparison.
+  // After a file reorder, line_num order no longer matches the on-screen order,
+  // so batch navigation uses this index, not line_num comparison.
   const indexByLineNum = new Map<number, number>();
   for (let i = 0; i < selectableLines.length; i++) {
     indexByLineNum.set(selectableLines[i].line_num, i);
@@ -273,8 +265,6 @@ export function onSelectionHistoryKeydown(event: KeyboardEvent): void {
   const direction = event.key === 'ArrowUp' ? -1 : 1;
   if (restoreSelectionHistory(direction)) event.preventDefault();
 }
-
-// ─── Tab Switching ────────────────────────────────────────────────────────────
 
 export function switchWorkspaceTab(tabName: WorkspaceTab): void {
   state.activeWorkspaceTab = tabName;

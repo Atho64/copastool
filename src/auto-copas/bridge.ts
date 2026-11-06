@@ -1,11 +1,8 @@
-// @module auto-copas/bridge.ts — Auto Copas workflows for the three AI modes.
-//
+// @module auto-copas/bridge.ts: Auto Copas workflows for the three AI modes.
 // Each mode's API loop in auto-translate.ts keeps its batch/review/delay logic;
-// when the "Copas" engine is selected the loop's transport call is routed here
-// instead of fetchApiResult. The loops mirror the API loops' shape (batch
-// select → prompt → transport → apply → RPM delay) with the extension
-// reference's retry semantics (1 retry, optional infinite repeat on failure,
-// fresh chat on retry).
+// with the "Copas" engine selected, its transport call is routed here instead of
+// fetchApiResult. Retry semantics follow the extension reference (1 retry,
+// optional infinite repeat on failure, fresh chat on retry).
 
 import * as ProjectModule from '../project';
 import * as RenderModule from '../render';
@@ -98,11 +95,9 @@ export async function fetchCopasResult(
   }
 }
 
-/** Project setting "Chat baru setiap X batch" (dashboard settings; 0 = never).
- * Read live from the saved settings so a change applies on the next run
- * without a restart. Batch 1-based: X=3 starts a fresh chat before batches
- * 3, 6, 9, …; X=1 before every batch. Works for every target — including
- * Arena, where a new chat is just a reload of the direct-chat URL. */
+/** Project setting "Chat baru setiap X batch" (0 = never). Read live from saved
+ * settings so a change applies on the next run. Batch 1-based: X=3 starts a fresh
+ * chat before batches 3, 6, 9; X=1 before every batch. */
 async function copasNewChatDue(batchNumber: number): Promise<boolean> {
   const { getDefaultSettings } = await Promise.resolve(ProjectModule);
   const n = Math.min(999, Math.max(0, Math.floor(Number(getDefaultSettings().copasNewChatEvery) || 0)));
@@ -121,7 +116,7 @@ async function copasThinkingPref(): Promise<'default' | 'on' | 'off'> {
   }
 }
 
-/** "Buka Browser" — bring the target site up for the one-time manual login. */
+/** "Buka Browser": bring the target site up for the one-time manual login. */
 export async function openCopasBrowser(): Promise<void> {
   const workflow = activeWorkflow;
   const broadcast = (text: string) => {
@@ -133,7 +128,7 @@ export async function openCopasBrowser(): Promise<void> {
     broadcast('Membuka browser otomatis…');
     await ensureDriver().openForLogin(targetForWorkflow(), broadcast);
     broadcast('');
-    flashHint(`Browser otomatis siap — login sekali di ${targetForWorkflow().label}; sesi tersimpan.`);
+    flashHint(`Browser otomatis siap, login sekali di ${targetForWorkflow().label}; sesi tersimpan.`);
   } catch (err: any) {
     const message = err instanceof CopasError ? err.message : String(err?.message || err);
     console.error('[AutoCopas] openCopasBrowser failed:', err);
@@ -175,8 +170,6 @@ async function stopWithError(workflow: CopasWorkflow, err: unknown): Promise<voi
   flashHint(`Auto Copas berhenti: ${message}`);
 }
 
-// ─── Translate ─────────────────────────────────────────────────────────────────
-
 let isCopasTranslating = false;
 
 export function isCopasTranslateRunning(): boolean {
@@ -188,8 +181,8 @@ export async function toggleCopasTranslate(): Promise<void> {
   if (isCopasTranslating) {
     isCopasTranslating = false;
     userCancelled = true;
-    // The loop never ran, so its `finally` will not release the slot — do it
-    // here or every later workflow is refused with "still running".
+    // The loop never ran, so its `finally` will not release the slot: do it here
+    // or every later workflow is refused with "still running".
     if (activeWorkflow === 'translate') activeWorkflow = null;
     setCopasStatus('translate', 'Menghentikan…');
     flashHint('Auto Copas Translate dihentikan.');
@@ -214,7 +207,7 @@ export async function toggleCopasTranslate(): Promise<void> {
       const batch = ordered.filter((l) => !isTranslated(l) && !l._hidden).slice(0, batchSize);
       if (!batch.length) {
         flashHint('Auto Copas selesai: semua baris sudah diterjemahkan.');
-        setCopasStatus('translate', `Selesai — ${appliedCount} baris diterapkan.`);
+        setCopasStatus('translate', `Selesai: ${appliedCount} baris diterapkan.`);
         break;
       }
       state.selectedLines.clear();
@@ -247,12 +240,11 @@ export async function toggleCopasTranslate(): Promise<void> {
         retryCount = 0;
       } catch (err) {
         if (!isCopasTranslating) break;
-        // Both transport failures and response-format failures land here; the
-        // retry ladder is the same (1 retry, or infinite with
-        // "Ulangi jika gagal"), only the message differs.
+        // Transport and response-format failures share the retry ladder (1 retry,
+        // or infinite with "Ulangi jika gagal"); only the message differs.
         let detail: string;
         if (err instanceof TranslationApplyError) {
-          detail = `format keliru: ${err.message}${err.details[0] ? ` — ${err.details[0]}` : ''}`;
+          detail = `format keliru: ${err.message}${err.details[0] ? `: ${err.details[0]}` : ''}`;
         } else {
           detail = err instanceof Error ? err.message : String(err);
         }
@@ -268,7 +260,7 @@ export async function toggleCopasTranslate(): Promise<void> {
         retryCount++;
         const waitMs = repeatDelayMs();
         setCopasStatus('translate', `Batch gagal (${detail}). Coba lagi ke-${retryCount} dalam ${Math.round(waitMs / 1000)}s…`);
-        // Fresh conversation for the retry — context from the failed turn
+        // Fresh conversation for the retry: context from the failed turn
         // otherwise keeps polluting the next answer.
         await cancellableDelay(waitMs, shouldCancel);
         if (!isCopasTranslating) break;
@@ -293,8 +285,6 @@ export async function toggleCopasTranslate(): Promise<void> {
     Promise.resolve(RenderModule).then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
   }
 }
-
-// ─── Glossary ──────────────────────────────────────────────────────────────────
 
 let isCopasGlossary = false;
 
@@ -326,7 +316,7 @@ export async function toggleCopasGlossary(): Promise<void> {
       const allLines = getDisplayOrderedLines().filter((l) => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l));
       if (!allLines.length) {
         flashHint('Auto Copas Glossary selesai.');
-        setCopasStatus('glossary', `Selesai — ${processed} baris diproses.`);
+        setCopasStatus('glossary', `Selesai: ${processed} baris diproses.`);
         break;
       }
       const batch = allLines.slice(0, batchSize);
@@ -375,7 +365,7 @@ export async function toggleCopasGlossary(): Promise<void> {
         }
         retryCount++;
         const detail = err instanceof Error ? err.message : String(err);
-        setCopasStatus('glossary', `Batch gagal (${detail}) — coba lagi (chat baru)…`);
+        setCopasStatus('glossary', `Batch gagal (${detail}), coba lagi (chat baru)…`);
         await cancellableDelay(repeatDelayMs(), shouldCancel);
         if (!isCopasGlossary) break;
         try {
@@ -399,8 +389,6 @@ export async function toggleCopasGlossary(): Promise<void> {
     Promise.resolve(RenderModule).then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
   }
 }
-
-// ─── AI Check ──────────────────────────────────────────────────────────────────
 
 let isCopasAiCheck = false;
 
@@ -437,7 +425,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
       const allLines = getDisplayOrderedLines().filter((l) => isTranslated(l) && !l._ai_checked && !l._ai_confirmed && !l._hidden);
       if (!allLines.length) {
         flashHint('Auto Copas AI Check selesai.');
-        setCopasStatus('ai-check', `Selesai — ${processed} baris dicek, ${totalApplied} koreksi diterapkan.`);
+        setCopasStatus('ai-check', `Selesai: ${processed} baris dicek, ${totalApplied} koreksi diterapkan.`);
         break;
       }
       const batch = allLines.slice(0, batchSize);
@@ -446,15 +434,14 @@ export async function toggleCopasAiCheck(): Promise<void> {
       Promise.resolve(RenderModule).then((m) => m.syncCheckboxUI());
       Promise.resolve(SelectionModule).then((m) => m.scrollPreviewToLine(batch[0].line_num));
 
-      // One undo must cover every mutation of this batch — both Deep Check
-      // passes, the corrections and the checked flags — so the snapshot is
-      // taken before anything writes to these lines.
+      // One undo must cover every mutation of this batch (both Deep Check passes,
+      // the corrections and the checked flags), so the snapshot is taken before
+      // anything writes to these lines.
       const { pushUndoSnapshot } = await Promise.resolve(RenderModule);
       pushUndoSnapshot(true, batch.map((l) => l.line_num));
 
-      // Local lint pass (deterministic, no AI), mirroring the API engine:
-      // auto-fixable findings are applied directly, the rest become prompt
-      // hints for this batch.
+      // Local lint pass (deterministic, no AI): auto-fixable findings are applied
+      // directly, the rest become prompt hints for this batch.
       const { lintTranslatedLines, buildLintHintBlock, normalizeForNoopCheck } = await Promise.resolve(AiCheckLinterModule);
       const { escapeStoredNewlines } = await import('../string-utils');
       const findings = lintTranslatedLines(batch);
@@ -479,9 +466,8 @@ export async function toggleCopasAiCheck(): Promise<void> {
       }
       const lintBlock = buildLintHintBlock(findings);
 
-      // Transport for one pass, with the same retry semantics as before
-      // (1 retry + fresh chat, then stop with error). Returns null when the run
-      // was cancelled or stopped, so callers can just `break`.
+      // Transport for one pass (1 retry + fresh chat, then stop with error).
+      // Returns null when the run was cancelled or stopped, so callers `break`.
       const runPass = async (promptText: string, label: string): Promise<string | null> => {
         for (;;) {
           setCopasStatus('ai-check', `Copas → ${targetForWorkflow().label}: batch ${Math.floor(processed / batchSize) + 1}${label ? ` (${label})` : ''}${retryCount ? ` (retry ${retryCount})` : ''}…`);
@@ -505,7 +491,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
             }
             retryCount++;
             const detail = err instanceof Error ? err.message : String(err);
-            setCopasStatus('ai-check', `Batch gagal (${detail}) — coba lagi (chat baru)…`);
+            setCopasStatus('ai-check', `Batch gagal (${detail}), coba lagi (chat baru)…`);
             await cancellableDelay(repeatDelayMs(), shouldCancel);
             if (!isCopasAiCheck) return null;
             try { await ensureDriver().navigateFresh(targetForWorkflow()); } catch { /* best effort */ }
@@ -516,10 +502,9 @@ export async function toggleCopasAiCheck(): Promise<void> {
       const { buildAiCheckPrompt: buildPrompt, onParseAiCheck: parseAiCheck } = await import('../ai-check');
       const { DEFAULT_AI_CHECK_ACCURACY_PROMPT, DEFAULT_AI_CHECK_NATURALNESS_PROMPT } = await import('../constants');
 
-      // Deep Check: two specialized passes per batch (accuracy → naturalness),
-      // mirroring the API engine. Pass 1 auto-applies high-confidence accuracy
-      // fixes; the remainder merges into the pass-2 queue (pass 2 wins on
-      // duplicate line numbers because it reviewed the freshest text).
+      // Deep Check: two passes per batch (accuracy then naturalness). Pass 1
+      // auto-applies high-confidence accuracy fixes; the remainder merges into the
+      // pass-2 queue (pass 2 wins on duplicates, it reviewed the freshest text).
       let deepQueue: typeof state.aiCheckCorrections = [];
       let text: string | null;
       if (state.aiCheckDeepMode) {
@@ -532,9 +517,8 @@ export async function toggleCopasAiCheck(): Promise<void> {
             areaP1.dispatchEvent(new Event('input', { bubbles: true }));
           }
           if (parseAiCheck(new Set(batch.map((l) => l.line_num)), { silent: true })) {
-            // Keep the full pass-1 result: onApplyAiCheckCorrections filters
-            // state.aiCheckCorrections down to the applied subset, so the
-            // leftover queue must be derived from this snapshot instead.
+            // onApplyAiCheckCorrections filters state.aiCheckCorrections down to
+            // the applied subset, so derive the leftover queue from this snapshot.
             const pass1All = state.aiCheckCorrections;
             // Review mode is absolute: nothing auto-applies while it is on.
             const applyableP1 = (state.aiCheckAutoApplyHigh !== false && !reviewMode)
@@ -569,14 +553,14 @@ export async function toggleCopasAiCheck(): Promise<void> {
 
       const { onParseAiCheck } = await import('../ai-check');
       if (!onParseAiCheck(new Set(batch.map((l) => l.line_num)))) {
-        // Malformed response — retry once with a fresh chat, then stop.
+        // Malformed response: retry once with a fresh chat, then stop.
         if (retryCount >= 1) {
           setCopasStatus('ai-check', 'Berhenti: format hasil tidak valid setelah retry.');
           flashHint('Auto Copas AI Check berhenti: format hasil tidak valid.');
           break;
         }
         retryCount++;
-        setCopasStatus('ai-check', 'Format hasil tidak valid — coba lagi (chat baru)…');
+        setCopasStatus('ai-check', 'Format hasil tidak valid, coba lagi (chat baru)…');
         try {
           await ensureDriver().navigateFresh(targetForWorkflow());
         } catch { /* best effort */ }
@@ -593,11 +577,10 @@ export async function toggleCopasAiCheck(): Promise<void> {
 
       if (!isCopasAiCheck) break;
 
-      // Tiered auto-apply (same contract as auto-translate's API loop):
-      // - aiCheckAutoApplyHigh ON: high-confidence, non-flagged corrections
-      //   apply immediately; the rest goes to review.
-      // - aiCheckAutoApplyHigh OFF ("high tetap manual"): NOTHING auto-applies.
-      // - reviewMode ON (or autoApplyHigh OFF): pause whenever corrections remain.
+      // Tiered auto-apply (same contract as auto-translate's API loop): with
+      // aiCheckAutoApplyHigh ON, high-confidence non-flagged corrections apply and
+      // the rest goes to review; with it OFF nothing auto-applies; reviewMode also
+      // pauses whenever corrections remain.
       const autoApplyHigh = state.aiCheckAutoApplyHigh !== false && !reviewMode;
       const autoApplyable = autoApplyHigh
         ? state.aiCheckCorrections.filter(c => c.checked && c.confidence === 'high' && !c.needsReview)

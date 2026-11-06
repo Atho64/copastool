@@ -1,6 +1,5 @@
-// @module custom-parsers.ts — Store untuk parser buatan user (JavaScript/Python).
-// Disimpan global di localStorage agar bisa dipakai lintas proyek,
-// mengikuti pola cstl_api_settings di auto-translate.ts.
+// @module custom-parsers.ts: store parser buatan user (JavaScript/Python) di localStorage,
+// global lintas proyek mengikuti pola cstl_api_settings di auto-translate.ts.
 
 import type { CustomParser, CpMatchStrategy, CpMagicPattern, CpSettingSpec } from './types';
 
@@ -60,8 +59,8 @@ export function setCustomParserEnabled(id: string, enabled: boolean): void {
   }
 }
 
-/** Parser atau Plugin aktif (enabled) yang cocok untuk file ini, atau null.
- *  sampleBytes opsional = 64 byte pertama file, dipakai strategi 'magic'. */
+/** Parser/Plugin aktif yang cocok untuk file ini, atau null.
+ *  sampleBytes = 64 byte pertama file, dipakai strategi 'magic'. */
 export function findCustomParserForFile(fileName: string, sampleBytes?: Uint8Array | null): any {
   const legacy = loadCustomParsers().find(p => p.enabled && matchCustomParser(p, fileName, sampleBytes));
   if (legacy) return legacy;
@@ -78,8 +77,6 @@ export function findCustomParserForFile(fileName: string, sampleBytes?: Uint8Arr
   return null;
 }
 
-// ─── Matching multi-strategi (extension / magic bytes / filename regex) ───────
-
 /** Parse hex string "4B 53" -> bytes. Null jika invalid (panjang ganjil / karakter aneh). */
 export function hexToBytes(hex: string): Uint8Array | null {
   const clean = String(hex || '').replace(/[\s,_]/g, '');
@@ -89,7 +86,7 @@ export function hexToBytes(hex: string): Uint8Array | null {
   return out;
 }
 
-/** True jika SALAH SATU pattern cocok pada byte sampel. */
+/** True jika salah satu pattern cocok pada byte sampel. */
 export function matchMagic(bytes: Uint8Array | null | undefined, patterns: CpMagicPattern[] | undefined): boolean {
   if (!bytes || !patterns?.length) return false;
   return patterns.some(p => {
@@ -102,7 +99,7 @@ export function matchMagic(bytes: Uint8Array | null | undefined, patterns: CpMag
 }
 
 export function matchFilenameRegex(fileName: string, regexStr: string | undefined): boolean {
-  // Batas panjang mencegah regex pathologis paling murah; try/catch utk pola rusak.
+  // Batas panjang menahan regex pathologis; try/catch untuk pola rusak.
   if (!regexStr || regexStr.length > 200) return false;
   try { return new RegExp(regexStr, 'i').test(fileName); } catch { return false; }
 }
@@ -113,7 +110,7 @@ export function effectiveMatchStrategies(p: CustomParser): CpMatchStrategy[] {
   return p.matchStrategy.filter(s => s === 'extension' || s === 'magic' || s === 'filename');
 }
 
-/** Cocokkan SATU parser terhadap file. sampleBytes = 64 byte pertama file (boleh null utk extension-only). */
+/** Cocokkan satu parser terhadap file. sampleBytes boleh null untuk extension-only. */
 export function matchCustomParser(p: CustomParser, fileName: string, sampleBytes?: Uint8Array | null): boolean {
   const lower = fileName.toLowerCase();
   for (const s of effectiveMatchStrategies(p)) {
@@ -127,8 +124,6 @@ export function matchCustomParser(p: CustomParser, fileName: string, sampleBytes
   }
   return false;
 }
-
-// ─── Aset parser (base64 di field CustomParser.assets) ────────────────────────
 
 /** Normalisasi nama asset: backslash->slash, buang segmen '..'/'.'/kosong. Null jika hasil kosong. */
 export function normalizeAssetName(name: string): string | null {
@@ -155,8 +150,6 @@ export function parserAssetsTotalBytes(p: CustomParser): number {
   return (p.assets || []).reduce((n, a) => n + Math.floor((a.dataBase64.length * 3) / 4), 0);
 }
 
-// ─── Impor payload parser (JSON / ZIP distribusi) ─────────────────────────────
-
 /** Normalisasi payload impor: bungkusan {parsers:[...]} atau array polos. Null jika bentuk tak dikenal. */
 export function normalizeParserPayload(parsed: any): any[] | null {
   if (Array.isArray(parsed?.parsers)) return parsed.parsers;
@@ -164,13 +157,12 @@ export function normalizeParserPayload(parsed: any): any[] | null {
   return null;
 }
 
-/** Filter entri parser valid + hitung yang dibuang. */
 export function pickValidParsers(arr: any[]): { valid: CustomParser[]; skipped: number } {
   const valid = (arr || []).filter(isValidCustomParser);
   return { valid, skipped: (arr || []).length - valid.length };
 }
 
-/** Baca seluruh file di folder `assets/` dari objek JSZip -> { nama-normalisasi: base64 }. */
+/** File di `assets/` dalam zip -> { nama-normalisasi: base64 }. */
 export async function extractZipAssets(zip: any): Promise<Record<string, string>> {
   const found: { rel: string; zf: any }[] = [];
   zip.forEach((path: string, zf: any) => {
@@ -188,8 +180,6 @@ export async function extractZipAssets(zip: any): Promise<Record<string, string>
   return out;
 }
 
-// ─── Per-parser settings (spec form otomatis; nilai global per parser-id) ─────
-
 const CP_SETTINGS_KEY = 'cstl_custom_parser_settings'; // { [parserId]: { [key]: value } }
 
 const CP_SETTING_TYPES = ['string', 'number', 'boolean', 'select', 'textarea'] as const;
@@ -198,7 +188,7 @@ function cpSettingKeyReValid(key: string): boolean {
   return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key);
 }
 
-/** Validasi array spec settings. Return pesan error (string) atau null jika sah. */
+/** Pesan error, atau null jika spec sah. */
 export function validateSettingSpecs(specs: CpSettingSpec[] | undefined | null): string | null {
   if (!specs || specs.length === 0) return null;
   const seen = new Set<string>();
@@ -207,7 +197,7 @@ export function validateSettingSpecs(specs: CpSettingSpec[] | undefined | null):
     const at = `settings[${i}]`;
     if (!s || typeof s !== 'object') return `${at}: bukan objek.`;
     if (typeof s.key !== 'string' || !cpSettingKeyReValid(s.key)) {
-      return `${at}.key tidak valid ("${s?.key}") — harus cocok [a-zA-Z_$][a-zA-Z0-9_$]* dan bukan angka di awal.`;
+      return `${at}.key tidak valid ("${s?.key}"): harus cocok [a-zA-Z_$][a-zA-Z0-9_$]* dan bukan angka di awal.`;
     }
     if (seen.has(s.key)) return `${at}.key duplikat: "${s.key}".`;
     seen.add(s.key);
@@ -228,7 +218,6 @@ export function validateSettingSpecs(specs: CpSettingSpec[] | undefined | null):
     if ((type === 'number') && (s.min !== undefined && !Number.isFinite(s.min) || s.max !== undefined && !Number.isFinite(s.max))) {
       return `${at} ("${s.key}"): min/max harus angka.`;
     }
-    // textarea & string & number & boolean: cukup.
   }
   return null;
 }
@@ -250,13 +239,12 @@ function persistSettingsStore(store: CpSettingsStore): void {
   localStorage.setItem(CP_SETTINGS_KEY, JSON.stringify(store));
 }
 
-/** Nilai tersimpan user utk parser ini ({}, jika belum pernah diubah). */
+/** Nilai tersimpan user untuk parser ini ({} jika belum pernah diubah). */
 export function loadParserSettingValues(id: string): Record<string, any> {
   if (!id) return {};
   return loadSettingsStore()[id] || {};
 }
 
-/** Simpan (merge) nilai setting user utk parser id. */
 export function saveParserSettingValues(id: string, values: Record<string, any>): void {
   if (!id) return;
   const store = loadSettingsStore();
@@ -264,7 +252,6 @@ export function saveParserSettingValues(id: string, values: Record<string, any>)
   persistSettingsStore(store);
 }
 
-/** Hapus nilai setting parser (dipakai saat parser dihapus). */
 export function deleteParserSettingValues(id: string): void {
   if (!id) return;
   const store = loadSettingsStore();
@@ -274,7 +261,7 @@ export function deleteParserSettingValues(id: string): void {
   }
 }
 
-/** Merge default (dari spec) + nilai user + coerce tipe -> ctx.options. */
+/** Default dari spec + nilai user, di-coerce sesuai tipe. */
 export function buildParserOptions(parser: any): Record<string, any> {
   if (parser.isPlugin || (!Array.isArray(parser.settings) && typeof parser.settings === 'object' && parser.settings !== null)) {
     try {
@@ -300,7 +287,6 @@ export function buildParserOptions(parser: any): Record<string, any> {
   return out;
 }
 
-/** Nilai atribut accept untuk input file, dibangun dari ekstensi semua parser aktif. */
 export function getCustomImportAccept(): string {
   const exts = new Set<string>();
   for (const p of loadCustomParsers()) {
@@ -323,7 +309,7 @@ export function createCustomParserId(): string {
   return 'cp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
 }
 
-/** Normalisasi input ekstensi user: "xyz, .Dat, .a.b" → ['.xyz', '.dat', '.a.b'] */
+/** Normalisasi input ekstensi user: "xyz, .Dat, .a.b" -> ['.xyz', '.dat', '.a.b'] */
 export function normalizeExtensions(input: string): string[] {
   const seen = new Set<string>();
   for (const part of String(input || '').split(/[,\s]+/)) {
@@ -333,7 +319,7 @@ export function normalizeExtensions(input: string): string[] {
   return Array.from(seen);
 }
 
-/** Validasi bentuk objek CustomParser (mis. definisi dari file backup). */
+/** Bentuk objek CustomParser, mis. definisi dari file backup. */
 export function isValidCustomParser(p: any): p is CustomParser {
   return !!p && typeof p === 'object' && typeof p.id === 'string' && typeof p.name === 'string'
     && (p.language === 'js' || p.language === 'python')

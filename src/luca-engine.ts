@@ -1,12 +1,10 @@
-// @module luca-engine.ts — LucaSystem TXT engine, profiles, and export helpers
+// @module luca-engine.ts: LucaSystem TXT engine, profiles, and export helpers
 
 import { state, ui, isTranslated } from './state';
 import { concatBytes, splitBufferToLines, latin1BytesToString, decodeUtf8Bytes, base64ToBytes, bytesToBase64, base64ToArrayBuffer, decodeArrayBuffer } from './binary-utils';
 import { CLANNAD_PROTAGONIST_TOKENS, DEFAULT_LUCA_MC_DISPLAY_NAME } from './constants';
 import type { Line } from './types';
 import { parseAsync } from './storage-worker';
-
-// ─── Constants ─────────────────────────────────────────────────────────────────
 
 export const DEFAULT_LUCA_PROFILE = 'summer-pockets-steam';
 
@@ -54,8 +52,6 @@ export const LUCA_HEAVY_QUOTE_OPEN = '\u275D';
 export const LUCA_HEAVY_QUOTE_CLOSE = '\u275E';
 
 const lucaFileLineBytesCache = new Map<string, Uint8Array[]>();
-
-// ─── Binary Luca Helpers ───────────────────────────────────────────────────────
 
 export function splitLucaArgsBytes(argsBytes: Uint8Array): Uint8Array[] {
   const args: Uint8Array[] = [];
@@ -146,8 +142,6 @@ export function parseJsonEntries(jsonArray: any[], fileName: string, startLineNu
   return lines;
 }
 
-// ─── Profile Helpers ───────────────────────────────────────────────────────────
-
 export function getLucaProfile(profileId: string): any {
   return LUCA_PROFILES[profileId] || LUCA_PROFILES[DEFAULT_LUCA_PROFILE];
 }
@@ -223,8 +217,6 @@ export function buildLucaPre(raw: string, args: string[], preArgCount: number): 
 }
 
 export function splitLucaChoices(raw: string): string[] { return String(raw || '').split('$d'); }
-
-// ─── Heavy Quotes & Text Parsing ──────────────────────────────────────────────
 
 export function detectLucaHeavyQuotes(text: string): boolean {
   const s = String(text || '').trim();
@@ -316,8 +308,6 @@ export function getLucaHeavyQuotes(line: Line): boolean {
   return false;
 }
 
-// ─── Display Name Helpers ──────────────────────────────────────────────────────
-
 export function isClannadProtagonistToken(name: string | null | undefined): boolean {
   return CLANNAD_PROTAGONIST_TOKENS.has(String(name || '').trim());
 }
@@ -358,12 +348,10 @@ export function formatLineLabel(line: Line, { translated = false } = {}): string
   return name ? `${prefix}${name}: ${msg}` : `${prefix}${msg}`;
 }
 
-// ─── Export Helpers ────────────────────────────────────────────────────────────
-
 export function buildLucaExportText(line: Line): string {
   const profile = getLucaProfile(line.luca_profile || state.lucaProfile);
   const tName = getLucaExportSpeakerName(line, profile);
-  const tMsg = (line.trans_message || ''); // keep \n as literal escape — lucksystem txt format requires it, not real newlines
+  const tMsg = (line.trans_message || ''); // keep \n as literal escape: lucksystem txt format requires it, not real newlines
   let out: string;
   if (tName || getLucaHeavyQuotes(line) || profile.nameAtFormat) {
     out = formatLucaTxtPayload(tName, tMsg, getLucaHeavyQuotes(line), profile.id);

@@ -1,4 +1,4 @@
-// @module import-source.ts — Import source files: JSON, EPUB, ZIP, LucaTxt
+// @module import-source.ts: import source files (JSON, EPUB, ZIP, LucaTxt)
 
 import { state, ui, getOpfsRoot } from './state';
 import { normalizeLineDict } from './state';
@@ -203,7 +203,7 @@ export async function handleImportLucaTxtLogic(files: FileList | File[]): Promis
         if (withPrefix > 0) {
           msg += ` | Tomoyo: ${withPrefix} baris masih punya byte prefix di txt (dinormalisasi saat export).`;
         } else {
-          msg += ' | Tomoyo: format decompile bersih (payload saja — siap diterjemahkan).';
+          msg += ' | Tomoyo: format decompile bersih (payload saja, siap diterjemahkan).';
         }
       }
       flashHint(msg);
@@ -332,7 +332,7 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
             const doc = new DOMParser().parseFromString(html, href.endsWith('.xhtml') ? 'application/xhtml+xml' : 'text/html');
             const els = Array.from(doc.querySelectorAll(tagsSelector));
 
-            // Find all image elements in this document (e.g. cover, inserts, illustrations)
+            // Find all image elements in this document (cover, inserts, illustrations)
             const docImgEls = Array.from(doc.querySelectorAll('img, image'));
             const docImages = docImgEls.map(imgEl => {
               const src = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
@@ -387,8 +387,8 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
               }
             }
 
-            // Preserve standalone images, including images outside the selected
-            // text tags in chapters that also contain translatable paragraphs.
+            // Preserve standalone images, including those outside the selected text
+            // tags in chapters that also contain translatable paragraphs.
             const unassociatedImages = docImages.filter(image => !referencedDocumentImages.has(image));
             if (unassociatedImages.length > 0) {
               for (const imgPath of unassociatedImages) {
@@ -439,8 +439,8 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
       }
       state.lines = state.lines.concat(lines);
       state.importedFiles = Array.from(existingFiles);
-      // EPUB: kunci urutan tampilan ke urutan SPINE (urutan baca buku) —
-      // bukan alfabetis — supaya tabel & penomoran mengikuti alur cerita.
+      // EPUB: kunci urutan tampilan ke urutan SPINE (urutan baca buku), bukan
+      // alfabetis, supaya tabel & penomoran mengikuti alur cerita.
       state.fileOrder = Array.from(existingFiles);
       renumberLinesToDisplayOrder();
       state.selectedLines.clear();
@@ -469,10 +469,8 @@ export async function handleImportLogic(filesObj: FileList | File[] | File, isZi
   }
 }
 
-// ─── Custom parser import ─────────────────────────────────────────────────────
-
 /** Impor file via parser custom (JS/Python). Semua file dalam satu batch harus
- *  cocok dengan satu parser yang sama — proyek terkunci ke satu parser. */
+ *  cocok dengan satu parser yang sama, karena proyek terkunci ke satu parser. */
 export async function handleImportCustomLogic(files: FileList | File[]): Promise<void> {
   flashHint('Memproses file parser custom... Mohon tunggu.', true);
   document.body.style.cursor = 'wait';
@@ -577,7 +575,7 @@ export async function handleImportCustomLogic(files: FileList | File[]): Promise
             const st = ui.copyStatus as HTMLElement | undefined;
             if (!st) return;
             st.classList.remove('empty');
-            st.textContent = `Parser ${baseName}: ${done}/${total}${label ? ' — ' + label : ''}`;
+            st.textContent = `Parser ${baseName}: ${done}/${total}${label ? ' - ' + label : ''}`;
           },
         });
       }
@@ -595,7 +593,7 @@ export async function handleImportCustomLogic(files: FileList | File[]): Promise
             trans_message: null,
             is_translated: false,
             ...(entry.raw != null && entry.raw !== '' ? { custom_raw: entry.raw } : {}),
-            // Index bebas buatan parser (posisi entri/offset di file asli) —
+            // Index bebas buatan parser (posisi entri/offset di file asli),
             // diteruskan balik ke serialize() sebagai line.index saat ekspor.
             ...(entry.index != null ? { custom_index: entry.index } : {}),
           });
@@ -658,8 +656,8 @@ export async function onImportCustomChange(ev: Event): Promise<void> {
   target.value = '';
 }
 
-/** Folder khusus parser custom: semua file langsung masuk jalur parser —
- *  file yang tidak cocok dilaporkan oleh handleImportCustomLogic. */
+/** Folder khusus parser custom: semua file langsung masuk jalur parser, file
+ *  yang tidak cocok dilaporkan oleh handleImportCustomLogic. */
 export async function onImportCustomFolderChange(ev: Event): Promise<void> {
   const target = ev.target as HTMLInputElement;
   if (!target.files?.length) return;
@@ -725,8 +723,8 @@ export async function importAndroidLucaTxtFolder(): Promise<void> {
 }
 
 /** Android WebView does not implement the directory file-input behavior
- * consistently, so use the native SAF tree picker and create File objects
- * from the selected folder's supported source files. */
+ * consistently, so use the native SAF tree picker and build File objects from the
+ * selected folder's supported source files. */
 export async function importAndroidFolder(): Promise<void> {
   if (!isAndroidNativeApp()) return;
   const files = await collectAndroidFolderFiles(['.json', '.epub'], 'proyek');

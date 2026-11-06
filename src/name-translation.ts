@@ -1,4 +1,4 @@
-// @module name-translation.ts — Character name translation: copy, paste, apply
+// @module name-translation.ts: character name translation (copy, paste, apply).
 
 import { state, ui } from './state';
 import { truncateForPrompt, stripDecorativeWrapping, stripPlaintextFences, matchKnownName } from './string-utils';

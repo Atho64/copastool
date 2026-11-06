@@ -1,4 +1,4 @@
-// @module render.ts — Main rendering, virtual scroller callbacks, status bar, undo, flashHint
+// Main rendering, virtual scroller callbacks, status bar, undo, flashHint.
 
 import * as ProjectModule from './project';
 import * as GlossaryModule from './glossary';
@@ -19,11 +19,9 @@ import { escapeStoredNewlines } from './string-utils';
 import { convertToFurigana, getCachedFurigana } from './furigana';
 import type { DisplayRow, EpubImageAsset, Line } from './types';
 
-// ─── Deferred helpers (avoid calls during circular module initialization) ───
+// Deferred so nothing runs during circular module initialization.
 function queueAutoSave() { Promise.resolve(ProjectModule).then(m => m.queueAutoSave()); }
 function renderGlossaryPreview() { Promise.resolve(GlossaryModule).then(m => m.renderGlossaryPreview()); }
-
-// ─── Display State ────────────────────────────────────────────────────────────
 
 // Indices (into state.displayRows) of every file separator row, kept in order.
 // Used by updateCurrentFileBar() to find the current file while scrolling.
@@ -114,9 +112,8 @@ export function rebuildDisplayState(): void {
 }
 
 /** Susun ulang state.lines mengikuti urutan tampilan file (getFileDisplayOrder)
- *  dan nomori ulang line_num menjadi 1..N — supaya nomor baris selalu cocok
- *  dengan posisi baris di tabel (baris paling atas = nomor 1).
- *  Dipanggil setelah impor menambah baris baru. */
+ *  dan nomori ulang line_num menjadi 1..N, supaya nomor baris cocok dengan
+ *  posisinya di tabel. Dipanggil setelah impor menambah baris baru. */
 export function renumberLinesToDisplayOrder(): void {
   const order = getFileDisplayOrder();
   const orderSet = new Set(order);
@@ -160,8 +157,6 @@ export function renderPreviewRows(): void {
   }
   updateButtonStates();
 }
-
-// ─── Current File Indicator (sticky bar over the text list) ───────────────────
 
 // Binary-search the largest separator index <= startIndex (the file header that
 // owns the line currently at the top of the viewport).
@@ -210,8 +205,6 @@ export function updateCurrentFileBar(startIndex: number): void {
   }
 }
 
-// ─── Row Renderer (VirtualScroller callback) ──────────────────────────────────
-
 let _bmSvgUnset: SVGSVGElement | null = null;
 let _bmSvgSet: SVGSVGElement | null = null;
 
@@ -256,7 +249,6 @@ export function initPreviewContainerDelegation(): void {
     const target = e.target as HTMLElement;
     if (!target) return;
 
-    // 1. Bookmark button click
     const bmBtn = target.closest('.line-bookmark-btn') as HTMLElement | null;
     if (bmBtn) {
       e.stopPropagation();
@@ -268,7 +260,6 @@ export function initPreviewContainerDelegation(): void {
       return;
     }
 
-    // 2. EPUB illustration image click -> Lightbox
     const img = target.closest('.epub-preview-img') as HTMLImageElement | null;
     if (img && img.src) {
       e.stopPropagation();
@@ -276,7 +267,6 @@ export function initPreviewContainerDelegation(): void {
       return;
     }
 
-    // 3. Text content click -> Line Editor
     const contentWrap = target.closest('.text-content') as HTMLElement | null;
     if (contentWrap) {
       const row = contentWrap.closest('.preview-row') as HTMLElement | null;
@@ -292,7 +282,6 @@ export function initPreviewContainerDelegation(): void {
     if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'checkbox') {
       const input = target as HTMLInputElement;
       if (input.dataset.file) {
-        // Separator checkbox
         const range = fileLineRanges.get(input.dataset.file);
         if (range) {
           for (let n = range.first; n <= range.last; n++) {
@@ -441,7 +430,7 @@ export function renderMainRow(rowData: DisplayRow, recycledRow?: HTMLElement): H
     }
     const transDiv = document.createElement('div');
     transDiv.className = 'translated';
-    let tTxt = '——';
+    let tTxt = '-';
     if (isTranslated(line)) {
       tTxt = formatLineLabel(line, { translated: true });
     } else {
@@ -450,7 +439,6 @@ export function renderMainRow(rowData: DisplayRow, recycledRow?: HTMLElement): H
     transDiv.textContent = tTxt;
     contentWrap.append(origDiv, transDiv);
 
-    // EPUB Image Preview
     if (state.projectType === 'epub' && state.showEpubImages === true) {
       const targetSrc = line.epub_img_src || (line.message === EPUB_ILUSTRASI_MARKER ? getEpubImagesForFile(line.file)?.[0] : null);
       if (targetSrc) {
@@ -482,8 +470,6 @@ export function renderMainRow(rowData: DisplayRow, recycledRow?: HTMLElement): H
   }
   return row;
 }
-
-// ─── Checkbox Sync ────────────────────────────────────────────────────────────
 
 function syncVisibleSeparators(): void {
   document.querySelectorAll<HTMLInputElement>('.preview-row.separator input[type="checkbox"]').forEach(cb => {
@@ -528,8 +514,6 @@ export function syncCheckboxUI(): void {
     updateButtonStates();
   });
 }
-
-// ─── Name Table ────────────────────────────────────────────────────────────────
 
 let cachedCharacterNameCount: number | null = null;
 export function invalidateNameCache(): void {
@@ -579,7 +563,7 @@ export function renderNameTable(): void {
     sourceTd.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(n);
-        flashHint(`Nama "${n}" disalin!`);
+        flashHint(`Nama "${n}" disalin.`);
       } catch (e) {
         alert('Gagal menyalin teks.');
       }
@@ -610,8 +594,6 @@ export function renderNameTable(): void {
   }
   (ui.nameTableBody as HTMLElement).appendChild(frag);
 }
-
-// ─── Status Bar & Refresh ──────────────────────────────────────────────────────
 
 export function updateStatusBar(): void {
   const rawTotal = state.lines.length;
@@ -665,10 +647,9 @@ export function refreshAll(): void {
 }
 
 /**
- * Progressive refresh used when opening a project: the virtual row list is
- * rendered synchronously so the workspace appears immediately, while the
- * heavier derived views (character name table, status bar, badges) run after
- * the first paint. Opening a large project no longer waits on them.
+ * Progressive refresh when opening a project: the virtual row list renders
+ * synchronously so the workspace appears immediately, while the heavier derived
+ * views (name table, status bar, badges) run after the first paint.
  */
 export function refreshAllStaged(): void {
   rebuildDisplayState();
@@ -688,7 +669,7 @@ export function refreshAllStaged(): void {
   else setTimeout(finish, 0);
 }
 
-/** Fast workspace refresh for line edits / translations that do not change file grouping or filtering */
+/** Fast refresh for line edits that do not change file grouping or filtering. */
 export function refreshWorkspaceFast(): void {
   const mainScroller = getMainScroller();
   if (mainScroller) {
@@ -753,8 +734,6 @@ export function pushUndoSnapshot(clearRedo = true, targetLineNums?: Iterable<num
   (ui.btnUndo as HTMLButtonElement).disabled = false;
 }
 
-// ─── Flash Hint — the app's single in-page notification location ─────────────
-
 export function flashHint(msg: string, keepAlive = false): void {
   const bare = String(msg ?? '').trim();
   if (!bare) return;
@@ -769,8 +748,6 @@ export function flashHint(msg: string, keepAlive = false): void {
     }, 4000);
   }
 }
-
-// ─── Button States ────────────────────────────────────────────────────────────
 
 let _updateButtonStatesRAF: number | null = null;
 
@@ -896,8 +873,6 @@ function updateEditedLine(line: Line): void {
     import('./htl-mode').then(m => m.refreshHtlPanels()).catch(() => {});
   }
 }
-
-// ─── Line Editor ──────────────────────────────────────────────────────────────
 
 export function openLineEditor(num: number): void {
   const l = state.lineByNum.get(num);

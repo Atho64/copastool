@@ -1,12 +1,12 @@
-// @module agent-plan.ts — Plan-first todo checklist + steering for the AI Agent.
-// The agent declares a plan via setPlan and updates it via updatePlanStep /
-// completePlan; the plan renders as a live checklist in the chat. Steering
-// queues user messages typed mid-run and injects them after the current turn.
+// @module agent-plan.ts: plan-first todo checklist and steering for the AI Agent.
+// The agent declares a plan via setPlan, updates it via updatePlanStep /
+// completePlan, and it renders as a live checklist. Steering queues user messages
+// typed mid-run and injects them after the current turn.
 
 import { ui } from './state';
 
 // Side-channel so ai-agent's buildSystemPrompt can include the plan section
-// without a circular static import (agent-plan ↔ ai-agent).
+// without a circular static import.
 (globalThis as any).__cstlAgentPlanPrompt = () => getPlanPromptSection();
 (globalThis as any).__cstlAgentPlanReset = () => resetPlanForNewRun();
 (globalThis as any).__cstlAgentSteer = {
@@ -14,8 +14,6 @@ import { ui } from './state';
   hasQueued: () => hasQueuedSteerMessages(),
   queue: (text: string) => queueSteerMessage(text),
 };
-
-// ── Agent running flag (drives steering vs new-turn routing) ────────────────
 
 let agentRunning = false;
 
@@ -27,8 +25,6 @@ export function isAgentRunning(): boolean {
 export function setAgentRunning(running: boolean): void {
   agentRunning = running;
 }
-
-// ── Plan (todo checklist) ────────────────────────────────────────────────────
 
 export interface PlanStep {
   text: string;
@@ -45,14 +41,13 @@ interface PlanState {
 
 let plan: PlanState | null = null;
 
-/** Called when a turn starts so a stale finished plan from the previous run clears. */
+/** Reset so a finished plan from the previous run does not linger. */
 export function resetPlanForNewRun(): void {
   plan = null;
 }
 
 function renderPlan(): void {
   if (!plan) return;
-  // Find or create the checklist element in the chat history.
   let el = plan.el;
   if (!el || !el.isConnected) {
     const historyEl = ui.agentChatHistory as HTMLElement | null;
@@ -92,8 +87,6 @@ function settlePlanIfDone(): void {
   }
 }
 
-// ── Tool handlers (called from ai-agent executeTool) ─────────────────────────
-
 export function toolSetPlan(steps: unknown): string {
   if (!Array.isArray(steps) || !steps.length) return 'Error: steps harus array of strings.';
   const texts = steps.map(s => String(s).trim()).filter(Boolean).slice(0, 12);
@@ -101,11 +94,11 @@ export function toolSetPlan(steps: unknown): string {
   plan = { steps: texts.map(t => ({ text: t, status: 'pending' })), el: null, settled: false };
   if (plan.steps.length) plan.steps[0].status = 'active';
   renderPlan();
-  return `Rencana ${texts.length} langkah ditampilkan. Update progres dengan updatePlanStep(index, status) — status: pending | active | done.`;
+  return `Rencana ${texts.length} langkah ditampilkan. Update progres dengan updatePlanStep(index, status); status: pending | active | done.`;
 }
 
 export function toolUpdatePlanStep(index: number, status: string): string {
-  if (!plan) return 'Error: belum ada rencana aktif — panggil setPlan dulu.';
+  if (!plan) return 'Error: belum ada rencana aktif, panggil setPlan dulu.';
   const i = Math.trunc(Number(index));
   if (!Number.isInteger(i) || i < 1 || i > plan.steps.length) {
     return `Error: index harus 1–${plan.steps.length}.`;
@@ -145,8 +138,6 @@ export function getPlanPromptSection(): string {
   return `\n\n## RENCANA AKTIF (update dengan updatePlanStep tiap ganti langkah)\n${lines.join('\n')}`;
 }
 
-// ── Steering (queue messages typed mid-run) ──────────────────────────────────
-
 interface SteeringEntry {
   text: string;
   at: number;
@@ -154,7 +145,7 @@ interface SteeringEntry {
 
 let steerQueue: SteeringEntry[] = [];
 
-/** Queue a user message typed while the agent is running. Returns false if not running. */
+/** Queue a user message typed while the agent is running; false when empty. */
 export function queueSteerMessage(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
@@ -162,15 +153,13 @@ export function queueSteerMessage(text: string): boolean {
   return true;
 }
 
-/** True when at least one steering message waits for injection. */
 export function hasQueuedSteerMessages(): boolean {
   return steerQueue.length > 0;
 }
 
 /**
- * Drain queued steering messages. Called by the agent loop after the current
- * tool round finishes; the returned text (if any) is injected as a user
- * message so the model adjusts course.
+ * Drain queued steering messages. Called by the agent loop after the current tool
+ * round; the returned text is injected as a user message so the model adjusts.
  */
 export function drainSteerMessages(): string | null {
   if (!steerQueue.length) return null;

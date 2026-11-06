@@ -1,10 +1,8 @@
-// @module auto-copas/types.ts — Auto Copas (full-auto via automated browser)
-//
-// Auto Copas moves text in and out of an AI chat site purely through the OS
-// clipboard — the same way a human would: paste the prompt, press Enter, click
-// the site's own Copy button, read the clipboard. It never writes text into the
-// page via DOM. Page scripts are only used to *focus* inputs, *click* buttons
-// and *read state* (is the model still generating?).
+// @module auto-copas/types.ts: Auto Copas (full-auto via automated browser).
+// Text moves in and out of an AI chat site purely through the OS clipboard, the
+// same way a human would: paste the prompt, press Enter, click the site's own
+// Copy button, read the clipboard. Text is never written into the page via DOM;
+// page scripts only focus inputs, click buttons, and read state.
 
 import type { CopasTargetConfig } from './targets';
 
@@ -41,8 +39,8 @@ export function isCopasError(err: unknown): err is CopasError {
   return err instanceof CopasError;
 }
 
-/** Codes that mean "the whole browser tab/session is broken" — the workflow
- * loops stop immediately instead of burning retries. */
+/** Codes meaning "the whole browser tab/session is broken": the workflow loops
+ * stop immediately instead of burning retries. */
 export function isFatalCopasCode(code: CopasErrorCode): boolean {
   return (
     code === 'unsupported' ||
@@ -53,10 +51,8 @@ export function isFatalCopasCode(code: CopasErrorCode): boolean {
   );
 }
 
-/**
- * Platform-specific transport. One instance per platform; the engine is shared.
- * Every method is a thin hop: camofox = native BiDi call, Android = bridge call.
- */
+/** Platform-specific transport. One instance per platform; the engine is shared.
+ * Every method is a thin hop: camofox = native BiDi call, Android = bridge call. */
 export interface CopasDriver {
   readonly kind: 'camofox' | 'android';
 
@@ -97,9 +93,9 @@ export interface CopasDriver {
   /** Reload the canonical chat URL (fresh conversation for retries). */
   navigateFresh(target: CopasTargetConfig): Promise<void>;
 
-  /** Press the site's "New chat" control (preferred over a page reload —
-   * no navigation race, keeps the browser session warm). Returns false when
-   * no trustworthy button was found. */
+  /** Press the site's "New chat" control (preferred over a page reload: no
+   * navigation race, session stays warm). Returns false when no trustworthy
+   * button was found. */
   clickNewChat(target: CopasTargetConfig): Promise<boolean>;
 
   writeClipboard(text: string): Promise<boolean>;

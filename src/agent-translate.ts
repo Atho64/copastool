@@ -1,4 +1,4 @@
-// @module agent-translate.ts — Autonomous multi-turn agent translation mode
+// @module agent-translate.ts: autonomous multi-turn agent translation mode.
 
 import * as RenderModule from './render';
 import * as SelectionModule from './selection';
@@ -14,14 +14,10 @@ import { abortActiveRequests } from './ai-client';
 import { getDisplayOrderedLines } from './selection';
 import type { Line } from './types';
 
-// ─── Agent state ──────────────────────────────────────────────────────────────
-
 let isAgentTranslating = false;
 let rollingContext = '';
 let fileNotes = new Map<string, string>();
 let glossarySuggestions: { source: string; target: string; note: string; type: string }[] = [];
-
-// ─── Read-only tools (return JSON strings) ───────────────────────────────────
 
 function toolReadLines(start: number, count: number): string {
   const lines = state.lines.filter(l => l.line_num >= start && l.line_num < start + count).slice(0, 50);
@@ -74,8 +70,6 @@ function executeTool(name: string, args: any): string {
   }
 }
 
-// ─── Prompt building ──────────────────────────────────────────────────────────
-
 function buildAgentSystemPrompt(): string {
   let prompt = applyPromptVariables((state.agentPrompt || DEFAULT_AGENT_PROMPT).trim());
   if (state.enableUncertainMarking) {
@@ -109,8 +103,6 @@ function buildAgentUserMessage(batch: Line[], glossaryBlock: string, contextBloc
   return parts.join('\n\n');
 }
 
-// ─── Response parsing ─────────────────────────────────────────────────────────
-
 interface AgentResponse {
   action: string;
   tool_calls?: { name: string; arguments: any }[];
@@ -123,18 +115,15 @@ interface AgentResponse {
 function parseAgentResponse(text: string): AgentResponse {
   let jsonStr = text.trim();
 
-  // Strip markdown code fences
   const codeBlockMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i);
   if (codeBlockMatch) {
     jsonStr = codeBlockMatch[1].trim();
   }
 
-  // Try direct parse
   try {
     return JSON.parse(jsonStr);
   } catch { /* fall through */ }
 
-  // Try to find a JSON object in the text
   const objMatch = jsonStr.match(/\{[\s\S]*\}/);
   if (objMatch) {
     try {
@@ -144,8 +133,6 @@ function parseAgentResponse(text: string): AgentResponse {
 
   throw new Error('Response is not valid JSON.');
 }
-
-// ─── Main agent translate loop ───────────────────────────────────────────────
 
 export async function onAgentTranslate(): Promise<void> {
   const btn = ui.btnAutoTranslate as HTMLButtonElement;
@@ -162,7 +149,7 @@ export async function onAgentTranslate(): Promise<void> {
   }
 
   if (!state.aiApiKey) {
-    alert('API Key belum diisi! Klik tombol robot di pojok kanan bawah untuk mengatur.');
+    alert('API Key belum diisi. Klik tombol robot di pojok kanan bawah untuk mengatur.');
     openModal(ui.apiSettingsModal as HTMLElement);
     return;
   }
@@ -192,10 +179,9 @@ export async function onAgentTranslate(): Promise<void> {
   // 0 = unlimited (Stop is the only exit), otherwise 3–999. Must not use
   // `|| 10` here: 0 is falsy and would silently become 10.
   const configuredTurns = Math.floor(Number(state.agentMaxTurns));
-  const maxTurns = Number.isFinite(configuredTurns) && configuredTurns > 0 ? configuredTurns : 0; // 0 = unlimited
-  // Safety ceiling: this loop runs unattended per chunk, so a model that keeps
-  // calling tools without ever committing would burn tokens forever. The cap is
-  // far above any realistic chunk and only guards against a true runaway.
+  const maxTurns = Number.isFinite(configuredTurns) && configuredTurns > 0 ? configuredTurns : 0;
+  // Safety ceiling: this loop runs unattended, so a model that keeps calling
+  // tools without committing would burn tokens forever. Far above any real chunk.
   const AGENT_TRANSLATE_SAFETY_CEILING = 500;
   const turnBudgetLabel = maxTurns > 0 ? String(maxTurns) : `∞ (cap ${AGENT_TRANSLATE_SAFETY_CEILING})`;
   const batchSize = state.selectionBatchSize || 100;
@@ -211,9 +197,9 @@ export async function onAgentTranslate(): Promise<void> {
             formatGlossaryEntry(s.source, { target: s.target, type: s.type || 'term', desc: s.note })
           ).join('\n');
           (ui.pasteGlossaryArea as HTMLTextAreaElement).value = suggestionsText;
-          flashHint(`Agent menyarankan ${glossarySuggestions.length} istilah glosarium — periksa di tab Glosarium.`);
+          flashHint(`Agent menyarankan ${glossarySuggestions.length} istilah glosarium, periksa di tab Glosarium.`);
         }
-        alert('Selesai! Semua baris target telah diterjemahkan oleh Agent.');
+        alert('Semua baris target sudah diterjemahkan oleh Agent.');
       flashHint('Agent Translate selesai.');
         break;
       }
@@ -227,7 +213,6 @@ export async function onAgentTranslate(): Promise<void> {
       Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
       Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batch[0].line_num));
 
-      // Build context block (same as auto-translate)
       let contextBlock = '';
       if (state.contextLines > 0) {
         const firstSelLineNum = batch[0].line_num;
@@ -251,17 +236,14 @@ export async function onAgentTranslate(): Promise<void> {
         }
       }
 
-      // Build glossary block
       const joinedText = batch.map(l => `${l.name || ''}\t${l.message || ''}`).join('\n');
       const glossaryBlock = getGlossaryPrompt(joinedText);
 
-      // Build messages
       const messages: ChatMessage[] = [
         { role: 'system', content: buildAgentSystemPrompt() },
         { role: 'user', content: buildAgentUserMessage(batch, glossaryBlock, contextBlock) }
       ];
 
-      // Multi-turn loop
       let committed = false;
       for (let turn = 0; (maxTurns === 0 ? turn < AGENT_TRANSLATE_SAFETY_CEILING : turn < maxTurns) && isAgentTranslating; turn++) {
         btn.textContent = `Agent: chunk ${chunkIndex}/${totalChunks}, turn ${turn + 1}/${turnBudgetLabel}... (Klik Stop)`;
@@ -377,7 +359,6 @@ export async function onAgentTranslate(): Promise<void> {
           break;
         }
 
-        // Unknown action
         messages.push({ role: 'assistant', content: responseText });
         messages.push({ role: 'user', content: `Error: Unknown action "${response.action}". Use "tool_calls" or "commit".` });
       }

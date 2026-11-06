@@ -1,13 +1,10 @@
-// @module speaker-name.ts — Heuristik "teks sebelum titik dua ini nama pembicara?"
+// @module speaker-name.ts: heuristik "teks sebelum titik dua ini nama pembicara?".
 //
 // Dipakai parser paste berformat nomor ("123. Nama: teks"), yang harus menebak
-// apakah bagian sebelum titik dua adalah nama karakter atau bagian dari kalimat.
-// Nama karakter boleh memuat koma — "Nino, Menoa, Ichito" (beberapa nama
-// sekaligus) atau "Yuki, Sang Ketua" (nama + gelaran) — tapi kalimat biasa
-// seperti "Yah, aku tidak tahu: ..." tidak boleh ikut terpotong jadi nama.
-//
-// Modul ini sengaja tanpa dependensi runtime selain string-utils supaya bisa
-// diuji langsung dengan Node (lihat scripts/test-parse-speakers.mjs).
+// apakah bagian sebelum titik dua adalah nama karakter atau bagian kalimat. Nama
+// boleh memuat koma ("Nino, Menoa, Ichito", "Yuki, Sang Ketua"), tapi kalimat
+// seperti "Yah, aku tidak tahu: ..." tidak boleh terpotong jadi nama.
+// Tanpa dependensi runtime selain string-utils supaya bisa diuji di Node.
 
 import { stripDecorativeWrapping } from './string-utils.ts';
 
@@ -26,11 +23,9 @@ const MAX_NAME_PARTS = 6;
 const MAX_NAME_PART_LENGTH = 30;
 
 /**
- * Apakah `cand` (teks sebelum titik dua) terlihat seperti nama karakter?
- *
- * Koma diperbolehkan selama setiap bagian tetap terlihat seperti nama: bagian
- * setelah koma wajib dimulai huruf besar atau aksara non-Latin, tidak boleh ada
- * koma menggantung ("A," atau "A,, B"), dan jumlah bagian dibatasi.
+ * Apakah `cand` (teks sebelum titik dua) terlihat seperti nama karakter? Koma
+ * diperbolehkan selama tiap bagian tetap terlihat seperti nama: diawali huruf
+ * besar atau aksara non-Latin, tanpa koma menggantung, dengan jumlah dibatasi.
  */
 export function isPlausibleSpeakerName(cand: string): boolean {
   let clean = String(cand || '').replace(/^\[\?\]\s*/, '').trim();
@@ -48,16 +43,15 @@ export function isPlausibleSpeakerName(cand: string): boolean {
     // "Nino," (koma menggantung) atau "Nino,, Menoa" bukan nama.
     if (commaParts.some(part => !part)) return false;
     if (commaParts.some(part => part.length > MAX_NAME_PART_LENGTH)) return false;
-    // Setiap bagian harus dimulai seperti nama; ini yang membedakan
-    // "Nino, Menoa, Ichito" (nama) dari "Yah, aku tidak tahu" (kalimat).
+    // Ini yang membedakan "Nino, Menoa, Ichito" (nama) dari
+    // "Yah, aku tidak tahu" (kalimat).
     if (commaParts.some(part => !NAME_PART_START_RE.test(part))) return false;
   }
 
   if (clean.length > (hasComma ? MAX_COMMA_NAME_LENGTH : MAX_PLAIN_NAME_LENGTH)) return false;
   if (clean.split(/\s+/).filter(Boolean).length > (hasComma ? MAX_COMMA_NAME_WORDS : MAX_PLAIN_NAME_WORDS)) return false;
-  // Tanda tanya (?/？), tanda seru (!/！), tilde (~/〜), tanda kurung, koma, dan
-  // apostrof diperbolehkan di nama karakter (misal: "Nama???", "Gadis?", "???",
-  // "Nama!", "Sosok (???)", "Nino, Menoa, Ichito", "Shin'ichirō").
+  // Tanda tanya, tanda seru, tilde, kurung, koma, dan apostrof boleh ada di nama
+  // (misal "Nama???", "Sosok (???)", "Shin'ichirō").
   if (NAME_FORBIDDEN_RE.test(clean)) return false;
   return true;
 }

@@ -1,4 +1,4 @@
-// @module virtual-scroller.ts — Virtual scrolling engine
+// @module virtual-scroller.ts: virtual scrolling engine.
 
 export class VirtualScroller<T = any> {
   viewport: HTMLElement;
@@ -95,7 +95,7 @@ export class VirtualScroller<T = any> {
     const prevScroll = preserveScroll ? this.viewport.scrollTop : 0;
     this.items = items;
     if (preserveScroll && this.heights.length === items.length) {
-      // Retain existing heights
+      // Heights are index-keyed, so they can only be reused when the count matches.
     } else {
       const newHeights = new Array(items.length).fill(this.estimatedHeight);
       if (preserveScroll) {
@@ -328,9 +328,8 @@ export class VirtualScroller<T = any> {
       return;
     }
 
-    // Keep the overscan smaller on touch devices. Low/mid-range Android GPUs
-    // benefit from fewer live row subtrees, while desktop keeps a larger
-    // cushion for high-speed wheel scrolling.
+    // Touch devices get a smaller overscan (fewer live row subtrees for
+    // low/mid-range Android GPUs); desktop keeps a larger wheel-scroll cushion.
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const lowMemory = Number((navigator as any).deviceMemory || 8) <= 4;
     const buffer = coarsePointer ? (lowMemory ? 4 : 6) : 16;
@@ -353,9 +352,8 @@ export class VirtualScroller<T = any> {
     end = Math.min(total, end);
 
     if (!force && this.lastStart === targetStart && this.lastEnd === end) {
-      // Heal: rowMap must mirror container membership. If a retained row was
-      // detached behind our back (container cleared/replaced mid-cycle), the
-      // early return below would freeze the broken DOM forever.
+      // rowMap must mirror container membership: a row detached behind our back
+      // (container cleared mid-cycle) would freeze the broken DOM forever.
       for (const el of this.rowMap.values()) {
         if (el.parentNode !== this.container) {
           this.render(true);
@@ -409,9 +407,8 @@ export class VirtualScroller<T = any> {
       this.rowMap.delete(idx);
     }
 
-    // Create new rows first, then insert each contiguous run as one fragment.
-    // Scrolling usually adds a run at one edge; batching avoids repeated DOM
-    // insertions and layout work on slower mobile WebViews.
+    // Insert each contiguous run as one fragment. Scrolling adds a run at one
+    // edge, so batching avoids repeated DOM insertions on slow mobile WebViews.
     const newElements: Array<{ index: number; element: HTMLElement }> = [];
     for (let i = targetStart; i < end; i++) {
       let el = this.rowMap.get(i);
@@ -435,8 +432,7 @@ export class VirtualScroller<T = any> {
         runEnd++;
       }
 
-      // Insert before the next retained row, or before the bottom spacer when
-      // this run extends to the end of the visible window.
+      // Insert before the next retained row, or the bottom spacer at the end.
       let nextNode: HTMLElement | null = null;
       for (let i = newElements[runEnd - 1].index + 1; i < end; i++) {
         const candidate = this.rowMap.get(i);

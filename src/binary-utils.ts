@@ -1,4 +1,4 @@
-// @module binary-utils.ts — Binary encoding and byte manipulation helpers
+// @module binary-utils.ts: binary encoding and byte helpers.
 
 import { getOpfsRoot } from './state';
 

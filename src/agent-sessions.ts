@@ -1,6 +1,6 @@
-// @module agent-sessions.ts — Named chat sessions for the AI Agent.
-// Each project can hold multiple named conversations; switching sessions saves
-// the active one and loads the target. Unnamed legacy chats keep working.
+// @module agent-sessions.ts: named chat sessions for the AI Agent. Each project
+// can hold multiple conversations; switching saves the active one and loads the
+// target. Unnamed legacy chats keep working.
 
 import { state } from './state';
 
@@ -29,7 +29,7 @@ function loadIndex(): AgentSessionMeta[] {
 function saveIndex(list: AgentSessionMeta[]): void {
   try {
     localStorage.setItem(SESSIONS_INDEX_KEY(state.currentProjectId), JSON.stringify(list));
-  } catch { /* quota — ignore */ }
+  } catch { /* quota, ignore */ }
 }
 
 export function listSessions(): AgentSessionMeta[] {
@@ -45,15 +45,14 @@ export function getSessionData(sessionId: string): string | null {
 export function saveSessionData(sessionId: string, data: string): void {
   try {
     localStorage.setItem(SESSION_DATA_KEY(state.currentProjectId, sessionId), data);
-  } catch { /* quota — ignore */ }
+  } catch { /* quota, ignore */ }
 }
 
 export function deleteSessionData(sessionId: string): void {
   try {
     localStorage.removeItem(SESSION_DATA_KEY(state.currentProjectId, sessionId));
   } catch { /* ignore */ }
-  // Also drop the entry from the sessions index, otherwise a ghost row
-  // ("sesi hantu") stays in the list forever.
+  // Also drop the index entry, otherwise a ghost row stays in the list forever.
   try {
     const list = loadIndex().filter(s => s.id !== sessionId);
     saveIndex(list);
@@ -84,20 +83,17 @@ export function renameSession(sessionId: string, newName: string): void {
   saveIndex(list);
 }
 
-/** Persist the current chat into its session slot and refresh the index. */
 export function persistActiveSession(sessionId: string, name: string, serialized: string, messageCount: number): void {
   saveSessionData(sessionId, serialized);
   upsertIndex(sessionId, name, messageCount);
 }
 
-/** First-line derivation for auto session names. */
+/** Auto session name from the first user message. */
 export function deriveSessionName(firstUserMessage: string): string {
   const t = String(firstUserMessage || '').trim().replace(/\s+/g, ' ');
   if (!t) return 'Sesi baru';
   return t.length > 32 ? t.slice(0, 30) + '…' : t;
 }
-
-// ── UI rendering ─────────────────────────────────────────────────────────────
 
 export function renderSessionList(
   container: HTMLElement,
@@ -124,11 +120,10 @@ export function renderSessionList(
     const nameBtn = document.createElement('button');
     nameBtn.type = 'button';
     nameBtn.className = 'agent-session-name';
-    nameBtn.title = `${s.messageCount} pesan — klik untuk buka`;
+    nameBtn.title = `${s.messageCount} pesan, klik untuk buka`;
     nameBtn.textContent = s.name;
     nameBtn.addEventListener('click', () => callbacks.onSwitch(s.id));
 
-    // Inline rename on double click.
     nameBtn.addEventListener('dblclick', () => {
       const input = document.createElement('input');
       input.className = 'text-input agent-session-rename';
@@ -153,9 +148,8 @@ export function renderSessionList(
     delBtn.className = 'icon-btn agent-session-delete';
     delBtn.title = 'Hapus sesi';
     delBtn.textContent = '✕';
-    // Two-step confirm: first click arms the button (turns into a "?" with a
-    // highlighted style), second click within 3s actually deletes. Any other
-    // click / timeout / re-render disarms it — no accidental deletions.
+    // Two-step confirm: the first click arms the button ("?" style), the second
+    // within 3s deletes. Any other click, timeout, or re-render disarms it.
     let armed = false;
     let disarmTimer: ReturnType<typeof setTimeout> | null = null;
     const disarm = () => {

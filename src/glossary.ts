@@ -1,4 +1,4 @@
-// @module glossary.ts — Glossary parsing, management, and file I/O
+// @module glossary.ts: glossary parsing, management, and file I/O.
 
 import { state, ui } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
@@ -34,9 +34,8 @@ export function getGlossaryPrompt(copiedText: string): string {
 }
 
 /**
- * Cek term-term yang SUDAH ADA di Smart Glossary dan muncul di teks sumber.
- * Digunakan untuk memberi tahu AI agar tidak mengekstrak ulang istilah yang sudah ada.
- * Hanya dikembalikan jika ada term yang cocok (smart — tidak muncul jika tidak relevan).
+ * Cek term yang SUDAH ADA di Smart Glossary dan muncul di teks sumber, supaya AI
+ * tidak mengekstrak ulang. Kosong kalau tidak ada term yang cocok.
  */
 export function buildExistingGlossaryHint(sourceText: string): string {
   const glossary = parseGlossaryToMap(state.glossaryText);
@@ -49,16 +48,15 @@ export function buildExistingGlossaryHint(sourceText: string): string {
     }
   }
   if (!existing.length) return '';
-  const block = `\n\n<AlreadyInGlossary>\nThe following terms are ALREADY in the glossary — do not re-extract them, skip these:\n${existing.join('\n')}\n</AlreadyInGlossary>`;
+  const block = `\n\n<AlreadyInGlossary>\nThe following terms are ALREADY in the glossary, do not re-extract them, skip these:\n${existing.join('\n')}\n</AlreadyInGlossary>`;
   return sanitizeTagsForChatgpt(block);
 }
 
 /**
  * Replace angle-bracket section markers with safe `=== LABEL ===` markers so
- * ChatGPT's composer does not strip them as HTML. Closing tags are dropped.
- * Only the known structural sections are touched (whitelist) so XML-format
- * `<line num="...">` tags inside the payload are left intact.
- * No-op when the setting is off.
+ * ChatGPT's composer does not strip them as HTML; closing tags are dropped. Only
+ * whitelisted sections are touched, so XML-format `<line num="...">` tags inside
+ * the payload stay intact. No-op when the setting is off.
  */
 const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'Context_After', 'lines', 'AlreadyInGlossary', 'background', 'summary', 'local_lint_hints'];
 export function sanitizeTagsForChatgpt(text: string): string {
@@ -72,7 +70,7 @@ export function sanitizeTagsForChatgpt(text: string): string {
   return out;
 }
 
-// Cache hasil parse glossary — teks glossary sering diparse berulang kali
+// Cache hasil parse glossary: teks glossary sering diparse berulang kali
 // (renderGlossaryPreview + prompt builder per batch). Penelepon boleh memutasi
 // Map yang dikembalikan (mergeGlossaryEntries, onSaveGlossary, dll.), jadi
 // selalu kembalikan salinan dangkal dari cache.
@@ -272,7 +270,7 @@ export function onSaveGlossary(): void {
   ui.pasteGlossaryArea.value = '';
   renderGlossaryPreview();
   queueAutoSave();
-  flashHint('Glossary berhasil disimpan!');
+  flashHint('Glossary disimpan.');
 }
 
 export function buildSafeFileNameGlossary(name: string): string {
@@ -299,7 +297,7 @@ export function onDeleteTranslation(): void {
     renderPreviewRows();
     updateButtonStates();
     queueAutoSave();
-    flashHint(`${deletedCount} baris terjemahan berhasil dihapus.`);
+    flashHint(`${deletedCount} baris terjemahan dihapus.`);
   } else {
     flashHint('Tidak ada terjemahan yang bisa dihapus pada baris yang dicentang.');
   }

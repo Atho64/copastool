@@ -1,12 +1,10 @@
-// @module auto-copas/android-driver.ts — Android Auto Copas transport.
-//
-// The AI site is loaded in a dedicated in-app WebView activity
-// (AutoCopasActivity, injected by scripts/patch-android-bridge.mjs). Text still
-// travels via the clipboard: Kotlin pastes into the focused composer through
-// the IME InputConnection (real clipboard paste, not DOM injection), the site's
-// own Copy button puts the response on the clipboard, and Kotlin reads it with
-// ClipboardManager. Page scripts from page-scripts.ts run via
-// evaluateJavascript for focus/click/state only.
+// @module auto-copas/android-driver.ts: Android Auto Copas transport.
+// The AI site loads in a dedicated in-app WebView activity (AutoCopasActivity,
+// injected by scripts/patch-android-bridge.mjs). Text travels via the clipboard:
+// Kotlin pastes into the focused composer through the IME InputConnection (a
+// real paste, not DOM injection), the site's own Copy button puts the response
+// on the clipboard, and Kotlin reads it with ClipboardManager. Page scripts run
+// via evaluateJavascript for focus/click/state only.
 //
 // Bridge contract (AndroidBridge.kt, callId pattern like the folder ops):
 //   copasOpen(url, callId)              open activity + load URL
@@ -106,8 +104,8 @@ class AndroidDriver implements CopasDriver {
     return await runCopasCall('copasEval', [expression], { timeoutMs: 60_000, parseJson: true });
   }
 
-  /** evaluateJavascript does not await promises: park the result in a window
-   * slot, then poll for it from the main webview. */
+  /** evaluateJavascript does not await promises: park the result in a window slot,
+   * then poll for it from the main webview. */
   async evaluateAsync(expression: string, target?: CopasTargetConfig): Promise<any> {
     const wrapped = `
       window.__cstlCopasAsyncResult = null;
@@ -137,8 +135,8 @@ class AndroidDriver implements CopasDriver {
     return !!res?.found;
   }
 
-  /** ctrl+a + ctrl+v collapse into one native InputConnection paste; 'enter'
-   * goes through the IME as a real key event. */
+  /** ctrl+a + ctrl+v collapse into one native InputConnection paste; 'enter' goes
+   * through the IME as a real key event. */
   async pressCombo(keys: string[], _target?: CopasTargetConfig): Promise<void> {
     if (keys.includes('ctrl+v')) {
       await runCopasCall('copasPasteIntoComposer', [], { timeoutMs: 30_000 });

@@ -1,7 +1,4 @@
-/**
- * Custom in-app dialog system (Prompt, Confirm, Alert).
- * Replaces native browser blocking dialogs with themed, non-blocking modal components.
- */
+/** In-app Prompt/Confirm/Alert dialogs replacing the native blocking ones. */
 
 let seq = 0;
 let activeOverlay: HTMLElement | null = null;
@@ -67,11 +64,7 @@ export interface AlertOptions {
   confirmLabel?: string;
 }
 
-/**
- * In-app text prompt dialog.
- * Replaces `window.prompt(message, defaultValue)`.
- * Resolves with the input string if confirmed, or `null` if cancelled.
- */
+/** Replaces `window.prompt(message, defaultValue)`; resolves null on cancel. */
 export function cstlPrompt(
   message: string,
   defaultValue = '',
@@ -152,11 +145,7 @@ export function cstlPrompt(
   });
 }
 
-/**
- * In-app confirmation dialog.
- * Replaces `window.confirm(message)`.
- * Resolves with `true` if confirmed, or `false` if cancelled.
- */
+/** Replaces `window.confirm(message)`; resolves false on cancel. */
 export function cstlConfirm(
   message: string,
   opts: ConfirmOptions = {}
@@ -205,7 +194,7 @@ export function cstlConfirm(
           e.preventDefault();
           finish(false);
         } else if (e.key === 'Enter') {
-          // If focus is specifically on cancel, don't confirm on Enter
+          // Enter on the focused cancel button must not confirm.
           if (document.activeElement === btnCancel) {
             e.preventDefault();
             finish(false);
@@ -235,11 +224,7 @@ export function cstlConfirm(
   });
 }
 
-/**
- * In-app alert dialog.
- * Replaces `window.alert(message)`.
- * Resolves when dismissed by the user.
- */
+/** Replaces `window.alert(message)`; resolves when dismissed. */
 export function cstlAlert(
   message: string,
   opts: AlertOptions = {}
@@ -302,10 +287,7 @@ export function cstlAlert(
   });
 }
 
-/**
- * Initializes global dialog overrides.
- * Intercepts `window.alert` so third-party calls or legacy code display custom in-app dialogs.
- */
+/** Exposes the dialogs on window and routes window.alert through cstlAlert. */
 export function initGlobalDialogs(): void {
   if (typeof window === 'undefined') return;
 
@@ -313,7 +295,6 @@ export function initGlobalDialogs(): void {
   (window as any).cstlConfirm = cstlConfirm;
   (window as any).cstlAlert = cstlAlert;
 
-  // Intercept window.alert
   window.alert = (msg: any) => {
     void cstlAlert(String(msg ?? ''));
   };

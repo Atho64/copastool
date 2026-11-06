@@ -1,23 +1,8 @@
-// @module ai-client.ts — Single request layer for every AI provider call.
-//
-// Before this module existed, `ai-agent.ts` and `auto-translate.ts` each carried
-// their own copy of the URL builder, the three provider implementations and an SSE
-// parser. Every fix had to be made twice and the copies drifted. This module is the
-// one place where an AI request is built, sent, timed out, cancelled and retried.
-//
-// Provider support: OpenAI-compatible, Anthropic, Google Gemini.
-// Reliability: per-request idle timeout, cancellable in-flight requests,
-//              status-code-driven key rotation, transient-error backoff with
-//              Retry-After support, and a shared RPM rate limiter that keeps
-//              automated pipelines (including parallel sub-batches) inside the
-//              configured request-per-minute budget.
+// Single request layer for every AI provider call (OpenAI-compatible, Anthropic,
+// Gemini): the one place a request is built, sent, timed out, cancelled and retried.
 
 import { state } from './state';
 import { applyOpenAIOptions, applyAnthropicOptions, applyGeminiOptions } from './api-request-options';
-
-// ------------------------------------------------------------------
-// Types
-// ------------------------------------------------------------------
 
 export type ChatRole = 'system' | 'user' | 'assistant';
 
@@ -63,7 +48,7 @@ export interface ChatCompletionOptions {
 export interface ToolCallRequest {
   name: string;
   arguments: Record<string, any>;
-  /** Provider-native call id when available (not needed for our loop). */
+  /** Provider-native call id when available. */
   id?: string;
 }
 
@@ -73,14 +58,10 @@ export interface StructuredCompletionResult {
   toolCalls: ToolCallRequest[];
 }
 
-// ------------------------------------------------------------------
-// Errors
-// ------------------------------------------------------------------
-
 /** Max characters of a provider error body kept in the message. */
 const ERROR_BODY_LIMIT = 300;
 
-/** HTTP failure carrying the status code, so retry logic never has to parse strings. */
+/** HTTP failure carrying the status code, so retry logic never parses strings. */
 export class ApiHttpError extends Error {
   readonly status: number;
   readonly body: string;
@@ -110,7 +91,7 @@ function parseRetryAfterMs(header: string | null): number | null {
   return null;
 }
 
-/** Request stopped deliberately — either by the user or by the idle timeout. */
+/** Request stopped deliberately, by the user or by the idle timeout. */
 export class AiAbortError extends Error {
   readonly reason: 'user' | 'timeout';
 
@@ -120,10 +101,6 @@ export class AiAbortError extends Error {
     this.reason = reason;
   }
 }
-
-// ------------------------------------------------------------------
-// Text helpers
-// ------------------------------------------------------------------
 
 const THINKING_TAGS = [
   '<think>', '</think>',
@@ -142,10 +119,8 @@ const THINKING_TAIL_RE = /<\|?think(?:ing)?\|?>[\s\S]*$|<reasoning>[\s\S]*$/i;
 const THINKING_ANY_RE = /<\|?think(?:ing)?\|?>|<reasoning>/i;
 
 /**
- * Removes model reasoning blocks from a finished response.
- *
- * Also drops an unterminated opening tag to the end of the text: a stream that is
- * cut off mid-reasoning should not leak the raw thinking into the translation.
+ * Removes model reasoning blocks, including an unterminated opening tag through to
+ * the end of the text: a stream cut off mid-reasoning must not leak raw thinking.
  */
 export function stripThinkingTags(text: string): string {
   const t = String(text ?? '');
@@ -154,24 +129,17 @@ export function stripThinkingTags(text: string): string {
 }
 
 /**
- * Cheap per-delta display filter.
- *
- * Calling `stripThinkingTags` on the whole accumulated text for every streamed
- * chunk is quadratic (regex over a growing string, thousands of times). While a
- * reasoning block is still open there is nothing safe to show anyway, so this
- * returns '' until the block closes.
+ * Cheap per-delta display filter: stripping the whole accumulated text on every
+ * chunk is quadratic, and while a block is open there is nothing safe to show,
+ * so this returns '' until it closes.
  */
 export function stripThinkingTagsForStream(text: string): string {
   const t = String(text ?? '');
   if (!THINKING_ANY_RE.test(t)) return t;
-  // An opening tag with no matching close yet → the model is still thinking.
+  // An opening tag with no matching close yet: the model is still thinking.
   if (THINKING_TAIL_RE.test(t) && !THINKING_BLOCK_TEST_RE.test(t)) return '';
   return stripThinkingTags(t);
 }
-
-// ------------------------------------------------------------------
-// Config helpers
-// ------------------------------------------------------------------
 
 export function shuffleArray<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -185,12 +153,9 @@ export function shuffleArray<T>(arr: T[]): T[] {
 /**
  * Builds the ordered list of API configurations to try.
  *
- * Line format in the backup-keys box:
- *   `key`                 → primary url + model
- *   `key|url`             → primary model
- *   `key|url|model`       → fully specified
- * Lines starting with `#` are comments. Duplicates are dropped so a key pasted
- * twice is not spent twice.
+ * Backup-keys box line format: `key`, `key|url`, or `key|url|model`. Lines
+ * starting with `#` are comments. Duplicates are dropped so a key pasted twice
+ * is not spent twice.
  */
 export function parseBackupKeys(): ApiConfig[] {
   const configs: ApiConfig[] = [];
@@ -225,17 +190,14 @@ export function parseBackupKeys(): ApiConfig[] {
 }
 
 /**
- * Decides whether a failure justifies spending the next configured key.
- *
- * Reads the HTTP status instead of matching substrings. The previous
- * implementation only matched `HTTP 429` / `HTTP 5` / network wording, so an
- * invalid or expired key (401/403) aborted the whole run without ever trying the
- * backups — exactly the case backup keys exist for.
+ * Decides whether a failure justifies spending the next configured key. Reads the
+ * HTTP status instead of matching substrings, so an invalid or expired key
+ * (401/403) rotates to the backups instead of aborting the run.
  */
 export function shouldTryNextKey(err: unknown): boolean {
   const e = err as any;
 
-  // The user pressed Stop — do not keep spending keys.
+  // The user pressed Stop: do not keep spending keys.
   if (e instanceof AiAbortError) return e.reason === 'timeout';
 
   // An empty completion usually means a broken gateway; a backup key may work.
@@ -257,10 +219,6 @@ export function shouldTryNextKey(err: unknown): boolean {
   return false;
 }
 
-// ------------------------------------------------------------------
-// Cancellation registry
-// ------------------------------------------------------------------
-
 interface ActiveRequest {
   controller: AbortController;
   reason: 'user' | 'timeout';
@@ -269,9 +227,8 @@ interface ActiveRequest {
 const activeRequests = new Set<ActiveRequest>();
 
 /**
- * Bumped on every abortActiveRequests() call. RPM/backoff waits capture the
- * epoch when they start so a Stop press can cancel them too, not just the
- * in-flight HTTP requests.
+ * Bumped on every abortActiveRequests() call. RPM/backoff waits capture the epoch
+ * when they start, so a Stop press cancels them too, not just the HTTP requests.
  */
 let abortEpoch = 0;
 
@@ -280,10 +237,7 @@ export function hasActiveRequest(): boolean {
   return activeRequests.size > 0;
 }
 
-/**
- * Aborts every in-flight AI request. Called by the Stop buttons.
- * Returns how many requests were signalled.
- */
+/** Aborts every in-flight AI request (Stop buttons). Returns how many were signalled. */
 export function abortActiveRequests(): number {
   abortEpoch++;
   let n = 0;
@@ -293,10 +247,6 @@ export function abortActiveRequests(): number {
   activeRequests.clear();
   return n;
 }
-
-// ------------------------------------------------------------------
-// Shared RPM limiter & transient-error backoff
-// ------------------------------------------------------------------
 
 /** Cancellable delay used by the RPM gate and retry backoff. */
 function abortableDelay(ms: number, epoch: number, options?: ChatCompletionOptions): Promise<void> {
@@ -325,10 +275,9 @@ let rpmLastStartAt = 0;
 let rpmChain: Promise<void> = Promise.resolve();
 
 /**
- * Serializes request *starts* so automated pipelines never exceed the
- * configured RPM — including parallel sub-batches, which previously fired
- * all at once. The interval is read live, so changing the RPM setting
- * mid-run takes effect on the next request.
+ * Serializes request *starts* so automated pipelines, including parallel
+ * sub-batches, never exceed the configured RPM. The interval is read live, so an
+ * RPM change mid-run takes effect on the next request.
  */
 async function acquireRequestSlot(options: ChatCompletionOptions): Promise<void> {
   const interval = rpmIntervalMs();
@@ -355,8 +304,8 @@ const BACKOFF_MAX_MS = 30000;
 
 /**
  * True for failures worth retrying on the SAME key with a backoff wait:
- * 429/5xx/408/425, network errors, idle timeouts, and empty completions.
- * Auth failures (401/403) are not transient — they rotate to the next key.
+ * 429/5xx/408/425, network errors, idle timeouts, empty completions.
+ * Auth failures (401/403) are not transient: they rotate to the next key.
  */
 function isTransientError(err: unknown): boolean {
   if (err instanceof AiAbortError) return err.reason === 'timeout';
@@ -374,7 +323,7 @@ function backoffDelayMs(attempt: number, retryAfterMs?: number | null): number {
   return Math.min(BACKOFF_MAX_MS, Math.round(BACKOFF_BASE_MS * Math.pow(2, attempt - 1) * jitter));
 }
 
-/** Current cancellation epoch — bumped on every abortActiveRequests() call. */
+/** Current cancellation epoch, bumped on every abortActiveRequests() call. */
 export function currentAbortEpoch(): number {
   return abortEpoch;
 }
@@ -400,11 +349,9 @@ interface RequestCtx {
 }
 
 /**
- * Runs `run` under an abortable, idle-timed request scope.
- *
- * The timer measures *silence*, not total duration: a reasoning model may think
- * for a minute before the first token, and a long answer may stream for several
- * minutes, but neither should be killed while bytes keep arriving.
+ * Runs `run` under an abortable, idle-timed request scope. The timer measures
+ * *silence*, not total duration: a reasoning model may think for a minute before
+ * the first token, but must not be killed while bytes keep arriving.
  */
 async function withAiRequest<T>(options: ChatCompletionOptions, run: (ctx: RequestCtx) => Promise<T>): Promise<T> {
   const entry: ActiveRequest = { controller: new AbortController(), reason: 'user' };
@@ -440,20 +387,14 @@ async function withAiRequest<T>(options: ChatCompletionOptions, run: (ctx: Reque
   }
 }
 
-// ------------------------------------------------------------------
-// SSE reader
-// ------------------------------------------------------------------
-
 interface StreamOutcome {
   /** finish_reason / stop_reason / finishReason seen on the wire, if any. */
   finishReason: string | null;
 }
 
 /**
- * Parses a streaming HTTP body into individual JSON payloads.
- *
- * Handles `data:` framed SSE, `[DONE]`, CRLF, and gateways that ignore the SSE
- * framing and stream NDJSON instead. Re-arms the idle timer on every chunk.
+ * Parses a streaming HTTP body into individual JSON payloads. Handles `data:`
+ * framed SSE, `[DONE]`, CRLF, and gateways that stream NDJSON instead.
  */
 async function readSseDataLines(
   res: Response,
@@ -509,7 +450,7 @@ async function readSseDataLines(
   const rawText = rawLines.join('\n').trim();
   if (!rawText || rawText === '[DONE]') return { finishReason: null };
   try {
-    // Emit one complete JSON document (including pretty-printed JSON).
+    // One complete JSON document, including pretty-printed JSON.
     JSON.parse(rawText);
     onEvent(rawText);
   } catch {
@@ -522,10 +463,6 @@ async function readSseDataLines(
   }
   return { finishReason: null };
 }
-
-// ------------------------------------------------------------------
-// Provider: OpenAI-compatible
-// ------------------------------------------------------------------
 
 function openAiUrl(baseUrl: string): string {
   let url = baseUrl || 'https://api.openai.com/v1/chat/completions';
@@ -697,9 +634,8 @@ function onDeltaSafe(options: ChatCompletionOptions): boolean {
 }
 
 /**
- * A response that parsed successfully but carries no text. Retrying on the
- * same key (and rotating keys) is worthwhile — some gateways intermittently
- * return an empty completion.
+ * A response that parsed but carries no text. Worth retrying on the same key and
+ * rotating keys: some gateways intermittently return an empty completion.
  */
 function makeEmptyResponseError(): Error {
   const err = new Error('Respons AI kosong (tidak ada teks).');
@@ -710,37 +646,31 @@ function makeEmptyResponseError(): Error {
 let warnedMissingFinishReason = false;
 
 /**
- * Surfaces truncated or abnormally-ended responses instead of accepting them silently.
- *
- * Warns rather than throws on purpose: a missing marker may simply mean the gateway
- * does not emit one, and throwing would break endpoints that currently work. The
- * actionable cases (`length`, `content_filter`) are always reported.
+ * Surfaces truncated or abnormally-ended responses. Warns rather than throws on
+ * purpose: a missing marker may just mean the gateway does not emit one, and
+ * throwing would break endpoints that currently work.
  */
 function warnOnFinish(finish: string | null, options: ChatCompletionOptions, config: ApiConfig): void {
   const model = config.model || '(model tidak diset)';
 
   if (finish === null) {
-    // Report once per session — a gateway that never sends a marker would otherwise
-    // add one log line to every single request.
+    // Report once per session: a gateway that never sends a marker would otherwise
+    // add one log line to every request.
     if (!warnedMissingFinishReason) {
       warnedMissingFinishReason = true;
       options.log?.(
         'Provider tidak mengirim penanda selesai',
-        `Model: ${model} — keutuhan respons tidak bisa dipastikan. Kalau hasil terjemahan sering terpotong, periksa koneksi atau gateway-nya.`
+        `Model: ${model}. Keutuhan respons tidak bisa dipastikan. Kalau hasil terjemahan sering terpotong, periksa koneksi atau gateway-nya.`
       );
     }
     return;
   }
   if (finish === 'length' || finish === 'max_tokens') {
-    options.log?.('Respons terpotong karena batas token', `Model: ${model} — naikkan Max Output Tokens lalu ulangi.`);
+    options.log?.('Respons terpotong karena batas token', `Model: ${model}. Naikkan Max Output Tokens lalu ulangi.`);
   } else if (finish === 'content_filter') {
     options.log?.('Respons dihentikan filter konten provider', `Model: ${model}`);
   }
 }
-
-// ------------------------------------------------------------------
-// Provider: Anthropic
-// ------------------------------------------------------------------
 
 function anthropicMessagesUrl(baseUrl: string): string {
   let url = (baseUrl || '').trim() || 'https://api.anthropic.com/v1/messages';
@@ -928,10 +858,6 @@ function createAnthropicToolCallAccumulator() {
   };
 }
 
-// ------------------------------------------------------------------
-// Provider: Google Gemini
-// ------------------------------------------------------------------
-
 function appendQueryParams(rawUrl: string, values: Record<string, string>, overwrite = false): string {
   const hashIndex = rawUrl.indexOf('#');
   const hash = hashIndex >= 0 ? rawUrl.slice(hashIndex) : '';
@@ -1002,8 +928,8 @@ async function chatCompletionGemini(
   };
 
   const firstBody = buildBody(true);
-  // Only worth a retry when a thinking config was actually attached — with everything
-  // left on `default` the field is absent and a 400 must be a different problem.
+  // Only worth a retry when a thinking config was attached: with everything left on
+  // `default` the field is absent and a 400 must be a different problem.
   const hasThinkingConfig = !!firstBody.generationConfig?.thinkingConfig;
 
   const post = (ctx: RequestCtx, body: any) => fetch(url, {
@@ -1020,13 +946,12 @@ async function chatCompletionGemini(
   return withAiRequest(options, async (ctx) => {
     let res = await post(ctx, firstBody);
 
-    // Models that do not support thinking reject `thinkingConfig` with a bare
-    // 400 INVALID_ARGUMENT that never names the offending field, so the user only sees
-    // "Request contains an invalid argument". Drop the field and try once more.
+    // Models without thinking support reject `thinkingConfig` with a bare 400
+    // INVALID_ARGUMENT that never names the field. Drop it and try once more.
     if (!res.ok && res.status === 400 && hasThinkingConfig) {
       const detail = await res.text();
       options.log?.(
-        'Gemini menolak thinkingConfig — mengulang tanpa thinking',
+        'Gemini menolak thinkingConfig, mengulang tanpa thinking',
         `Model: ${model} | ${detail.slice(0, 160)}`
       );
       ctx.arm();   // the retry is a fresh request, so it gets a fresh idle budget
@@ -1105,17 +1030,10 @@ function extractGeminiToolCalls(item: any): ToolCallRequest[] {
     }));
 }
 
-// ------------------------------------------------------------------
-// Entry point
-// ------------------------------------------------------------------
-
 /**
- * Sends a chat request with a shared RPM limiter, transient-error backoff and
- * key rotation across the configured keys.
- *
- * Cancellation: call `abortActiveRequests()` (the Stop button does) to abort
- * every in-flight call and cancel pending RPM/backoff waits. Timeout: a request
- * that receives nothing for `aiRequestTimeoutMs` is aborted and treated as
+ * Sends a chat request with a shared RPM limiter, transient-error backoff and key
+ * rotation. `abortActiveRequests()` cancels every in-flight call and pending
+ * wait; silence longer than `aiRequestTimeoutMs` aborts and is treated as
  * retryable.
  */
 export async function chatCompletion(
@@ -1135,10 +1053,9 @@ export async function chatCompletion(
     const config = ordered[i];
     if (options.isCancelled?.() || currentAbortEpoch() > startEpoch) throw new AiAbortError('user');
 
-    // Transient failures (429/5xx/network/empty) are retried on the SAME key
-    // with exponential backoff + Retry-After before any key is spent. A single
-    // blip used to rotate straight to the next key — with one key configured
-    // it killed the whole run.
+    // Transient failures (429/5xx/network/empty) are retried on the SAME key with
+    // exponential backoff + Retry-After before any key is spent, so a single blip
+    // does not kill a run that has one key configured.
     let attempt = 0;
     while (true) {
       if (options.isCancelled?.() || currentAbortEpoch() > startEpoch) throw new AiAbortError('user');
@@ -1184,7 +1101,7 @@ export async function chatCompletion(
   throw lastError || new Error('Semua API key gagal.');
 }
 
-/** Convenience wrapper for callers that only have a single prompt string. */
+/** Wrapper for callers that only have a single prompt string. */
 export async function chatCompletionText(
   prompt: string,
   options: ChatCompletionOptions = {}
@@ -1193,10 +1110,9 @@ export async function chatCompletionText(
 }
 
 /**
- * Structured completion: like chatCompletion, but when `options.tools` is set
- * the providers' native tool calls are returned instead of being embedded in
- * text. Falls back to plain text when tools are unsupported/unavailable —
- * the caller is responsible for parsing text in that case.
+ * Like chatCompletion, but with `options.tools` set the providers' native tool
+ * calls are returned instead of being embedded in text. Callers must parse text
+ * themselves when tools are unsupported.
  */
 export async function chatCompletionStructured(
   messages: ChatMessage[],
@@ -1210,8 +1126,7 @@ export async function chatCompletionStructured(
   if (result && typeof result === 'object' && Array.isArray(result.toolCalls)) {
     return result as StructuredCompletionResult;
   }
-  // Provider returned a plain string (should not happen when tools are set,
-  // but be defensive) — treat it as a text-only result.
+  // A plain string when tools are set should not happen; treat it as text-only.
   return { text: String(result ?? ''), toolCalls: [] };
 }
 

@@ -1,4 +1,4 @@
-// @module icons.ts — Lucide SVG icons (inline, no CDN needed)
+// @module icons.ts: inline Lucide SVG icons, no CDN.
 
 export type IconName =
   | 'settings'
@@ -75,7 +75,6 @@ const PATHS: Record<IconName, string> = {
   'file-plus': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M12 18v-6" /><path d="M9 15h6" />',
 };
 
-/** Return SVG string for an icon. Size defaults to 24. */
 export function icon(name: IconName, size?: number, extraClass = ''): string {
   const s = size || 24;
   const cls = extraClass ? `lucide-icon ${extraClass}` : 'lucide-icon';

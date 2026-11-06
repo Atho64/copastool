@@ -1,4 +1,4 @@
-// @module project.ts — Project management, OPFS persistence, dashboard, backup & restore
+// @module project.ts: project management, OPFS persistence, dashboard, backup and restore
 
 import * as RenderModule from './render';
 import { state, ui, setSaveTimeout, getSaveTimeout, getOpfsRoot } from './state';
@@ -49,13 +49,12 @@ export function getProjectSidecarId(id: string, suffix: string): string {
   return id + suffix;
 }
 
-// ─── Luca raw-field recovery (migration for saves made before the luca_raw_index fix) ───
+// Backfill raw fields for saves written before luca_raw_index existed.
 function recoverLucaRawFields(): void {
   if (state.projectType !== 'luca') return;
   const needsRecovery = state.lines.some(l => l.luca_command && l.luca_raw_index == null);
   if (!needsRecovery) return;
 
-  // Group existing translated lines by file
   const existingByFile = new Map<string, Line[]>();
   for (const l of state.lines) {
     if (!existingByFile.has(l.file)) existingByFile.set(l.file, []);
@@ -67,11 +66,10 @@ function recoverLucaRawFields(): void {
     const rawLinesArr = state.lucaRawFiles[fileName];
     if (!rawLinesArr || !rawLinesArr.length) continue;
 
-    // Re-parse so we get lines with correct luca_raw_index values
     const freshLines = parseLucaTxt(rawLinesArr.join('\n'), fileName, 0, state.lucaProfile || DEFAULT_LUCA_PROFILE);
     if (!freshLines.length) continue;
 
-    // Match MESSAGE/MESSAGE_WAIT lines positionally (nth in file = nth fresh parse)
+    // Match MESSAGE/MESSAGE_WAIT positionally (nth in file = nth in fresh parse)
     const existingMsg = fileLines.filter(l => l.luca_command === 'MESSAGE' || l.luca_command === 'MESSAGE_WAIT');
     const freshMsg    = freshLines.filter(l => l.luca_command === 'MESSAGE' || l.luca_command === 'MESSAGE_WAIT');
     for (let i = 0; i < existingMsg.length && i < freshMsg.length; i++) {
@@ -87,7 +85,6 @@ function recoverLucaRawFields(): void {
       recovered++;
     }
 
-    // Match SELECT lines positionally
     const existingSelect = fileLines.filter(l => l.luca_command === 'SELECT');
     const freshSelect    = freshLines.filter(l => l.luca_command === 'SELECT');
     for (let i = 0; i < existingSelect.length && i < freshSelect.length; i++) {
@@ -102,8 +99,7 @@ function recoverLucaRawFields(): void {
   }
 
   if (recovered > 0) {
-    console.log(`[CSTL] Migrated luca raw fields for ${recovered} lines — queuing save.`);
-    // Persist the repaired data so future opens are clean
+    console.log(`[CSTL] Migrated luca raw fields for ${recovered} lines, queuing save.`);
     queueAutoSave();
   }
 }
@@ -117,7 +113,6 @@ async function updateButtonStates() { return (await Promise.resolve(RenderModule
 async function updateStatusBar() { return (await Promise.resolve(RenderModule)).updateStatusBar(); }
 async function applyHtlMode() { return (await import('./htl-mode')).applyHtlMode(); }
 
-// ─── Modal helpers ────────────────────────────────────────────────────────────
 export function openModal(el: HTMLElement): void { el.classList.add('open'); }
 export function closeModal(el: HTMLElement): void {
   el.classList.add('closing');
@@ -127,10 +122,9 @@ export function closeModal(el: HTMLElement): void {
   }, 220); // matches --dur-2
 }
 
-// ─── Dashboard default settings ───────────────────────────────────────────────
 export const DS_STORAGE_KEY = 'cstl_default_settings';
 
-// ─── Color palettes — all ink/manuscript-grounded (no neon SaaS) ───────────────
+// Palettes stay ink/manuscript-grounded, no neon SaaS colors.
 const PALETTES: Record<string, Record<string, string>> = {
   indigo: {
     '--primary':       '#c84e18',
@@ -184,8 +178,8 @@ export function applyPalette(name: string): void {
       root.style.removeProperty(prop);
     }
   }
-  // 'indigo' is byte-identical to icon.svg — reuse the canonical file so the
-  // PWA precaches one indigo icon instead of two.
+  // 'indigo' is byte-identical to icon.svg, so reuse the canonical file: the
+  // PWA then precaches one indigo icon instead of two.
   const iconUrl = key === 'indigo' ? './icon.svg' : `./icon-${key}.svg`;
   const logoImg = document.querySelector('.hero-logo-img') as HTMLImageElement | null;
   if (logoImg) logoImg.src = iconUrl;
@@ -307,7 +301,6 @@ export function openDashboardSettings(): void {
   const dsThinking = document.getElementById('dsCopasThinking') as HTMLSelectElement | null;
   if (dsThinking) dsThinking.value = d.copasThinking === 'on' || d.copasThinking === 'off' ? d.copasThinking : 'default';
 
-  // Sync conditional wrap displays
   if (ui.dsSimilarityThresholdWrap) {
     (ui.dsSimilarityThresholdWrap as HTMLElement).style.display = (ui.dsCheckSimilarity as HTMLInputElement)?.checked ? 'flex' : 'none';
   }
@@ -484,7 +477,6 @@ export function resetDashboardSettings(): void {
   applyProjectLoggingVisibility();
 }
 
-// ─── Dashboard project list ───────────────────────────────────────────────────
 export function escapeHtml(str: string): string {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -583,7 +575,6 @@ export async function loadDashboardProjects(): Promise<void> {
     const cache = await loadProjectsMetaCache(root);
     const cachedList = Object.values(cache);
 
-    // Fast initial display: render cached metadata immediately (0-5ms)
     if (cachedList.length > 0) {
       cachedList.sort((a: any, b: any) => (b.updatedAt || 0) - (a.updatedAt || 0));
       state.dashboardProjects = cachedList;
@@ -592,7 +583,6 @@ export async function loadDashboardProjects(): Promise<void> {
       renderDashboardMessage('Memuat daftar proyek...');
     }
 
-    // Fast check: scan storage entries to verify additions, deletions, or corruptions
     const diskFiles = new Map<string, FileSystemHandle>();
     for await (const [name, handle] of (root as any).entries()) {
       if (isProjectFile(name) && handle.kind === 'file') {
@@ -615,7 +605,7 @@ export async function loadDashboardProjects(): Promise<void> {
           const text = await file.text();
           let data: any = null;
           // Parsing a multi-MB project on the UI thread froze the dashboard for
-          // seconds; the worker keeps the frame alive.
+          // seconds, so it runs in the worker.
           try {
             data = await parseAsync(text);
           } catch (_) {
@@ -762,8 +752,8 @@ export function renderDashboardProjects(): void {
     card.className = 'project-card';
 
     if (!p.corrupt) {
-      // Reading + parsing the project is the slow half of "Buka Project" and we
-      // can guess the target as soon as the user shows interest in the card.
+      // Reading and parsing is the slow half of "Buka Project", and hovering the
+      // card already reveals the likely target.
       card.addEventListener('pointerenter', () => prefetchProjectData(p.id), { once: true });
       card.addEventListener('focusin', () => prefetchProjectData(p.id), { once: true });
     }
@@ -790,7 +780,7 @@ export function renderDashboardProjects(): void {
         </div>
         <div class="project-actions-container">
           <button type="button" class="btn btn-primary btn-open-project btn-repair">
-            ${icon('wrench', 16)} <span>Coba Perbaiki</span>
+            ${icon('wrench', 16)} <span>Coba perbaiki</span>
           </button>
           <div class="project-actions-row">
             <button type="button" class="btn btn-outline card-btn-action btn-restore-card">
@@ -813,12 +803,12 @@ export function renderDashboardProjects(): void {
             loadDashboardProjects();
           } else {
             this.disabled = false;
-            this.innerHTML = `${icon('wrench', 16)} <span>Coba Perbaiki</span>`;
+            this.innerHTML = `${icon('wrench', 16)} <span>Coba perbaiki</span>`;
           }
         } catch (e: any) {
           alert('Gagal memperbaiki: ' + (e?.message || e));
           this.disabled = false;
-          this.innerHTML = `${icon('wrench', 16)} <span>Coba Perbaiki</span>`;
+          this.innerHTML = `${icon('wrench', 16)} <span>Coba perbaiki</span>`;
         }
       });
 
@@ -864,7 +854,7 @@ export function renderDashboardProjects(): void {
         badgeTitle = 'Parser Custom: ' + parserName;
       } else {
         badgeText = 'PARSER CUSTOM';
-        badgeTitle = p.customParserId ? 'Parser custom sudah tidak ada — ekspor jatuh ke JSON' : '';
+        badgeTitle = p.customParserId ? 'Parser custom sudah tidak ada, ekspor jatuh ke JSON' : '';
       }
     }
     if (p.translationMode === 'htl') {
@@ -900,19 +890,19 @@ export function renderDashboardProjects(): void {
 
       <div class="project-actions-container">
         <button type="button" class="btn btn-primary btn-open-project btn-open">
-          ${icon('arrow-right', 17)} <span>Buka Project</span>
+          ${icon('arrow-right', 17)} <span>Buka project</span>
         </button>
         <div class="project-actions-row">
-          <button type="button" class="btn btn-outline card-btn-action btn-rename" title="Ubah Nama">
+          <button type="button" class="btn btn-outline card-btn-action btn-rename" title="Ubah nama">
             ${icon('pencil', 14)} <span>Ubah</span>
           </button>
-          <button type="button" class="btn btn-outline card-btn-action btn-backup" title="Backup Project">
+          <button type="button" class="btn btn-outline card-btn-action btn-backup" title="Backup project">
             ${icon('download', 14)} <span>Backup</span>
           </button>
           <button type="button" class="btn btn-outline card-btn-action btn-sheet" title="Ekspor ke Google Spreadsheet (.xlsx)">
             ${icon('file-text', 14)} <span>Sheet</span>
           </button>
-          <button type="button" class="btn btn-danger-outline card-btn-action btn-delete" title="Hapus Project">
+          <button type="button" class="btn btn-danger-outline card-btn-action btn-delete" title="Hapus project">
             ${icon('trash', 14)} <span>Hapus</span>
           </button>
         </div>
@@ -934,7 +924,7 @@ export function renderDashboardProjects(): void {
         alert('Gagal membuka proyek: ' + (err?.message || err));
       } finally {
         this.disabled = false;
-        this.innerHTML = `${icon('arrow-right', 17)} <span>Buka Project</span>`;
+        this.innerHTML = `${icon('arrow-right', 17)} <span>Buka project</span>`;
       }
     });
 
@@ -956,9 +946,8 @@ export function renderDashboardProjects(): void {
       }
     });
 
-    // Spreadsheet export from a closed project: open it just long enough to
-    // reuse the live-project builder, then restore the dashboard. Import is
-    // never chained off this — it always starts from an explicit user click.
+    // Spreadsheet export from a closed project opens it briefly to reuse the
+    // live-project builder. Import never chains off this, it starts from a click.
     card.querySelector('.btn-sheet')?.addEventListener('click', async function(this: HTMLButtonElement) {
       this.disabled = true;
       const original = this.innerHTML;
@@ -1006,11 +995,7 @@ export function renderDashboardProjects(): void {
   }
 }
 
-// ─── Project CRUD ─────────────────────────────────────────────────────────────
-/**
- * Default fields every new project file starts with. Import flows (game engine,
- * file import, ...) spread their specifics on top via `extra`.
- */
+/** Default fields of a new project file; import flows spread their specifics on top via `extra`. */
 export function buildProjectScaffold(
   projectName: string,
   projectType: string,
@@ -1086,7 +1071,7 @@ export function buildProjectScaffold(
 
 export async function createNewProject(): Promise<void> {
   const name = await cstlPrompt('Masukkan nama proyek baru:', '', {
-    title: 'Buat Proyek Baru',
+    title: 'Buat proyek baru',
     placeholder: 'Nama proyek baru...',
   });
   if (!name || !name.trim()) return;
@@ -1105,8 +1090,8 @@ export async function createNewProject(): Promise<void> {
 }
 
 export async function fetchProjectData(id: string, normalizeLines = false): Promise<any> {
-  // Never read while an autosave/close-save is still in flight — a stale read
-  // would load old data over the write that is about to land.
+  // Never read while an autosave/close-save is in flight: a stale read would
+  // load old data over the write that is about to land.
   if (activeAutoSavePromise) {
     try { await activeAutoSavePromise; } catch (_) {}
   }
@@ -1119,14 +1104,11 @@ export async function fetchProjectData(id: string, normalizeLines = false): Prom
     const file = await fileHandle.getFile();
     text = await file.text();
   }
-  // Parse (and optionally normalize lines) off the main thread.
   return parseAsync(text, normalizeLines);
 }
 
-// ─── Prefetch (dashboard hover → instant open) ───────────────────────────────
-// Reading and parsing a multi-MB project is the slowest stage of opening it, and
-// on the dashboard we can already guess which card the user will click. Hover
-// (or keyboard focus) starts the read; the click then just awaits it.
+// Reading and parsing a multi-MB project is the slowest stage of opening it.
+// Hover or keyboard focus starts the read; the click then just awaits it.
 const PREFETCH_TTL_MS = 60000;
 const prefetchCache = new Map<string, { promise: Promise<any>; at: number }>();
 
@@ -1153,7 +1135,7 @@ async function loadProjectDataForOpen(id: string): Promise<any> {
       try {
         return await entry.promise;
       } catch (_) {
-        // Prefetch failed (file changed on disk) — read again below.
+        // Prefetch failed (file changed on disk); fall through to a fresh read.
       }
     }
   }
@@ -1190,19 +1172,17 @@ export async function deleteProject(id: string, data: any): Promise<void> {
   }
 }
 
-// ─── Corrupt project repair ───────────────────────────────────────────────────
 /**
- * Attempt to salvage a project file that fails JSON.parse. Keeps every
- * top-level field and every complete `lines` entry before the damage point,
- * writes the result back under the same id (original bytes preserved as
- * `<id>.corrupt-bak`), and reports what was recovered.
+ * Salvage a project file that fails JSON.parse: keep every top-level field and
+ * every complete `lines` entry before the damage point, write the result back
+ * under the same id, and keep the original bytes as `<id>.corrupt-bak`.
  */
 export async function tryRepairProject(id: string): Promise<{ repaired: boolean; message: string }> {
   const root = await getOpfsRoot();
   const fileHandle = await root.getFileHandle(id);
   const text = await (await fileHandle.getFile()).text();
 
-  // A transient read error can heal on retry — check before declaring damage.
+  // A transient read error can heal on retry, so check before declaring damage.
   try {
     const ok = JSON.parse(text);
     if (ok && typeof ok === 'object') {
@@ -1221,15 +1201,14 @@ export async function tryRepairProject(id: string): Promise<{ repaired: boolean;
     typeof l.line_num === 'number' && typeof l.file === 'string'
   );
   if (!lines.length && typeof salvaged.projectName !== 'string') {
-    return { repaired: false, message: 'File hanya berisi pengaturan tanpa nama proyek dan baris — tidak layak diselamatkan.\n\nPulihkan dari backup, atau hapus filenya.' };
+    return { repaired: false, message: 'File hanya berisi pengaturan tanpa nama proyek dan baris, tidak layak diselamatkan.\n\nPulihkan dari backup, atau hapus filenya.' };
   }
   salvaged.lines = lines;
   if (typeof salvaged.projectName !== 'string' || !salvaged.projectName) {
     salvaged.projectName = stripProjectExt(id);
   }
 
-  // Preserve the original damaged bytes before overwriting, so a manual /
-  // deeper recovery attempt is still possible later.
+  // Keep the damaged bytes so a deeper manual recovery stays possible.
   const bakHandle = await root.getFileHandle(id + '.corrupt-bak', { create: true });
   const bakWritable = await bakHandle.createWritable();
   await bakWritable.write(text);
@@ -1242,13 +1221,13 @@ export async function tryRepairProject(id: string): Promise<{ repaired: boolean;
   let msg = `Perbaikan selesai.\n\nData diselamatkan: ${lines.length} baris`;
   if (estLost > 0) msg += ` (perkiraan hingga ~${estLost} baris hilang di titik kerusakan)`;
   msg += `.\n\nSalinan file rusak asli disimpan sebagai ${id}.corrupt-bak.`;
-  msg += '\nCek hasilnya — kalau ada yang kurang, pulihkan dari backup.';
+  msg += '\nCek hasilnya: kalau ada yang kurang, pulihkan dari backup.';
   return { repaired: true, message: msg };
 }
 
 export async function renameDashboardProject(id: string, oldName: string, data: any): Promise<void> {
   const newName = await cstlPrompt('Masukkan nama baru untuk proyek:', oldName, {
-    title: 'Ubah Nama Proyek',
+    title: 'Ubah nama proyek',
     placeholder: 'Nama proyek...',
   });
   if (!newName || newName.trim() === '' || newName === oldName) return;
@@ -1262,15 +1241,13 @@ export async function renameDashboardProject(id: string, oldName: string, data: 
   }
 }
 
-// ─── Backup & Restore ─────────────────────────────────────────────────────────
 /**
- * Build the full backup payload for one project: merges the Luca sidecar and
- * the original EPUB into a single portable object. Returns null when the Luca
- * sidecar is corrupt — the caller must abort that project's backup.
+ * Build the full backup payload for one project: Luca sidecar and original EPUB
+ * merged into one portable object. Returns null when the Luca sidecar is corrupt,
+ * which means the caller must abort that project's backup.
  */
 export async function prepareProjectBackupData(data: any, id: string): Promise<Record<string, any> | null> {
   const backupData = JSON.parse(JSON.stringify(data));
-  // Merge lucaRawBuffers from separate OPFS file if available
   if (backupData.projectType === 'luca') {
     const lucaData = await loadLucaDataFromOpfs(id);
     if (!lucaData) {
@@ -1301,16 +1278,16 @@ export async function prepareProjectBackupData(data: any, id: string): Promise<R
       backupData.customRawFiles = customData.customRawFiles || {};
       backupData.customRawBuffers = customData.customRawBuffers || {};
     }
-    // Definisi parser ikut backup — tanpa ini restore di browser lain jatuh ke
+    // Definisi parser ikut backup: tanpa ini restore di browser lain jatuh ke
     // ekspor JSON karena script parser hanya hidup di localStorage browser ini.
     backupData.customParserDef = getCustomParser(backupData.custom_parser_id);
   }
   return backupData;
 }
 
-/** Batas ukuran payload raw (teks+base64, jumlah karakter) sebelum backup
- *  beralih dari satu JSON .cstl ke container ZIP (project.json + custom_sources/).
- *  Alasan: JSON.stringify gabungan >±500jt karakter = RangeError invalid string length. */
+/** Batas ukuran payload raw (teks+base64, jumlah karakter) sebelum backup beralih
+ *  dari satu JSON .cstl ke container ZIP. JSON.stringify di atas ±500jt karakter
+ *  melempar RangeError invalid string length. */
 const CUSTOM_BACKUP_RAW_LIMIT = 8 * 1024 * 1024;
 
 function customRawPayloadSize(backupData: any): number {
@@ -1320,8 +1297,7 @@ function customRawPayloadSize(backupData: any): number {
   return n;
 }
 
-/** Bangun file backup: proyek kecil = JSON .cstl; besar = ZIP container
- *  berisi project.json (tanpa raw) + custom_sources/<file> biner mentah. */
+/** Proyek kecil = JSON .cstl; besar = ZIP berisi project.json (tanpa raw) + custom_sources/<file>. */
 async function buildBackupBlob(backupData: any): Promise<{ blob: Blob; isZip: boolean }> {
   if (customRawPayloadSize(backupData) < CUSTOM_BACKUP_RAW_LIMIT) {
     return { blob: new Blob([JSON.stringify(backupData)], { type: 'application/json' }), isZip: false };
@@ -1439,13 +1415,13 @@ export async function backupCurrentProject(): Promise<void> {
 
 export async function backupAllProjectsAsZip(): Promise<void> {
   if (!(window as any).JSZip) { alert('JSZip tidak tersedia.'); return; }
-  // Corrupt files cannot be read into the ZIP — skip them instead of failing
-  // the whole backup; they are already flagged on the dashboard.
+  // Corrupt files cannot be read into the ZIP, so skip them instead of failing
+  // the whole backup; the dashboard already flags them.
   const projects = (state.dashboardProjects || []).filter((p: any) => !p.corrupt);
   if (!projects.length) { alert('Belum ada proyek untuk dibackup.'); return; }
-  if (!await cstlConfirm(`Backup semua ${projects.length} proyek sebagai satu file ZIP?`, { title: 'Backup Semua Proyek' })) return;
+  if (!await cstlConfirm(`Backup semua ${projects.length} proyek sebagai satu file ZIP?`, { title: 'Backup semua proyek' })) return;
   const button = ui.btnBackupAllProjects as HTMLButtonElement | undefined;
-  const originalLabel = button?.textContent || 'Backup Semua ZIP';
+  const originalLabel = button?.textContent || 'Backup semua ZIP';
   if (button) {
     button.disabled = true;
     button.textContent = `Backup 0/${projects.length}...`;
@@ -1461,7 +1437,7 @@ export async function backupAllProjectsAsZip(): Promise<void> {
       const data = await fetchProjectData(p.id);
       const backupData = await prepareProjectBackupData(data, p.id);
       if (!backupData) {
-        throw new Error(`Data mentah Luca untuk proyek "${p.name}" tidak dapat dibaca — sidecar corrupt, backup semua dibatalkan.`);
+        throw new Error(`Data mentah Luca untuk proyek "${p.name}" tidak dapat dibaca: sidecar corrupt, backup semua dibatalkan.`);
       }
       const safeName = String(p.name || p.id).replace(/[^a-z0-9._-]/gi, '_').toLowerCase();
       const baseEntryName = `${safeName}_backup${PROJECT_EXT}`;
@@ -1476,7 +1452,7 @@ export async function backupAllProjectsAsZip(): Promise<void> {
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
     const filename = `cstl_projects_backup_${new Date().toISOString().slice(0, 10)}.zip`;
     await saveOrDownloadBlob(blob, filename);
-    flashHint('Backup semua proyek berhasil.');
+    flashHint('Backup semua proyek selesai.');
   } catch (e: any) {
     alert('Gagal membuat backup ZIP: ' + e.message);
   } finally {
@@ -1487,7 +1463,6 @@ export async function backupAllProjectsAsZip(): Promise<void> {
   }
 }
 
-// ─── Storage Persistence (Chrome Android & Quota Protection) ───────────────
 export async function ensureStoragePersistence(): Promise<boolean> {
   if (navigator.storage && navigator.storage.persist) {
     try {
@@ -1520,7 +1495,6 @@ export async function checkStorageQuota(): Promise<{ usage: number; quota: numbe
   return null;
 }
 
-// ─── Plugin Storage & Blob Backend ──────────────────────────────────────────
 export const PLUGINS_FILE = '_plugins.json';
 export const PLUGIN_SETTINGS_FILE = '_plugin_settings.json';
 export const PLUGIN_PREFIX = '_plug_';
@@ -1582,11 +1556,10 @@ export async function listPluginBlobs(projectId: string | null, pluginId: string
   }
 }
 
-// ─── OPFS persistence ─────────────────────────────────────────────────────────
 export async function saveProjectToOpfs(id: string, dataObj: any): Promise<void> {
   dataObj.updatedAt = Date.now();
-  // Serialize in the storage worker — stringify of a multi-MB project on the
-  // UI thread was a main source of stutter on every autosave.
+  // Serialize in the storage worker: stringifying a multi-MB project on the UI
+  // thread was a main source of stutter on every autosave.
   const serialized = await stringifyAsync(dataObj);
   const root = await getOpfsRoot();
   const fileHandle = await root.getFileHandle(id, { create: true });
@@ -1598,7 +1571,7 @@ export async function saveProjectToOpfs(id: string, dataObj: any): Promise<void>
   } catch (err: any) {
     try { await writable.abort(); } catch (_) {}
     if (err?.name === 'QuotaExceededError') {
-      alert('Penyimpanan browser penuh! Harap lakukan backup/ekspor proyek dan bersihkan file yang tidak diperlukan.');
+      alert('Penyimpanan browser penuh. Lakukan backup/ekspor proyek lalu bersihkan file yang tidak diperlukan.');
     }
     throw err;
   }
@@ -1615,7 +1588,7 @@ export async function saveLucaDataToOpfs(id: string, lucaData: any): Promise<voi
   } catch (err: any) {
     try { await writable.abort(); } catch (_) {}
     if (err?.name === 'QuotaExceededError') {
-      alert('Penyimpanan browser penuh! Harap lakukan backup/ekspor proyek dan bersihkan file yang tidak diperlukan.');
+      alert('Penyimpanan browser penuh. Lakukan backup/ekspor proyek lalu bersihkan file yang tidak diperlukan.');
     }
     throw err;
   }
@@ -1634,17 +1607,12 @@ export async function loadLucaDataFromOpfs(id: string): Promise<any> {
   }
 }
 
-// ─── Custom parser source sidecar (round-trip export) ────────────────────────
-/** Simpan file asli proyek parser custom (teks + base64 bytes) ke OPFS sidecar,
- *  mengikuti pola sidecar Luca — biar file proyek utama tetap ramping. */
 /**
- * Sidecar sumber custom — dua format:
- * - LAMA (kompatibilitas baca): satu JSON `_custom_src.json` berisi
- *   {customRawFiles: {nama: teks}, customRawBuffers: {nama: base64}}.
- * - BARU (v2, untuk proyek besar): direktori `_custom_src/` berisi satu file
- *   biner mentah per entri + `_custom_src_index.json` ringan
- *   ({files:[nama], buffers:{nama: panjang byte}}). Tanpa base64 dan tanpa
- *   string raksasa -> aman untuk ratusan MB (RangeError invalid string length).
+ * Sidecar sumber custom (pola sidecar Luca, biar file proyek utama tetap ramping), dua format:
+ * - LAMA: satu JSON `_custom_src.json` {customRawFiles: {nama: teks}, customRawBuffers: {nama: base64}}.
+ * - BARU (v2): direktori `_custom_src/` berisi satu file biner mentah per entri +
+ *   `_custom_src_index.json` ringan. Tanpa base64 dan tanpa string raksasa, jadi aman
+ *   untuk ratusan MB (RangeError invalid string length).
  */
 
 const CUSTOM_SRC_DIR = '_custom_src';
@@ -1683,7 +1651,7 @@ export async function saveCustomSourcesToOpfs(id: string, customData: any): Prom
     return;
   }
 
-  // Proyek kecil (<8MB gabungan) tetap pakai format lama — sederhana & kompatibel.
+  // Proyek kecil (<8MB gabungan) tetap pakai format lama: sederhana & kompatibel.
   const b64Len = Object.values(buffers).reduce((n: number, v) => n + String(v).length, 0) as number;
   const txtLen = Object.values(files).reduce((n: number, v) => n + String(v).length, 0) as number;
   if (b64Len + txtLen < 8 * 1024 * 1024) {
@@ -1695,12 +1663,10 @@ export async function saveCustomSourcesToOpfs(id: string, customData: any): Prom
     return;
   }
 
-  // Format baru: direktori per-proyek berisi biner mentah.
   const dirId = customSrcBaseId(id);
   let dir: FileSystemDirectoryHandle;
   try { dir = await root.getDirectoryHandle(CUSTOM_SRC_DIR + '_' + dirId, { create: false }); }
   catch { dir = await root.getDirectoryHandle(CUSTOM_SRC_DIR + '_' + dirId, { create: true }); }
-  // Bersihkan isi lama dulu.
   for await (const [name] of (dir as any).entries()) { try { await dir.removeEntry(name); } catch (_) {} }
 
   const names: string[] = [];
@@ -1732,15 +1698,13 @@ export async function saveCustomSourcesToOpfs(id: string, customData: any): Prom
 export async function loadCustomSourcesFromOpfs(id: string): Promise<any> {
   try {
     const root = await getOpfsRoot();
-    // Coba format BARU dulu.
     const dirId = customSrcBaseId(id);
     try {
       const idx = await root.getFileHandle(CUSTOM_SRC_INDEX.replace('.json', '_' + dirId + '.json'));
       const meta = JSON.parse(await (await idx.getFile()).text());
       const dir = await root.getDirectoryHandle(CUSTOM_SRC_DIR + '_' + dirId);
-      // LAZY: kembalikan daftar file + handle baca per-file, TANPA memuat
-      // seluruh isi ke memori. Pemakai (state loader / ekspor) panggil
-      // readCustomSourceFile() hanya untuk file yang dibutuhkan.
+      // LAZY: daftar file + pembaca per-file, tanpa memuat seluruh isi ke memori.
+      // Pemakai (state loader / ekspor) membaca hanya file yang dibutuhkan.
       return {
         __lazy: true as const,
         version: 2,
@@ -1752,7 +1716,6 @@ export async function loadCustomSourcesFromOpfs(id: string): Promise<any> {
         },
       };
     } catch (_) { /* tidak ada format baru -> jatuh ke lama */ }
-    // Format LAMA.
     const customId = getProjectSidecarId(id, '_custom_src.json');
     const fileHandle = await root.getFileHandle(customId);
     const file = await fileHandle.getFile();
@@ -1763,11 +1726,8 @@ export async function loadCustomSourcesFromOpfs(id: string): Promise<any> {
   }
 }
 
-// ─── Project exclusive-open lock (Web Locks) ──────────────────────────────────
-// Autosave always rewrites the whole project file from memory. If the same
-// project is open in two windows, the stale window's save silently erases the
-// newer one's edits. A held Web Lock per project makes the second open fail
-// loudly instead. Browsers without Web Locks fail open (app stays usable).
+// Autosave rewrites the whole file from memory, so a second window would erase the
+// newer edits. A held Web Lock makes that open fail loudly; without Web Locks it fails open.
 const heldProjectLocks = new Map<string, () => void>();
 
 async function acquireProjectLock(id: string): Promise<boolean> {
@@ -1779,7 +1739,7 @@ async function acquireProjectLock(id: string): Promise<boolean> {
       let release: () => void = () => {};
       heldProjectLocks.set(id, () => release());
       resolve(true);
-      // Never settles until releaseProjectLock() — that is what holds the lock.
+      // Never settles until releaseProjectLock(); that is what holds the lock.
       return new Promise<void>(r => { release = r; });
     }).catch(() => resolve(true));
   });
@@ -1811,8 +1771,7 @@ let activeCustomDataLoad: Promise<void> = Promise.resolve();
 /** Sumber lazy (format sidecar v2): daftar file + pembaca per-file dari OPFS. */
 let customLazySource: { files: string[]; bufferLens: Record<string, number>; readFile: (name: string) => Promise<Uint8Array> } | null = null;
 
-/** Baca file sumber asli milik proyek aktif — lazy dari OPFS bila tersedia,
- *  fallback ke state in-memory (format lama / hasil impor). */
+/** Baca file sumber asli proyek aktif: lazy dari OPFS bila ada, fallback ke state in-memory. */
 export async function readCustomSourceFile(fileName: string): Promise<{ bytes: Uint8Array | null; text: string | null }> {
   const baseName = fileName && fileName.includes('/') ? fileName.split('/')[0] : fileName;
   if (customLazySource && (customLazySource.files.includes(fileName) || customLazySource.files.includes(baseName))) {
@@ -1831,7 +1790,6 @@ export async function readCustomSourceFile(fileName: string): Promise<{ bytes: U
   return { bytes: null, text: typeof txt === 'string' && txt.length > 0 ? txt : null };
 }
 
-/** Apakah file sumber ada di lazy source (tanpa memuat isinya). */
 export function customLazySourceHas(fileName: string): boolean {
   const baseName = fileName && fileName.includes('/') ? fileName.split('/')[0] : fileName;
   return !!customLazySource && (customLazySource.files.includes(fileName) || customLazySource.files.includes(baseName));
@@ -1863,11 +1821,11 @@ export function queueAutoSave(): void {
     activeAutoSavePromise = savePromise;
     try {
       await savePromise;
-      (ui.statusBar as HTMLElement).textContent = (ui.statusBar as HTMLElement).textContent!.replace(' | Tersimpan!', '') + ' | Tersimpan!';
+      (ui.statusBar as HTMLElement).textContent = (ui.statusBar as HTMLElement).textContent!.replace(' | Tersimpan', '') + ' | Tersimpan';
       setTimeout(() => { updateStatusBar(); }, 2000);
     } catch (err) {
       console.error('Failed to autosave project', err);
-      flashHint('Gagal menyimpan ke storage!');
+      flashHint('Gagal menyimpan ke storage.');
     } finally {
       if (activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
       if (getSaveTimeout() === timeout) setSaveTimeout(null);
@@ -1876,7 +1834,7 @@ export function queueAutoSave(): void {
   setSaveTimeout(timeout);
 }
 
-/** Best-effort immediate save for page unload — skips the 1s debounce. */
+/** Best-effort immediate save for page unload, skips the 1s debounce. */
 export function flushAutoSaveNow(): void {
   const projectId = state.currentProjectId;
   if (!projectId || isClosingProject || !getSaveTimeout()) return;
@@ -1890,7 +1848,6 @@ export function flushAutoSaveNow(): void {
   savePromise.catch(() => {});
 }
 
-// ─── Open / Close project ─────────────────────────────────────────────────────
 export async function openProject(id: string, data: any): Promise<void> {
   const openStartedAt = performance.now();
   // Must be acquired before any state mutation. A second window holding the
@@ -1921,9 +1878,8 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.lucaRawFiles = {};
   state.lucaRawBuffers = {};
   clearLucaFileLineBytesCache();
-  // Custom-parser sidecar (original sources for round-trip export) — same guard.
-  // LAZY v2: proyek besar tidak memuat semua file asli ke memori; state hanya
-  // menyimpan lazy source (daftar + readFile) dan ekspor membaca per-file.
+  // Custom-parser sidecar, same guard. LAZY v2: proyek besar tidak memuat semua file
+  // asli ke memori; state menyimpan lazy source dan ekspor membaca per-file.
   state.customParserId = data.custom_parser_id || null;
   state.customRawFiles = {};
   state.customRawBuffers = {};
@@ -1960,7 +1916,7 @@ export async function openProject(id: string, data: any): Promise<void> {
       || (data.lucaRawBuffers && Object.keys(data.lucaRawBuffers).length > 0);
     if (!hasEmbeddedLucaData) return;
 
-    // Migrate old format: save to separate file and clear it from the main save.
+    // Migrate old format: move the raw data to its own sidecar file.
     state.lucaRawFiles = data.lucaRawFiles || {};
     state.lucaRawBuffers = data.lucaRawBuffers || {};
     try {
@@ -1968,7 +1924,7 @@ export async function openProject(id: string, data: any): Promise<void> {
       if (isCurrentLoad()) queueAutoSave();
     } catch (err) {
       console.error('Failed to migrate Luca project data', err);
-      if (isCurrentLoad()) flashHint('Gagal memigrasikan data mentah Luca ke storage!');
+      if (isCurrentLoad()) flashHint('Gagal memigrasikan data mentah Luca ke storage.');
     }
   })() : Promise.resolve();
   activeLucaDataProjectId = id;
@@ -2089,21 +2045,19 @@ export async function openProject(id: string, data: any): Promise<void> {
   if (ui.aiCheckResults) (ui.aiCheckResults as HTMLElement).textContent = '';
   setDictHistory(data.dict_history || []);
 
-  // Raw sidecars (Luca text / custom sources) are only needed for export and
-  // backup, and both of those await waitForLucaDataLoad() / waitForCustomSourcesLoad()
-  // first. Awaiting them here delayed the workspace by however long a multi-MB
-  // sidecar took to read + parse.
+  // Raw sidecars are only needed for export and backup, and both await
+  // waitForLucaDataLoad() / waitForCustomSourcesLoad() first, so do not block the workspace.
   void Promise.all([lucaDataLoad, customDataLoad])
     .then(() => {
       if (!isCurrentLoad()) return;
-      // Legacy recovery must see the asynchronously loaded raw sidecar, and all
-      // other project settings must be ready before recovery queues a save.
+      // Legacy recovery needs the loaded raw sidecar and every other project
+      // setting ready before it queues a save.
       recoverLucaRawFields();
     })
     .catch(err => console.error('[CSTL] Sidecar load failed:', err));
 
   if (!isCurrentLoad()) {
-    // A newer open superseded this one — release the lock it will never use.
+    // A newer open superseded this one, so release the lock it will never use.
     releaseProjectLock(id);
     return;
   }
@@ -2156,11 +2110,9 @@ export async function closeProject(): Promise<void> {
     }
   }
 
-  // Snapshot the project while state is still intact, flip the UI to the
-  // dashboard immediately, then let the final write finish in the background.
-  // Going back must not wait behind a multi-MB serialize + disk write —
-  // fetchProjectData / queueAutoSave await activeAutoSavePromise, so reopening
-  // or a later autosave can never race this write.
+  // Snapshot while state is intact and flip the UI to the dashboard, then let the
+  // final write finish in the background: going back must not wait behind a
+  // multi-MB serialize. fetchProjectData / queueAutoSave await activeAutoSavePromise.
   const data = buildProjectPersistenceData();
   finishClose();
 
@@ -2173,7 +2125,7 @@ export async function closeProject(): Promise<void> {
     await savePromise;
   } catch (err: any) {
     console.error('Failed to save project before closing', err);
-    alert('Gagal menyimpan proyek terakhir!\n\nBuka kembali proyek tersebut dan lakukan backup manual.\n\n' + (err?.message || err));
+    alert('Gagal menyimpan proyek terakhir.\n\nBuka kembali proyek tersebut dan lakukan backup manual.\n\n' + (err?.message || err));
   } finally {
     if (savePromise && activeAutoSavePromise === savePromise) activeAutoSavePromise = null;
     isClosingProject = false;
@@ -2263,8 +2215,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
         }
       }
     }
-    // Preserve every field already supported by autosave, while keeping the
-    // large Luca/EPUB payloads in their dedicated sidecar files.
+    // Keep every field autosave supports; large Luca/EPUB payloads stay in sidecars.
     const safeData: Record<string, any> = typeof structuredClone === 'function'
       ? structuredClone(p)
       : JSON.parse(JSON.stringify(p));
@@ -2339,14 +2290,14 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
     if (zipSources && Object.keys(zipSources).length > 0) {
       await saveCustomSourcesToOpfs(id, { customRawBuffers: {}, customRawBytes: zipSources } as any);
     }
-    // Definisi parser dari backup — pulihkan hanya kalau belum ada di browser
+    // Definisi parser dari backup: pulihkan hanya kalau belum ada di browser
     // ini (versi lokal selalu menang agar edit terbaru tidak tertimpa backup).
     if (isValidCustomParser(p.customParserDef) && !getCustomParser(p.customParserDef.id)) {
       upsertCustomParser(p.customParserDef);
       restoreNote += `\n\nCatatan: definisi parser "${p.customParserDef.name}" ikut dipulihkan dari backup.`;
     }
     loadDashboardProjects();
-    alert(`Proyek "${name}" berhasil dipulihkan!${restoreNote}`);
+    alert(`Proyek "${name}" dipulihkan.${restoreNote}`);
     return true;
   } catch (e: any) {
     try {

@@ -1,4 +1,4 @@
-// @module vndb-anilist.ts — VNDB and AniList character name extractors
+// @module vndb-anilist.ts: VNDB and AniList character name extractors.
 
 import { state, ui } from './state';
 import { addNameGlossaryEntry, mergeGlossaryEntries, genderToDescription } from './glossary';
@@ -47,7 +47,6 @@ export function applyVndbNameTranslations(characters: any[]): { appliedNames: nu
     const jpParts = jpFull ? jpFull.split(/\s+/).filter(Boolean) : [];
     const enParts = enFull.split(/\s+/).filter(Boolean);
 
-    // ─── Nickname-only: no original Japanese name ───
     if (!jpFull || !containsJapanese(jpFull)) {
       const namesToCheck = [enFull];
       if (Array.isArray(ch.aliases)) {
@@ -62,16 +61,13 @@ export function applyVndbNameTranslations(characters: any[]): { appliedNames: nu
       continue;
     }
 
-    // ─── Full JP name match ───
     tryApply(jpFull.replace(/\s+/g, ''), enFull);
 
-    // ─── Split name parts (family + given) ───
     if (jpParts.length === 2 && enParts.length === 2) {
       tryApply(jpParts[0], enParts[0]);
       tryApply(jpParts[1], enParts[1]);
     }
 
-    // ─── Aliases matching name table ───
     if (Array.isArray(ch.aliases) && ch.aliases.length > 0) {
       const jpAliases: string[] = [];
       const enAliases: string[] = [];
@@ -82,14 +78,12 @@ export function applyVndbNameTranslations(characters: any[]): { appliedNames: nu
         else enAliases.push(alias);
       }
 
-      // Pair JP and EN aliases positionally when counts match
-      // e.g. aliases: ["タカ", "Taka"] → pair タカ with Taka
+      // Pair JP and EN aliases positionally when the counts match: タカ with Taka.
       if (jpAliases.length > 0 && jpAliases.length === enAliases.length) {
         for (let i = 0; i < jpAliases.length; i++) {
           const jpAlias = jpAliases[i].replace(/\s+/g, '');
           const enAlias = enAliases[i].trim();
           tryApply(jpAlias, enAlias);
-          // Also try split parts of paired aliases
           const pairedJpParts = jpAliases[i].split(/\s+/).filter(Boolean);
           const pairedEnParts = enAlias.split(/\s+/).filter(Boolean);
           if (pairedJpParts.length === 2 && pairedEnParts.length === 2) {
@@ -98,11 +92,10 @@ export function applyVndbNameTranslations(characters: any[]): { appliedNames: nu
           }
         }
       } else {
-        // Unpaired JP aliases — try matching against full EN name
+        // Unpaired JP aliases: try matching against the full EN name.
         for (const jpAlias of jpAliases) {
           const aliasNoSpace = jpAlias.replace(/\s+/g, '');
           tryApply(aliasNoSpace, enFull);
-          // Also try split parts of JP aliases against split EN name parts
           const aliasParts = jpAlias.split(/\s+/).filter(Boolean);
           if (aliasParts.length === 2 && enParts.length === 2) {
             tryApply(aliasParts[0], enParts[0]);
@@ -186,7 +179,6 @@ export async function fetchVndbCharacters(vnId: string): Promise<any[]> {
   return all;
 }
 
-// ── Search VN by name (returns VN list with IDs) ────────────────────────────
 export async function fetchVndbVnByName(query: string): Promise<any[]> {
   const res = await fetch('https://api.vndb.org/kana/vn', {
     method: 'POST',
@@ -203,7 +195,6 @@ export async function fetchVndbVnByName(query: string): Promise<any[]> {
   return Array.isArray(data?.results) ? data.results : [];
 }
 
-// ── Search AniList media by name (returns media list with IDs) ───────────────
 export async function fetchAnilistMediaByName(query: string): Promise<any[]> {
   const gqlQuery = `
     query ($search: String) {
@@ -235,7 +226,6 @@ export async function onImportVndbNames(): Promise<void> {
   try {
     const characters = await fetchVndbCharacters(vnId);
     const imported = collectVndbGlossaryEntries(characters);
-    // ─── Auto-apply name translations for matching name table entries ───
     let nameResult = { appliedNames: 0, appliedLines: 0 };
     if (characters.length > 0) {
       pushUndoSnapshot();
@@ -246,7 +236,6 @@ export async function onImportVndbNames(): Promise<void> {
         queueAutoSave();
       }
     }
-    // ─── Glossary merge ───
     let glossaryResult = { added: 0, updated: 0 };
     if (imported.size) {
       glossaryResult = mergeGlossaryEntries(imported);

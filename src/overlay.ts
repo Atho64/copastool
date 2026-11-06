@@ -1,4 +1,4 @@
-// @module overlay.ts — Frontend controller for the floating visual novel testing HUD
+// @module overlay.ts: frontend controller for the floating visual novel testing HUD.
 
 import type { OverlayPayload, OverlayLineData } from './overlay-shared';
 import {
@@ -8,7 +8,6 @@ import {
   OVERLAY_EVENT_REQ_STATE,
 } from './overlay-shared';
 
-// ─── DOM References ──────────────────────────────────────────────────────────
 const q = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
 const statusDot = q<HTMLSpanElement>('statusDot');
@@ -28,18 +27,15 @@ const btnClose = q<HTMLButtonElement>('btnClose');
 const btnInteractive = q<HTMLButtonElement>('btnInteractive');
 const overlayHeader = q<HTMLElement>('overlayHeader');
 
-// ─── State ───────────────────────────────────────────────────────────────────
 let currentPayload: OverlayPayload | null = null;
 const opacityLevels = [0.88, 0.60, 0.35, 1.0];
 let opacityIndex = 0;
 
 /**
- * Whether the overlay is currently accepting mouse input.
- *
- * Ships click-through (false) so the HUD never blocks the game's own clicks.
- * While click-through the whole window ignores the cursor, so the only way back
- * in is the main window's toggle or the keyboard shortcut it registers — a
- * in-window button cannot be clicked in that mode by definition.
+ * Whether the overlay is currently accepting mouse input. Ships click-through
+ * (false) so the HUD never blocks the game's own clicks; while click-through the
+ * whole window ignores the cursor, so the main window's toggle is the only way
+ * back in.
  */
 let interactive = false;
 
@@ -48,12 +44,10 @@ function setText(el: HTMLElement | null, value: string): void {
   if (el && el.textContent !== value) el.textContent = value;
 }
 
-/** Toggles a class only when needed. */
 function setClass(el: Element | null, name: string, on: boolean): void {
   if (el && el.classList.contains(name) !== on) el.classList.toggle(name, on);
 }
 
-// ─── Tauri & Channel Setup ───────────────────────────────────────────────────
 function isTauriEnv(): boolean {
   return typeof window !== 'undefined' && (
     '__TAURI_INTERNALS__' in window ||
@@ -71,10 +65,9 @@ if (isTauri) {
   }).catch(() => {});
 }
 
-// Messages travel over exactly ONE transport per environment. In Tauri both
-// webviews share an origin, so sending through native events AND the
-// BroadcastChannel would deliver every message twice; outside Tauri (browser
-// dev, popped-out window) a BroadcastChannel is the only bridge available.
+// Exactly one transport per environment: in Tauri both webviews share an origin,
+// so native events plus BroadcastChannel would deliver every message twice;
+// outside Tauri it is the only bridge available.
 let channel: BroadcastChannel | null = null;
 
 if (isTauri) {
@@ -94,7 +87,6 @@ if (isTauri) {
   } catch {}
 }
 
-// ─── Render Functions ────────────────────────────────────────────────────────
 function render(payload: OverlayPayload): void {
   currentPayload = payload;
   const status = payload.lunaStatus || 'disconnected';
@@ -127,11 +119,10 @@ function render(payload: OverlayPayload): void {
   setClass(modeBadge, 'is-tl', isTl);
   if (modeBadge) {
     modeBadge.title = isTl
-      ? 'TL Mode — baris mentah diterjemahkan otomatis via API'
-      : 'Check Mode — cek sinkronisasi/QA dialog';
+      ? 'TL Mode: baris mentah diterjemahkan otomatis via API'
+      : 'Check Mode: cek sinkronisasi/QA dialog';
   }
 
-  // ── Active line ──────────────────────────────────────────────────────────
   if (cur) {
     if (activeSpeaker) {
       const speaker = cur.trans_name && cur.name && cur.trans_name !== cur.name
@@ -144,8 +135,7 @@ function render(payload: OverlayPayload): void {
 
     if (activeFile) {
       const fileName = cur.file ? cur.file.replace(/^.*[\\/]/, '') : '';
-      // Was a suffix like "[TL]"; the matched-field detail now lives in the
-      // tooltip so the tag stays a plain filename.
+      // The matched-field detail lives in the tooltip, so the tag stays a filename.
       setText(activeFile, fileName);
       activeFile.title = payload.matchedField === 'trans_message'
         ? 'Cocok lewat teks terjemahan'
@@ -203,14 +193,13 @@ function render(payload: OverlayPayload): void {
 }
 
 /**
- * Renders a context block, reusing existing rows instead of rebuilding
- * `innerHTML` on every broadcast (the hook fires continuously while playing).
+ * Renders a context block, reusing rows instead of rebuilding `innerHTML` on
+ * every broadcast (the hook fires continuously while playing).
  */
 function renderContext(container: HTMLDivElement | null, lines: OverlayLineData[] | undefined): void {
   if (!container) return;
   const list = lines || [];
 
-  // Drop surplus rows.
   while (container.childElementCount > list.length) {
     container.lastElementChild?.remove();
   }
@@ -238,18 +227,13 @@ function renderContext(container: HTMLDivElement | null, lines: OverlayLineData[
   }
 }
 
-// ─── Interactive Events ──────────────────────────────────────────────────────
-
-// Dragging the window via header
 if (overlayHeader) {
   overlayHeader.addEventListener('mousedown', async (e) => {
-    // Only drag on primary mouse button and not on interactive buttons
     if (e.button !== 0 || (e.target as HTMLElement).closest('button')) {
       return;
     }
 
     if (isTauriEnv()) {
-      // 1. Try pre-cached window.startDragging() (instant)
       if (tauriWindow && typeof tauriWindow.startDragging === 'function') {
         try {
           await tauriWindow.startDragging();
@@ -259,7 +243,6 @@ if (overlayHeader) {
         }
       }
 
-      // 2. Direct invoke fallback to Rust backend command
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         await invoke('drag_vn_overlay_window');
@@ -271,7 +254,7 @@ if (overlayHeader) {
   });
 }
 
-// Opacity toggle — drives the --ov-alpha token consumed by --ov-bg.
+// Opacity toggle: drives the --ov-alpha token consumed by --ov-bg.
 btnOpacity?.addEventListener('click', () => {
   opacityIndex = (opacityIndex + 1) % opacityLevels.length;
   const level = opacityLevels[opacityIndex];
@@ -280,13 +263,10 @@ btnOpacity?.addEventListener('click', () => {
   btnOpacity.setAttribute('aria-label', `Latar ${Math.round(level * 100)}%`);
 });
 
-// Bookmark toggle button
-//
-// Sends the *desired* state rather than a "please toggle" request. Toggling on
-// both sides would be two independent flips of one boolean: any bookmark update
-// arriving from the main window in between would desync them, and a redundant
-// click would still push an undo snapshot. With explicit intent the two sides
-// agree by construction and the controller can no-op a stale click.
+// Sends the *desired* state rather than a "please toggle" request: toggling on
+// both sides would be two independent flips of one boolean, so a bookmark update
+// arriving from the main window in between would desync them. With explicit
+// intent the two sides agree by construction.
 btnBookmark?.addEventListener('click', async () => {
   if (!currentPayload || !currentPayload.currentLine) return;
   const lineNum = currentPayload.currentLine.line_num;
@@ -296,7 +276,7 @@ btnBookmark?.addEventListener('click', async () => {
   currentPayload.currentLine.bookmarked = bookmarked;
   render(currentPayload);
 
-  // Notify main window (single transport — see the Tauri/channel setup above)
+  // Notify main window (single transport, see the Tauri/channel setup above)
   if (isTauri) {
     try {
       const { emit } = await import('@tauri-apps/api/event');
@@ -309,13 +289,10 @@ btnBookmark?.addEventListener('click', async () => {
   }
 });
 
-// ─── Interaction mode ────────────────────────────────────────────────────────
-//
 // The overlay ships click-through: every mouse event passes to the game, so it
-// can sit over a VN's dialogue box without stealing the clicks that advance
-// text. Interaction mode is opt-in and is normally switched from the main
-// window, because while click-through this window cannot receive the click that
-// would turn it back on.
+// can sit over a VN dialogue box without stealing the clicks that advance text.
+// Interaction mode is opt-in and normally switched from the main window, because
+// while click-through this window cannot receive the click that turns it back on.
 
 function paintInteractionMode(): void {
   if (!btnInteractive) return;
@@ -357,7 +334,6 @@ if (isTauri) {
   }).catch(() => {});
 }
 
-// Close button
 btnClose?.addEventListener('click', async () => {
   if (isTauri) {
     try {
@@ -369,7 +345,6 @@ btnClose?.addEventListener('click', async () => {
   window.close();
 });
 
-// ─── Initialization Request ──────────────────────────────────────────────────
 // Ask main window for current state immediately upon load (single transport).
 if (isTauri) {
   import('@tauri-apps/api/event').then(({ emit }) => {

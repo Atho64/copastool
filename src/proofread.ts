@@ -1,4 +1,4 @@
-// @module proofread.ts — Find & Replace / Proofread modal
+// @module proofread.ts: find & replace / proofread modal.
 
 import { state, ui, getProofreadScroller, getMainScroller } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
@@ -201,7 +201,7 @@ export function renderProofreadResults(preserveScroll = false): void {
   state.proofreadMatches = [];
   for (const line of state.lines) {
     if (line._hidden) continue;
-    if (isIlustrasiLine(line)) continue; // image placeholders carry no translatable text
+    if (isIlustrasiLine(line)) continue; // image placeholders have no translatable text
     if (onlyTrans && !isTranslated(line)) continue;
     const dName = line.name || '';
     let fName: string | null = null;
@@ -210,8 +210,8 @@ export function renderProofreadResults(preserveScroll = false): void {
       let isMatch = false;
       const isJump = (ui.proofreadJumpCheck as HTMLInputElement).checked;
 
-      // onlyTrans=true  -> search ONLY translated fields
-      // onlyTrans=false -> search ONLY original fields
+      // onlyTrans inverts the field set: true searches translated fields only,
+      // false searches originals only.
       const searchOrigMsg   = !onlyTrans && (scope === 'all' || scope === 'message');
       const searchTransMsg  =  onlyTrans && (scope === 'all' || scope === 'message');
       const searchOrigName  = !onlyTrans && (scope === 'all' || scope === 'name');
@@ -294,19 +294,19 @@ export function renderProofreadRow(r: ProofreadMatch): HTMLElement {
   transDiv.className = 'translated';
   if (!r.isTrans) transDiv.classList.add('cell-muted');
 
-  // Original text: highlight only when onlyTrans=false (we searched originals)
+  // Highlight originals only when the search covered originals.
   if (!onlyTrans) {
     origDiv.appendChild(buildNodes(r.origName, r.origMsg, true));
   } else {
     origDiv.appendChild(buildNodes(r.origName, r.origMsg, false));
   }
 
-  // Translation text: highlight only when onlyTrans=true (we searched translated)
+  // Highlight translations only when the search covered translations.
   if (r.isTrans) {
     if (onlyTrans) transDiv.appendChild(buildNodes(r.transName, r.transMsg, true));
     else transDiv.appendChild(buildNodes(r.transName, r.transMsg, false));
   } else {
-    transDiv.textContent = '——';
+    transDiv.textContent = '-';
   }
 
   contentWrap.append(fileMeta, origDiv, transDiv);
@@ -372,7 +372,7 @@ function replaceWithPreserveCase(original: string, regex: RegExp, rep: string, p
 
 export function onProofreadReplaceAll(): void {
   const query = ui.proofreadSearchInput.value;
-  if (!query) return alert('Pencarian masih kosong!');
+  if (!query) return alert('Pencarian masih kosong.');
   const rep = ui.proofreadReplaceInput.value;
   const isRegex = ui.proofreadRegexCheck.checked;
   const isCase = ui.proofreadCaseCheck.checked;
@@ -397,7 +397,7 @@ export function onProofreadReplaceAll(): void {
 
   for (const line of state.lines) {
     if (isIlustrasiLine(line)) continue;
-    if (excludedLineNums.has(line.line_num)) continue; // Skip excluded lines
+    if (excludedLineNums.has(line.line_num)) continue;
 
     if (onlyTrans) {
       if (!isTranslated(line)) continue;
@@ -443,9 +443,9 @@ export function onProofreadReplaceAll(): void {
     queueAutoSave();
     const excludedCount = excludedLineNums.size;
     if (excludedCount > 0) {
-      alert(`Berhasil melakukan Replace All pada ${count} baris teks (${excludedCount} baris dikecualikan/dilewati).`);
+      alert(`Replace All diterapkan pada ${count} baris teks (${excludedCount} baris dikecualikan/dilewati).`);
     } else {
-      alert(`Berhasil melakukan Replace All pada ${count} baris teks.`);
+      alert(`Replace All diterapkan pada ${count} baris teks.`);
     }
   } else {
     state.undoStack.pop();

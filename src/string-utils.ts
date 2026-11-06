@@ -1,4 +1,4 @@
-// @module string-utils.ts — Text and string manipulation utilities
+// @module string-utils.ts: text and string manipulation helpers.
 
 export function unescapeStoredNewlines(text: string): string {
   return String(text || '').replace(/\\n/g, '\n');
@@ -6,32 +6,28 @@ export function unescapeStoredNewlines(text: string): string {
 
 /**
  * Ubah baris baru asli menjadi escape `\n` literal sebelum disimpan.
- * Dengan `preserveTrailingSpace` spasi di akhir kalimat dipertahankan
- * (dipakai untuk field terjemahan yang diedit user).
+ * `preserveTrailingSpace` mempertahankan spasi akhir (field terjemahan user).
  */
 export function escapeStoredNewlines(text: string, options: { preserveTrailingSpace?: boolean } = {}): string {
   const normalized = String(text || '').replace(/\r?\n/g, '\\n');
   if (!options.preserveTrailingSpace) return normalized.trim();
-  // Spasi di akhir kalimat sering ditulis sengaja (mis. memberi jarak sebelum
-  // jeda/pergantian baris di dalam game), jadi jangan dibuang saat menyimpan.
-  // Hanya spasi/tab di awal yang dirapikan; isi yang seluruhnya spasi = kosong.
+  // Spasi akhir sering ditulis sengaja (memberi jarak sebelum jeda di dalam
+  // game); hanya spasi/tab awal yang dirapikan, isi yang seluruhnya spasi = kosong.
   const withoutLeading = normalized.replace(/^[ \t]+/, '');
   return withoutLeading.trim() ? withoutLeading : '';
 }
 
 /**
- * Strips leaked AI metadata sections (such as === SUMMARY ===, <summary>, === REVISIONS ===)
- * that may have accidentally been appended to a translated dialogue line.
- * Supports both actual newlines (\n) and literal escaped newlines (\\n).
+ * Strips AI metadata sections (=== SUMMARY ===, <summary>, === REVISIONS ===)
+ * appended to a translated line. Handles real and escaped (\\n) newlines.
  */
 export function stripLeakedAiSections(text: string): string {
   if (!text) return text;
-  // Match strictly on a newline followed by known AI metadata section markers
   const markerRegex = /(?:(?:\r?\n|\\n)+\s*)(?:===+\s*(?:SUMMARY|BACKGROUND|REVISIONS?)\s*===*[\s\S]*|<\s*(?:summary|background|revisions?)\s*>[\s\S]*)/i;
   return text.replace(markerRegex, '').trim();
 }
 
-// Dice coefficient pada character bigrams — cepat dan efektif untuk deteksi terjemahan yang tidak berubah.
+// Dice coefficient pada character bigrams; dipakai mendeteksi terjemahan yang tidak berubah.
 export function stringSimilarity(a: string, b: string): number {
   const s1 = String(a || '');
   const s2 = String(b || '');
@@ -125,8 +121,8 @@ export function stripPlaintextFences(text: string): string {
     .filter(line => !/^\s*<\?xml\b[^>]*>\s*$/i.test(line.trim()))
     .join('\n');
 
-  // Defensive cleanup for Gemini's scraped accessibility/code-block labels,
-  // which can be joined to the first output token without whitespace.
+  // Gemini's scraped accessibility/code-block labels can be joined to the first
+  // output token without whitespace.
   return stripScrapedAiPreamble(clean);
 }
 
@@ -190,7 +186,6 @@ export function applyReplaceRules(text: string, rulesText: string, fieldName?: '
   for (const line of lines) {
     if (!line.trim()) continue;
 
-    // Check for field prefix: "name:" or "msg:" (case-insensitive)
     let ruleLine = line;
     const fieldMatch = line.match(/^(name|msg)\s*:\s*(.+)$/i);
     if (fieldMatch) {
@@ -199,12 +194,11 @@ export function applyReplaceRules(text: string, rulesText: string, fieldName?: '
       ruleLine = fieldMatch[2];
     }
 
-    // Check if it matches `/regex/flags = replacement`
     const regexMatch = ruleLine.match(/^\/(.+)\/([gimsuy]*)\s*=\s*(.*)$/);
     if (regexMatch) {
       try {
         const [, pattern, flags, replacement] = regexMatch;
-        // ensure global flag if not present, otherwise it only replaces first occurrence
+        // Force the global flag, otherwise only the first occurrence is replaced.
         const finalFlags = flags.includes('g') ? flags : flags + 'g';
         const re = new RegExp(pattern, finalFlags);
         const finalReplacement = replacement.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
@@ -213,7 +207,6 @@ export function applyReplaceRules(text: string, rulesText: string, fieldName?: '
         console.warn('Invalid regex in replacer rule:', line, e);
       }
     } else {
-      // Literal replacement: `Source = Target`
       let sepIdx = ruleLine.indexOf('=');
       if (sepIdx !== -1) {
         const source = ruleLine.substring(0, sepIdx).trim();

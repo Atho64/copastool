@@ -975,8 +975,7 @@ input.dashboard-search-input,
 
 @media (min-width: 1024px) {
   .app-shell {
-    /* Wider workspace on desktop: fills up to 99vw, hard-capped at 2000px
-       (was min(1600px, 98vw) which wasted side space on large monitors) */
+    /* Wider workspace on desktop: fills up to 99vw, hard-capped at 2000px. */
     width: min(2000px, 99vw);
     height: calc(100vh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     margin: max(8px, env(safe-area-inset-top)) auto max(8px, env(safe-area-inset-bottom));
@@ -1088,7 +1087,6 @@ input.dashboard-search-input,
 .dropdown-toggle[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
 .dropdown-right { right: 0; left: auto; }
 .dropdown-divider { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
-.dropdown-nested { position: relative; display: block; width: 100%; }
 
 .dropdown-item {
   background: transparent;
@@ -1135,7 +1133,7 @@ input.dashboard-search-input,
   letter-spacing: 0.05em;
 }
 
-/* Nested import submenu — real flyout under "Format File Lainnya" */
+/* Nested import submenu: real flyout under "Format File Lainnya" */
 #dropdownImportMenu {
   overflow: visible;
 }
@@ -1175,45 +1173,6 @@ input.dashboard-search-input,
   padding: 8px 12px;
 }
 
-#moreGroup { flex-shrink: 0; }
-#moreDropdown {
-  padding: 4px;
-  min-width: 170px;
-}
-#moreDropdown .btn {
-  width: 100%;
-  justify-content: center;
-  text-align: center;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 0;
-  padding: 9px 12px;
-  box-shadow: none;
-}
-#moreDropdown .btn:last-child { border-bottom: none; }
-#moreDropdown .btn:hover:not(:disabled) { background: var(--primary-soft); color: var(--text); }
-#moreDropdown .dropdown { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.35); }
-#moreDropdown .dropdown:last-child { border-bottom: none; }
-#moreDropdown .dropdown-content {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  border: none;
-  box-shadow: none;
-  margin: 0;
-  width: 100%;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 4px;
-  transform: none;
-  opacity: 1;
-  pointer-events: auto;
-  display: none;
-  min-width: 0;
-  transition: none;
-}
-#moreDropdown .dropdown-content.show { display: flex; }
 
 .form-label, .modal-body label:not(.checkbox-line):not(.hint) {
   display: block;
@@ -1225,11 +1184,8 @@ input.dashboard-search-input,
 .hint { color: #94a3b8; font-size: 12px; line-height: 1.4; max-width: none; }
 .hint-sm { font-size: 11px; color: #94a3b8; }
 
-/* Field grid for settings modals.
-   The previous `flex-center` rows centred their items vertically, so a label that
-   wrapped to two lines dropped its input below the neighbouring ones — and five
-   columns inside a 460px modal left ~67px each, wrapping every label. A grid with
-   `align-items: start` plus short one-line labels keeps all inputs on one baseline. */
+/* Field grid for settings modals: `align-items: start` plus one-line labels keeps
+   every input on one baseline even when a label wraps. */
 .field-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1241,11 +1197,9 @@ input.dashboard-search-input,
   flex-direction: column;
   min-width: 0;
 }
-/* Keep labels on exactly one line. A wrapping label would push its input out of
-   line with the rest of the row, so wrapping is prevented rather than compensated
-   for with reserved height. Measured at the real modal width the longest label
-   ("Presence Penalty") is 101px inside a 119px column, and a nowrap label can
-   spill into the 14px grid gap — roughly 30px of slack before anything collides. */
+/* Labels stay on one line: a wrapping label pushes its input out of the row. The
+   longest ("Presence Penalty") is 101px inside a 119px column, so a nowrap label
+   can spill into the 14px grid gap before anything collides. */
 .field-grid .form-label {
   white-space: nowrap;
 }
@@ -1299,7 +1253,7 @@ input.dashboard-search-input,
 }
 
 
-/* Settings tab row: responsive, scrollable horizontally without vertical clipping or text squeezing */
+/* Settings tab row: scrolls horizontally without vertical clipping or squeezed text. */
 #settingsModal .tabs-wrap {
   display: flex;
   gap: 6px;
@@ -1506,7 +1460,7 @@ input.dashboard-search-input,
   border-radius: 0;
   padding: 14px 8px 8px 8px;
 }
-/* Current file header - compact status chip inside the panel header. */
+/* Current file header: compact status chip inside the panel header. */
 .current-file-bar {
   display: flex;
   align-items: center;
@@ -1696,7 +1650,6 @@ input.dashboard-search-input,
   border-top: 1px solid var(--line);
 }
 
-.input-group { display: flex; align-items: center; gap: 8px; }
 
 .text-input, input[type="text"], input[type="number"], select, textarea {
   font-family: var(--font-mono);
@@ -1737,13 +1690,6 @@ select {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
 }
-.field-error {
-  font-size: var(--text-xs);
-  color: var(--danger);
-  line-height: var(--leading-snug);
-  margin-top: 6px;
-}
-.field-error:empty { display: none; }
 
 .input-area {
   width: 100%;
@@ -1805,7 +1751,6 @@ select {
   flex-wrap: wrap;
 }
 
-/* ─── Reference Language Slots (JSON) ─── */
 .ref-lang-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1928,7 +1873,6 @@ select {
 }
 #proofreadContainer { position: relative; width: 100%; min-height: 100%; }
 
-/* Proofread Exclude and Results Styles */
 .proofread-preview-row {
   display: flex;
   flex-direction: row;
@@ -2208,7 +2152,6 @@ select {
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
-@keyframes pop-in { 0% { opacity: 0; transform: scale(0.6); } 60% { opacity: 1; transform: scale(1.08); } 100% { transform: none; } }
 @keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 .project-card:nth-child(1) { animation-delay: 0ms; }
@@ -2231,9 +2174,8 @@ select {
   }
 }
 
-/* Android/low-power GPU: backdrop blur on chrome surfaces is expensive while
-   scrolling. Disable it and give the surfaces solid backgrounds so text stays
-   legible over scrolling content. */
+/* Android/low-power GPU: backdrop blur is expensive while scrolling, so drop it
+   and give the surfaces solid backgrounds to keep text legible. */
 @media (pointer: coarse) {
   .toolbar,
   .status-bar,
@@ -2290,8 +2232,6 @@ select {
     height: 40px;
     flex-shrink: 0;
   }
-  .dashboard-filter-row { flex-direction: row; align-items: center; gap: 10px; flex-wrap: nowrap; }
-  .dashboard-filter { width: auto; flex: 1 1 0; min-width: 0; max-width: 220px; height: 36px; font-size: var(--text-sm); }
 
   .project-grid { grid-template-columns: 1fr; gap: 12px; }
   .project-card { padding: 14px; }
@@ -2413,7 +2353,6 @@ select {
     margin-left: auto;
   }
 
-  /* Default / Split Mode */
   .split-layout,
   .split-layout.mobile-view-split {
     display: grid !important;
@@ -2451,7 +2390,6 @@ select {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Text-Only Fullscreen Mode */
   .split-layout.mobile-view-text {
     display: flex !important;
     flex-direction: column !important;
@@ -2476,7 +2414,6 @@ select {
     display: none !important;
   }
 
-  /* Tools-Only Fullscreen Mode */
   .split-layout.mobile-view-tools {
     display: flex !important;
     flex-direction: column !important;
@@ -2886,12 +2823,6 @@ select {
     font-size: 13px;
     font-weight: 600;
   }
-  #autoCopasControls .btn {
-    min-height: 34px;
-    height: 34px;
-    font-size: 12px;
-    padding: 0 8px;
-  }
   #btnApply {
     min-height: 40px;
     font-size: 14px;
@@ -3013,7 +2944,6 @@ body {
   .project-card:hover { border-color: var(--line-2); border-left-color: var(--primary); transform: translateY(-1px); box-shadow: 0 8px 24px -12px rgba(0,0,0,0.45); }
   .preview-row:hover { background: var(--panel-2); border-color: var(--line-2); }
   .dropdown-item:hover { background: var(--primary-soft); color: var(--text); }
-  #moreDropdown .btn:hover:not(:disabled) { background: var(--primary-soft); color: var(--text); }
   .name-table tbody tr:hover td { background-color: var(--primary-soft); }
   .floating-btn:hover { transform: scale(1.08); background: var(--primary-hover); }
 }
@@ -3022,15 +2952,10 @@ body {
   .project-card:hover { transform: none; box-shadow: none; }
 }
 
-
-/* ═══ CSTL-SPECIFIC STYLES (appended after friend's base) ═══ */
-
-/* Utility classes not in friend's base */
 .gap-2 { gap: 8px; }
 .mb-0 { margin-bottom: 0; }
 .modal-md { width: min(460px, 92vw); }
 
-/* File List */
 .file-list-container {
   max-height: 56vh;
   overflow-y: auto;
@@ -3174,18 +3099,7 @@ body {
 .luca-ref-label { font-size: 11px; font-weight: 500; color: var(--muted); }
 .luca-ref { background: rgba(0, 0, 0, 0.25) !important; color: var(--muted); border-color: transparent; border-radius: var(--radius-xs); padding: 6px 10px; font-size: 12px; }
 
-/* Dashboard filter */
-.dashboard-filter-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.dashboard-filter-row .section-label { margin-bottom: 0; white-space: nowrap; }
-.dashboard-filter { width: min(300px, 100%); flex: 0 1 300px; height: 36px; font-size: var(--text-sm); }
 
-/* Dropdown extras */
 .dropdown-toggle { cursor: pointer; }
 #dropdownDashboardSettingsMenu,
 #dropdownSettingsMenu,
@@ -3201,7 +3115,6 @@ body {
   border: none;
 }
 
-/* Toolbar scroll for many buttons */
 .toolbar-scroll {
   display: flex;
   align-items: center;
@@ -3224,7 +3137,6 @@ body {
   white-space: nowrap;
 }
 
-/* Tabs */
 .tabs-wrap { display: flex; gap: 8px; }
 
 .workspace-ai-tabs {
@@ -3266,7 +3178,6 @@ body {
   border-color: var(--primary);
 }
 
-/* Icon button */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -3287,19 +3198,15 @@ body {
 .icon-btn:hover { background: var(--btn-bg-hover, var(--panel)); border-color: var(--muted-2); }
 .icon-btn:active { transform: scale(0.96); }
 .icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-/* Destructive action icon button (agent Stop) */
 .icon-btn-danger { color: var(--danger, #ef4444); border-color: var(--danger, #ef4444); }
 .icon-btn-danger:hover { background: var(--danger, #ef4444); color: #fff; border-color: var(--danger, #ef4444); }
 
-/* Lucide SVG icons */
 .lucide-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
-.icon-wrap { display: inline-flex; align-items: center; justify-content: center; }
 .icon-btn .lucide-icon { width: 16px; height: 16px; }
 .btn .lucide-icon { width: 16px; height: 16px; }
 h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; }
 .floating-btn .lucide-icon { width: 20px; height: 20px; }
 
-/* Floating button (robot icon, chat icon) */
 .floating-btn {
   position: fixed;
   bottom: max(16px, env(safe-area-inset-bottom));
@@ -3330,7 +3237,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .fb-stack-2 { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 94px); background: var(--primary); }
 .fb-stack-3 { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 146px); background: #64748b; }
 
-/* Collapsible Section (<details>) */
 .collapsible-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -3387,14 +3293,12 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   background: color-mix(in srgb, var(--panel) 40%, transparent);
 }
 
-/* Flash highlight animation */
 .flash-highlight { animation: flashHighlight 1.5s ease-out forwards; }
 @keyframes flashHighlight {
   0% { background-color: var(--primary-soft); }
   100% { background-color: transparent; }
 }
 
-/* Dictionary Popup */
 @keyframes popupSlideUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -3442,7 +3346,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .dict-popup-content p { margin: 4px 0; }
 .dict-popup-content ul { padding-left: 20px; margin: 4px 0; }
 
-/* AI Agent Chat Panel */
 .agent-panel {
   position: fixed;
   bottom: max(90px, calc(20px + env(safe-area-inset-bottom) + 64px));
@@ -3460,8 +3363,7 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   z-index: 1050;
   overflow: hidden;
 }
-/* Compact agent header: smaller title + icon buttons so the header stays
-   slim on the 380px panel (and on mobile). */
+/* Compact agent header: smaller title + icon buttons keep the 380px panel slim. */
 #aiAgentChatPanel .agent-header {
   padding: 6px 10px;
   gap: 5px;
@@ -3555,7 +3457,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .agent-msg pre { background: var(--bg); padding: 8px; border-radius: var(--radius-xs); overflow-x: auto; margin: 8px 0 0 0; }
 .agent-msg code { font-family: var(--font-mono); font-size: 11px; }
 
-/* ─── Subagent question card ─── */
 .agent-question-card {
   border-color: var(--primary);
   border-width: 1.5px;
@@ -3598,7 +3499,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   color: var(--primary);
 }
 
-/* ─── Agent plan checklist ─── */
 .agent-plan-card {
   border-color: var(--primary);
 }
@@ -3616,7 +3516,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .agent-plan-step.active { color: var(--text); font-weight: 600; }
 .agent-plan-step.pending { color: var(--muted); }
 
-/* ─── Agent token meter ─── */
 .agent-token-meter {
   font-size: 10.5px;
   font-family: var(--font-mono);
@@ -3625,7 +3524,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   margin-right: 4px;
   white-space: nowrap;
 }
-/* ─── Agent line-link (clickable [line N]) ─── */
 .agent-line-link {
   color: var(--primary);
   cursor: pointer;
@@ -3638,7 +3536,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   border-radius: 3px;
 }
 
-/* ─── Agent sessions panel ─── */
 .agent-sessions-panel {
   border-bottom: 1px solid var(--line);
   background: var(--bg);
@@ -3714,13 +3611,11 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   padding: 6px 2px;
 }
 
-/* ─── Steering message bubble ─── */
 .agent-msg.agent-steer {
   border: 1.5px dashed var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--panel));
 }
 
-/* ─── Agent mutation preview (diff gate) ─── */
 .agent-mutation-card {
   border-color: var(--warning, #c98a12);
   max-width: 95%;
@@ -3770,7 +3665,6 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
 .agent-msg p { margin: 0 0 8px 0; }
 .agent-msg p:last-child { margin: 0; }
 
-/* Glossary preview */
 .glossary-preview {
   background: var(--bg);
   border: 1px solid var(--line);
@@ -3790,10 +3684,8 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   margin: 0;
 }
 
-/* Proofread filters */
 .proofread-filters { flex-wrap: wrap; }
 
-/* AI Check results */
 .ai-check-results {
   display: flex;
   flex-direction: column;
@@ -3874,7 +3766,7 @@ h3 .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right:
   border-bottom: 1px solid var(--line);
 }
 
-/* HTL mode — hide the entire right workspace, AI bubbles, chat, and logging */
+/* HTL mode: hide the entire right workspace, AI bubbles, chat, and logging */
 body.htl-mode [data-htl-hide="true"] { display: none !important; }
 body.htl-mode .panel-right { display: none !important; }
 body.htl-mode #btnFloatingApiSettings,
@@ -3920,11 +3812,7 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   body.htl-mode .panel-header { display: none !important; }
 }
 
-/* Missing utility classes from old CSTL */
-.field-group { display: flex; flex-direction: column; gap: 8px; }
-.form-group { display: flex; flex-direction: column; gap: 8px; }
 
-/* Name table translation input */
 .name-translation-input {
   width: 100%;
   background: var(--bg);
@@ -3944,7 +3832,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
 }
 .name-translation-input::placeholder { color: var(--muted-2); }
 
-/* --- Startup Loader --- */
 .startup-loader {
   position: fixed;
   inset: 0;
@@ -3995,11 +3882,9 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* ═══ LUNA / VN OVERLAY SETTINGS ═══ */
 
-/* Header row of the "TL Mode Aktif" info box. The badge can carry a long
-   model name (e.g. deepseek-v4.1-flash), so it must be able to wrap onto its
-   own line instead of being clipped by a fixed-height pill. */
+/* Header row of the "TL Mode Aktif" info box: the badge carries a model name
+   (e.g. deepseek-v4.1-flash), so it wraps instead of clipping in a fixed pill. */
 .luna-tl-info-head {
   display: flex;
   justify-content: space-between;
@@ -4036,9 +3921,7 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   color: #ef4444;
 }
 
-/* ═══ BOOKMARK FEATURE STYLES ═══ */
 
-/* Bubble Badge */
 .bubble-badge {
   display: inline-flex;
   align-items: center;
@@ -4060,7 +3943,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   color: var(--muted);
 }
 
-/* Line Row Bookmark Button (Under Checkbox) */
 .line-bookmark-btn {
   position: static;
   width: 18px;
@@ -4128,7 +4010,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   }
 }
 
-/* Bookmark Modal List & Cards */
 .bookmark-list-container {
   display: flex;
   flex-direction: column;
@@ -4249,7 +4130,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   vertical-align: -1px;
 }
 
-/* ─── EPUB Image Preview & Lightbox ────────────────────────────────────────── */
 .epub-preview-image-wrap {
   margin: 6px 0 8px 0;
   display: inline-flex;
@@ -4344,7 +4224,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   color: #f59e0b;
 }
 
-/* ─── Custom Parser Modal ─────────────────────────────────────────────────── */
 .cp-parser-list {
   max-height: 42vh;
   overflow-y: auto;
@@ -4384,10 +4263,9 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   flex-shrink: 0;
 }
 
-/* Mobile: card menumpuk (info di atas, tombol di bawah). Tanpa ini, 4 tombol
-   aksi memakan hampir seluruh lebar layar sehingga kolom info (min-width:0)
-   tergencet ke ~0px — nama/badge Aktif dan ekstensi (.scn) wrap satu huruf
-   per baris dan bocor keluar kartu. */
+/* Mobile: kartu menumpuk (info di atas, tombol di bawah). Tanpa ini 4 tombol aksi
+   memakan hampir seluruh lebar layar, kolom info (min-width:0) tergencet ke ~0px,
+   dan nama/badge Aktif serta ekstensi (.scn) wrap satu huruf per baris. */
 @media (max-width: 640px) {
   .cp-card {
     flex-direction: column;
@@ -4452,7 +4330,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
 }
 .cp-test-table th { background: var(--panel-2); color: var(--muted); font-weight: 600; }
 
-/* ─── Storage Warning Banner ─── */
 .storage-warning-banner {
   background: rgba(239, 68, 68, 0.15);
   border-bottom: 1px solid rgba(239, 68, 68, 0.35);
@@ -4472,7 +4349,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   stroke: #ef4444;
 }
 
-/* ─── Plugin System Styling ─── */
 .plugin-list {
   display: flex;
   flex-direction: column;
@@ -4658,7 +4534,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   font-size: 11.5px;
 }
 
-/* Switch Component */
 .switch {
   position: relative;
   display: inline-flex;
@@ -4720,7 +4595,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   outline-offset: 2px;
 }
 
-/* Plugin Detail Drawer */
 .plugin-detail {
   display: none;
   margin-top: 6px;
@@ -4829,77 +4703,12 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   background: var(--primary-soft);
 }
 
-/* Plugin Settings Modal Forms */
 .plugin-settings-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.plugin-settings-own {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.plugin-settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 13px 14px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius, 8px);
-  background: var(--panel-2);
-}
-
-.plugin-settings-group-head {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.plugin-settings-group-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--primary);
-}
-
-.plugin-settings-group-hint {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.plugin-settings-row {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.plugin-settings-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.plugin-settings-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.plugin-settings-desc {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-/* Plugin Panels Container */
 .plugin-panels {
   display: flex;
   flex-direction: column;
@@ -4913,7 +4722,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   padding: 10px;
 }
 
-/* ═══ KEYBOARD SHORTCUTS STYLES ═══ */
 
 .shortcut-list {
   display: flex;
@@ -5031,7 +4839,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   color: var(--primary, #c84e18);
 }
 
-/* ─── Plugin & Parser Manager Styling ──────────────────────────────────────── */
 
 .plugin-filters {
   display: flex;
@@ -5274,7 +5081,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   background: var(--primary-soft, rgba(200, 78, 24, 0.08));
 }
 
-/* ─── OPFS Explorer (File Manager) ─── */
 .opfs-explorer {
   display: flex;
   flex-direction: column;
@@ -5442,11 +5248,6 @@ body.htl-mode .panel-left { flex: 1 !important; height: 100% !important; min-hei
   }
 }
 
-
-
-
-
-/* ─── Web AI companion window ─── */
 .modal-wide { width: min(860px, 94vw); }
 
 /* The dashboard defaults dialog contains many controls. Let the browser skip

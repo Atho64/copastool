@@ -1,6 +1,6 @@
-// @module native-clipboard.ts — Focus-Independent Native & Web Clipboard API
-// Uses @tauri-apps/plugin-clipboard-manager when running in Tauri to bypass
-// browser-level "Document is not focused" restrictions.
+// @module native-clipboard.ts: focus-independent native and web clipboard API.
+// Uses @tauri-apps/plugin-clipboard-manager in Tauri to bypass the browser-level
+// "Document is not focused" restriction.
 
 import { isTauri } from './native-storage';
 

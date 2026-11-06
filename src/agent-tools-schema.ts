@@ -1,6 +1,6 @@
-// @module agent-tools-schema.ts — Declarative tool schemas for native
-// function calling (OpenAI tools / Anthropic tools / Gemini functionDeclarations).
-// The same JSON Schema shape works for all three providers.
+// @module agent-tools-schema.ts: declarative tool schemas for native function
+// calling (OpenAI tools / Anthropic tools / Gemini functionDeclarations). The same
+// JSON Schema shape works for all three providers.
 
 export interface ToolSchema {
   name: string;
@@ -30,19 +30,19 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
     start: num('Nomor baris awal'),
     end: num('Nomor baris akhir (inklusif)'),
   }, ['start', 'end'])),
-  S('getContext', 'Lihat baris sekitar sebuah baris target (konteks atas-bawah).', obj({
+  S('getContext', 'Baris di sekitar baris target.', obj({
     line_num: num('Nomor baris target'),
     radius: num('Jumlah baris di atas & bawah (default 3)'),
   }, ['line_num'])),
   S('searchLines', 'Cari kata kunci di teks asli, terjemahan, atau nama karakter.', obj({
     query: str('Kata kunci pencarian'),
   }, ['query'])),
-  S('getCharacterNames', 'Daftar semua nama karakter + deteksi inkonsistensi otomatis.', obj({})),
+  S('getCharacterNames', 'Daftar nama karakter + deteksi inkonsistensi.', obj({})),
   S('analyzeQuality', 'Cek baris belum diterjemahkan, terjemahan terlalu pendek, nama tidak konsisten.', obj({
     limit: num('Maks baris dilaporkan (default 20, maks 50)'),
   })),
   S('getProgressReport', 'Laporan progress terjemahan per file.', obj({})),
-  S('applyTranslations', 'Terapkan terjemahan langsung ke proyek. >10 baris akan menampilkan preview konfirmasi ke user.', obj({
+  S('applyTranslations', 'Terapkan terjemahan ke proyek. >10 baris memunculkan preview konfirmasi user.', obj({
     updates: arr('Daftar {num, trans_message, trans_name?}', obj({
       num: num('Nomor baris'),
       trans_message: str('Teks terjemahan'),
@@ -64,7 +64,7 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
   }, ['line_nums'])),
   S('undoLastAction', 'Batalkan aksi terakhir.', obj({})),
   S('redoLastAction', 'Kembalikan aksi yang dibatalkan.', obj({})),
-  S('getGlossary', 'Ambil daftar glosarium yang didefinisikan pengguna.', obj({})),
+  S('getGlossary', 'Daftar glosarium dari pengguna.', obj({})),
   S('editPrompt', 'Edit prompt terjemahan/glosarium/AI check/agent.', obj({
     prompt_type: str('translation | glossary | ai_check | agent'),
     new_prompt: str('Teks prompt baru'),
@@ -72,7 +72,7 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
   S('editGlossary', 'Edit teks glosarium (satu baris per entri).', obj({
     new_glossary: str('Teks glosarium lengkap'),
   }, ['new_glossary'])),
-  S('listSettings', 'Tampilkan daftar semua setting yang bisa diubah.', obj({})),
+  S('listSettings', 'Daftar setting yang bisa diubah.', obj({})),
   S('toggleSetting', 'Ubah/toggle setting aplikasi.', obj({
     setting_name: str('Nama setting (lihat listSettings)'),
     value: { description: 'Nilai baru (boolean/number/string sesuai tipe setting)' },
@@ -80,7 +80,7 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
   S('getMemory', 'Ambil memori agent (opsional filter kategori).', obj({
     category: str('Filter kategori (opsional)'),
   })),
-  S('listMemory', 'Tampilkan semua memori agent.', obj({})),
+  S('listMemory', 'Semua memori agent.', obj({})),
   S('saveMemory', 'Simpan/update memori (global/project).', obj({
     key: str('Kunci memori'),
     value: str('Isi memori'),
@@ -102,7 +102,7 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
     lineNums: arr('Nomor baris', { type: 'number' }),
     focus: str('Fokus analisis (opsional)'),
   }, ['lineNums'])),
-  S('delegateParallelTranslate', 'Terjemahkan rentang baris via subagent paralel — untuk rentang besar (>30 baris).', obj({
+  S('delegateParallelTranslate', 'Terjemahkan rentang baris via subagent paralel; untuk rentang besar (>30 baris).', obj({
     startLine: num('Baris awal'),
     endLine: num('Baris akhir'),
     instruction: str('Instruksi tambahan (opsional)'),
@@ -111,15 +111,15 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
     queries: arr('Nama VN/anime', { type: 'string' }),
     source: str('vndb | anilist (default vndb)'),
   }, ['queries'])),
-  S('delegateAgent', 'Spawn subagent otonom (loop tool sendiri, tanpa batas turn) untuk tugas kompleks/multi-langkah. Subagent bisa bertanya ke user dan mengirim laporan progress.', obj({
+  S('delegateAgent', 'Spawn subagent otonom (loop tool sendiri, tanpa batas turn) untuk tugas kompleks. Subagent bisa bertanya ke user dan mengirim laporan progress.', obj({
     task: str('Deskripsi tugas lengkap dan jelas'),
     max_turns: num('Batas turn opsional (default unlimited)'),
   }, ['task'])),
-  S('askUser', 'TANYA USER dengan kartu pertanyaan interaktif (tombol pilihan). Loop berhenti sampai user menjawab. WAJIB untuk keputusan penting.', obj({
+  S('askUser', 'Tanya user lewat kartu pertanyaan interaktif (tombol pilihan). Loop berhenti sampai user menjawab. Wajib untuk keputusan penting.', obj({
     question: str('Pertanyaan'),
     options: arr('Maks 6 pilihan singkat; kosongkan untuk jawaban bebas', { type: 'string' }),
   }, ['question'])),
-  S('setPlan', 'TAMPILKAN RENCANA sebagai checklist live. WAJIB di awal tugas multi-langkah.', obj({
+  S('setPlan', 'Tampilkan rencana sebagai checklist live. Wajib di awal tugas multi-langkah.', obj({
     steps: arr('Langkah 1-6, ringkas & konkret', { type: 'string' }),
   }, ['steps'])),
   S('updatePlanStep', 'Update status langkah rencana.', obj({
@@ -138,8 +138,7 @@ export const AGENT_TOOL_SCHEMAS: ToolSchema[] = [
 ];
 
 /**
- * Filter schemas by name (used by subagents that expose a subset).
- * Unknown names are ignored silently.
+ * Filter schemas by name (subagents expose a subset); unknown names are ignored.
  */
 export function filterToolSchemas(names: string[] | null): ToolSchema[] {
   if (!names) return AGENT_TOOL_SCHEMAS;

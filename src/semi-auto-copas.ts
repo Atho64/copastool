@@ -1,8 +1,7 @@
-// @module semi-auto-copas.ts — Semi Auto Copy-Paste via Clipboard & Floating Bubble
-// Allows users to copy a batch prompt, paste it in any external Web/App AI,
-// copy the AI response, and have CopasTool automatically detect, validate,
-// apply the translation, and immediately copy the next batch prompt to the clipboard.
-// On Android, a Circular Floating Bubble provides 1-tap Next directly over the AI app!
+// @module semi-auto-copas.ts: semi auto copy-paste through the clipboard and a floating bubble.
+//
+// CopasTool validates the pasted AI answer, applies it, and copies the next batch
+// prompt. On Android a floating bubble gives one-tap Next over the AI app.
 
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { buildCopyForAiPrompt, onApplyTranslation, extractSummaryAndPayload } from './translate';
@@ -101,7 +100,6 @@ function callNativeCancelOverlayFocus(fallbackBadge: string): void {
   } catch (_) {}
 }
 
-/** Selects the next untranslated batch according to project batch size. */
 export function selectNextUntranslatedBatch(): { count: number; firstLineNum: number | null } {
   const ordered = getDisplayOrderedLines();
   const untranslated = ordered.filter(l => !isTranslated(l) && !l._hidden && !isIlustrasiLine(l));
@@ -127,10 +125,7 @@ export function selectNextUntranslatedBatch(): { count: number; firstLineNum: nu
   return { count: batch.length, firstLineNum: batch[0]?.line_num ?? null };
 }
 
-/**
- * 5-Layer Anti-False-Positive Validation:
- * Validates whether the clipboard content strictly belongs to the currently expected batch.
- */
+/** Rejects clipboard text that does not belong to the expected batch. */
 export function validateAiTranslationClipboard(
   rawText: string,
   expectedLines: Set<number>
@@ -143,7 +138,6 @@ export function validateAiTranslationClipboard(
     return { valid: false, reason: 'Teks terlalu pendek' };
   }
 
-  // Lapis 1: Cek apakah ini prompt sendiri yang baru disalin
   if (trimmed === lastCopiedPrompt.trim()) {
     return { valid: false, reason: 'Teks di clipboard masih prompt CopasTool' };
   }
@@ -154,18 +148,15 @@ export function validateAiTranslationClipboard(
     return { valid: false, reason: 'Teks diawali header prompt instruksi' };
   }
 
-  // Lapis 2: Cek apakah duplikat dari yang baru saja di-apply
   if (trimmed === lastAppliedContent.trim()) {
     return { valid: false, reason: 'Teks terjemahan sudah pernah diterapkan sebelumnya' };
   }
 
-  // Lapis 3: Ekstrak summary & payload
   const { cleanText } = extractSummaryAndPayload(trimmed);
   if (!cleanText || cleanText.length < 2) {
     return { valid: false, reason: 'Format payload terjemahan tidak ditemukan' };
   }
 
-  // Lapis 4: Deteksi format & parse dry-run
   const format = detectTranslationPasteFormat(cleanText);
   let parsed: { num: number; msg: string; name?: string | null }[] = [];
   try {
@@ -188,13 +179,11 @@ export function validateAiTranslationClipboard(
     return { valid: false, reason: 'Tidak ditemukan baris terjemahan bernomor' };
   }
 
-  // Lapis 5: Strict Line Matching dengan Expected Batch Lines
   let matchCount = 0;
   for (const item of parsed) {
     if (expectedLines.has(item.num)) {
       matchCount++;
     } else {
-      // Ada nomor baris yang tidak termasuk dalam batch aktif!
       return {
         valid: false,
         reason: `Baris #${item.num} bukan bagian dari batch yang ditunggu`,
@@ -209,7 +198,7 @@ export function validateAiTranslationClipboard(
   return { valid: true, cleanText: trimmed };
 }
 
-/** Applies valid AI translation from clipboard and advances to next batch. */
+/** Applies the clipboard translation and advances to the next batch. */
 export async function applyTranslationFromClipboard(rawText: string, fromBubble = false): Promise<boolean> {
   if (isProcessingClipboard) return false;
   if (expectedLineNums.size === 0) {
@@ -228,7 +217,6 @@ export async function applyTranslationFromClipboard(rawText: string, fromBubble 
       return false;
     }
 
-    // Teks valid ditemukan! Terapkan ke proyek
     setStatus(`Menerapkan hasil AI untuk ${expectedLineNums.size} baris...`);
     const pasteArea = ui.pasteArea as HTMLTextAreaElement | null;
     if (pasteArea) {
@@ -246,13 +234,12 @@ export async function applyTranslationFromClipboard(rawText: string, fromBubble 
     }
 
     lastAppliedContent = validation.cleanText;
-    flashHint(`${appliedNums.size} baris berhasil diterapkan!`);
+    flashHint(`${appliedNums.size} baris diterapkan`);
 
     try {
       navigator.vibrate?.([100, 50, 100]);
     } catch (_) {}
 
-    // Lanjut ke batch berikutnya
     currentBatchNumber++;
     await prepareAndCopyNextBatch(fromBubble);
     return true;
@@ -265,13 +252,11 @@ export async function applyTranslationFromClipboard(rawText: string, fromBubble 
   }
 }
 
-/** Prepares the next batch prompt and copies it to clipboard. */
 async function prepareAndCopyNextBatch(fromBubble = false): Promise<void> {
   const next = selectNextUntranslatedBatch();
   if (next.count === 0) {
-    // Selesai! Semua baris sudah diterjemahkan
     stopSemiAutoCopas();
-    setStatus('Semua baris telah selesai diterjemahkan.');
+    setStatus('Semua baris sudah diterjemahkan.');
     flashHint('Semua baris selesai diterjemahkan. Semi Auto berhenti.', true);
     if (fromBubble) {
       callNativeWriteClipboardAndRestore('', 'Done');
@@ -318,7 +303,6 @@ async function prepareAndCopyNextBatch(fromBubble = false): Promise<void> {
   } catch (_) {}
 }
 
-/** Reads clipboard and applies if valid (used by background interval/focus watcher). */
 async function checkClipboardOnce(): Promise<void> {
   if (!isRunning || isProcessingClipboard) return;
   if (expectedLineNums.size === 0) return;
@@ -344,7 +328,6 @@ const onWindowFocus = () => {
   }
 };
 
-/** Starts the Semi-Auto Copy-Paste workflow. */
 export async function startSemiAutoCopas(autoShowBubble = true): Promise<void> {
   if (!state.currentProjectId || !state.lines.length) {
     flashHint('Buka atau muat proyek terlebih dahulu.');
@@ -368,13 +351,12 @@ export async function startSemiAutoCopas(autoShowBubble = true): Promise<void> {
   currentBatchNumber = 1;
   updateUiButton(true);
 
-  // Aktifkan background work di Android agar WebView tidak dibekukan
+  // Keep Android background work on so the WebView is not frozen.
   const bridge = getAndroidBridge();
   try {
     bridge?.setBackgroundWork?.(true);
   } catch (_) {}
 
-  // Siapkan batch dan copy prompt
   expectedLineNums = new Set(
     Array.from(state.selectedLines).filter(n => {
       const l = state.lineByNum.get(n);
@@ -399,14 +381,13 @@ export async function startSemiAutoCopas(autoShowBubble = true): Promise<void> {
     ? `#${linesList[0]}-#${linesList[linesList.length - 1]}`
     : `#${linesList[0]}`;
 
-  setStatus(`Semi-Auto Aktif: Prompt ${rangeStr} disalin ke clipboard.`);
+  setStatus(`Semi-Auto aktif: prompt ${rangeStr} disalin ke clipboard.`);
   flashHint(`Prompt ${rangeStr} disalin. Paste di AI chat, lalu salin balasannya.`);
 
   try {
     navigator.vibrate?.([60]);
   } catch (_) {}
 
-  // Tampilkan Floating Bubble di Android jika diizinkan
   if (autoShowBubble && bridge) {
     if (bridge.canDrawOverlays?.()) {
       bridge.showFloatingBubble?.(getBatchBadgeText());
@@ -420,7 +401,6 @@ export async function startSemiAutoCopas(autoShowBubble = true): Promise<void> {
     }
   }
 
-  // Pasang polling watcher & event listeners
   if (pollIntervalTimer) clearInterval(pollIntervalTimer);
   pollIntervalTimer = window.setInterval(() => { void checkClipboardOnce(); }, 800);
 
@@ -430,7 +410,6 @@ export async function startSemiAutoCopas(autoShowBubble = true): Promise<void> {
   window.addEventListener('focus', onWindowFocus);
 }
 
-/** Stops the Semi-Auto Copy-Paste workflow. */
 export function stopSemiAutoCopas(): void {
   isRunning = false;
   updateUiButton(false);
@@ -457,7 +436,6 @@ export function stopSemiAutoCopas(): void {
   }, 4000);
 }
 
-/** Toggles Semi-Auto Copy-Paste on or off. */
 export function toggleSemiAutoCopas(): void {
   if (isRunning) {
     stopSemiAutoCopas();
@@ -466,7 +444,6 @@ export function toggleSemiAutoCopas(): void {
   }
 }
 
-/** Toggles the Android Floating Bubble on or off. */
 export async function toggleFloatingBubble(): Promise<void> {
   const bridge = getAndroidBridge();
   if (!bridge) {
@@ -503,10 +480,6 @@ export async function toggleFloatingBubble(): Promise<void> {
 export function isSemiAutoRunning(): boolean {
   return isRunning;
 }
-
-// ==========================================
-// WINDOW NATIVE BRIDGE HOOKS
-// ==========================================
 
 declare global {
   interface Window {

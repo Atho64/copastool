@@ -1,24 +1,18 @@
-// @module auto-copas/page-scripts.ts — JS expressions evaluated INSIDE the AI
-// chat tab (camofox `evaluate` endpoint / Android `evaluateJavascript`).
-//
-// These scripts never transfer text through the DOM. They only:
-//   * focus the composer (so the real Ctrl+A / Ctrl+V keyboard flow lands there),
-//   * read state (is a stop button visible? how long is the last response?),
-//   * click the site's own Copy button so the response lands on the OS clipboard.
-//
-// Every builder returns a self-contained IIFE string — both transports evaluate
-// strings, and each expression must survive on its own (no shared scope).
+// @module auto-copas/page-scripts.ts: JS expressions evaluated inside the AI chat
+// tab (camofox `evaluate` endpoint / Android `evaluateJavascript`). They never
+// move text through the DOM: they focus the composer, read state, and click the
+// site's own Copy button. Every builder returns a self-contained IIFE string
+// because both transports evaluate strings with no shared scope.
 
 import type { CopasTargetConfig } from './targets';
 
-/** Shared helper block: visibility check used by every script. */
+/** Visibility check shared by every script. */
 const VISIBILITY_HELPER = `
   const __cstlVisible = (el) => {
     if (!el || !(el instanceof Element)) return false;
     if (el.closest('[hidden], [aria-hidden="true"]')) return false;
-    // A child of a display:none parent still reports client rects in some
-    // engines, and getComputedStyle(el) only reflects the element itself. Walk
-    // up so a closed menu (or a hover-hidden action bar) never counts as shown.
+    // getComputedStyle(el) only reflects the element itself, so walk up: a child
+    // of a display:none parent still reports client rects in some engines.
     for (let node = el; node && node instanceof Element; node = node.parentElement) {
       const s = getComputedStyle(node);
       if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) <= 0.01) return false;
@@ -33,8 +27,7 @@ const VISIBILITY_HELPER = `
   };
 `;
 
-/** The copy-button matcher ported from the extension (aria-label / title /
- * data-testid / class / innerText / icon hints, EN + ID labels). */
+/** Copy-button matcher ported from the extension; matches EN and ID labels. */
 const COPY_MATCHER_HELPER = `
   const __cstlCopyRe = /(^|\\b)(copy|salin|copy text|copy response|menyalin)(\\b|$)/i;
   const __cstlMatchesCopy = (btn) => {
@@ -71,12 +64,9 @@ function inject(cfg: CopasTargetConfig, extra: Record<string, unknown> = {}): st
 
 /**
  * Click the site's "New chat" control the way a user would (port of the
- * extension's scored search). Two tiers: sidebar-like roots first (nav, aside,
- * sidebar classes) — the left-rail New Chat preserves the model selection,
- * unlike header buttons — and header/body only when the sidebar has no
- * candidate. Within a tier: exact accessible label > visible text, shorter
- * labels, higher-on-page and further-left preferred; history items are
- * excluded outright.
+ * extension's scored search). Sidebar-like roots are searched first because the
+ * left-rail New Chat preserves the model selection, unlike header buttons;
+ * header/body is only a fallback. History items are excluded outright.
  */
 export function jsClickNewChat(cfg: CopasTargetConfig): string {
   return `(() => {
@@ -131,7 +121,6 @@ export function jsClickNewChat(cfg: CopasTargetConfig): string {
       candidates = candidates.concat(collect(root));
     }
     if (!candidates.length) {
-      // Tier 2: header / whole document — only when the sidebar had nothing.
       const fallbackRoots = [];
       try { document.querySelectorAll('header').forEach((el) => fallbackRoots.push(el)); } catch (_) {}
       fallbackRoots.push(document.body);
@@ -176,8 +165,7 @@ export function jsFocusComposer(cfg: CopasTargetConfig): string {
   })()`;
 }
 
-/** Length of the text currently in the focused composer — used to verify a
- * paste actually landed before pressing Enter. */
+/** Composer text length, used to verify a paste landed before pressing Enter. */
 export function jsComposerTextLength(cfg: CopasTargetConfig): string {
   return `(() => {
     ${VISIBILITY_HELPER}
@@ -200,10 +188,8 @@ export function jsReadPageState(cfg: CopasTargetConfig): string {
     ${VISIBILITY_HELPER}
     ${REASONING_EXCLUDE_HELPER}
     const cfg = ${inject(cfg)};
-    // Label drift guard: sites rename this control constantly (Gemini shipped
-    // "Stop generating" -> "Stop response"). A hardcoded selector list rots
-    // silently and takes completion detection with it, so any visible button
-    // whose accessible label says "stop/hentikan" also counts.
+    // Sites rename this control constantly (Gemini: "Stop generating" ->
+    // "Stop response"), so any visible button labelled stop/hentikan also counts.
     const __cstlStopLabelRe = /\\b(stop|hentikan|berhenti|batalkan)\\b/i;
     const __cstlIsStop = (el) => {
       if (!__cstlVisible(el)) return false;
@@ -226,15 +212,11 @@ export function jsReadPageState(cfg: CopasTargetConfig): string {
       stopVisible = Array.from(document.querySelectorAll('button, [role="button"]'))
         .some(__cstlIsStop);
     }
-    // Pick the LONGEST visible candidate across every selector instead of
-    // breaking on the first match. A site's chrome (toolbars, "copy" buttons)
-    // often shares a loose class with the answer body, and first-match
-    // ordering would silently latch onto that 4-character node — which
-    // freezes lastResponseLength and stalls the completion loop.
-    //
-    // Reasoning/thinking subtrees are excluded: their text grows first and is
-    // often longer than the answer, which would both inflate the length signal
-    // and leak into anything read from this node.
+    // Longest visible candidate across every selector, not first match: page
+    // chrome often shares a loose class with the answer body, and latching onto
+    // a short node freezes lastResponseLength and stalls the completion loop.
+    // Reasoning subtrees are excluded because they grow first and are usually
+    // longer than the answer.
     let lastResponseLength = 0;
     for (const sel of cfg.assistant) {
       let nodes;
@@ -268,16 +250,12 @@ export function jsReadPageState(cfg: CopasTargetConfig): string {
 }
 
 /**
- * Click the newest Copy/Salin control. Candidates (in order):
- *   1. Buttons whose aria-label IS the text ("Copy: ..."); the text is returned
- *      directly, no click needed.
- *   2. Copy button inside the last code block (Arena ships translations there).
- *   3. Copy buttons near the last assistant message (≤4 ancestor levels —
- *      response actions are usually siblings of the markdown node).
- *   4. Last copy-ish button anywhere on the page (latest turn wins).
- *
- * `attempt` picks the next candidate when a previous click did not change the
- * clipboard (the engine retries with attempt+1).
+ * Click the newest Copy/Salin control, in order: buttons whose aria-label is
+ * the text itself (returned directly, no click), a copy button inside the last
+ * code block (Arena ships translations there), copy buttons within 4 ancestor
+ * levels of the last assistant message, then the last copy-ish button on the
+ * page. `attempt` picks the next candidate after a click that did not change
+ * the clipboard.
  */
 export function jsClickCopyButton(cfg: CopasTargetConfig, attempt: number): string {
   return `(() => {
@@ -295,16 +273,15 @@ export function jsClickCopyButton(cfg: CopasTargetConfig, attempt: number): stri
     };
     const interactive = () => Array.from(document.querySelectorAll('button, [role="button"]'));
 
-    // 1) aria-label carries the whole response ("Copy: <text>")
     for (const b of interactive()) {
       if (!__cstlVisible(b)) continue;
       const aria = (b.getAttribute('aria-label') || '').trim();
       if (/^copy:/i.test(aria)) push(b, aria.slice(5).trim());
     }
 
-    // 2) Arena: the copy control inside the last code block is icon-only and
-    // often carries NO copy-like label — take any button in the block, exactly
-    // like the extension's copyArenaResponse().
+    // Arena: the copy control inside the last code block is icon-only and often
+    // carries no copy-like label, so take any button in the block (same as the
+    // extension's copyArenaResponse).
     const blocks = Array.from(document.querySelectorAll('[data-code-block="true"]'));
     const lastBlock = blocks[blocks.length - 1];
     if (lastBlock) {
@@ -318,10 +295,9 @@ export function jsClickCopyButton(cfg: CopasTargetConfig, attempt: number): stri
       }
     }
 
-    // 3) copy buttons around the last assistant message. Reasoning blocks may
-    // carry their own copy control, so those are collected separately and used
-    // only as a last resort — otherwise "copy thinking" can win over
-    // "copy answer" purely on DOM order.
+    // Copy buttons around the last assistant message. Reasoning blocks may carry
+    // their own copy control, so those are collected separately and used only as
+    // a last resort, or "copy thinking" wins over "copy answer" on DOM order.
     let answerScoped = [];
     let reasoningScoped = [];
     for (const sel of cfg.assistant) {
@@ -341,9 +317,8 @@ export function jsClickCopyButton(cfg: CopasTargetConfig, attempt: number): stri
     }
     for (const b of answerScoped) push(b);
 
-    // 4) last copy-ish button on the page — only if nothing was found near the
-    // answer itself. This is what previously let a "Copy prompt"/thinking
-    // control win when the answer-scoped search came up empty.
+    // Last copy-ish button on the page, only when nothing was found near the
+    // answer itself.
     if (candidates.length === 0) {
       const pageCopy = interactive().filter((b) =>
         __cstlVisible(b) && __cstlMatchesCopy(b) && !__cstlIsReasoning(b));
@@ -367,11 +342,9 @@ export function jsClickCopyButton(cfg: CopasTargetConfig, attempt: number): stri
   })()`;
 }
 
-/** DeepSeek (and other reasoning models) render a collapsible "thinking" /
- * "reasoning" block next to the answer. That block often sits inside the
- * assistant container and is usually LONGER than the answer, so a naive
- * longest-text read returns the model's internal monologue instead of the
- * translation. Mark such nodes and skip them everywhere. */
+/** DeepSeek and other reasoning models render a collapsible "thinking" block
+ * inside the assistant container that is usually longer than the answer, so a
+ * longest-text read would return the monologue. Mark and skip those nodes. */
 const REASONING_EXCLUDE_HELPER = `
   const __cstlIsReasoning = (el) => {
     if (!el || !(el instanceof Element)) return false;
@@ -390,25 +363,19 @@ const REASONING_EXCLUDE_HELPER = `
 `;
 
 /**
- * Read the full text of the last assistant response from the DOM.
- *
- * Fallback for when the site's own Copy control cannot be used (it only
- * exposes "Copy prompt", sits behind a hover menu, or needs a clipboard
- * permission we do not have). Kept read-only: it never mutates the page.
- *
- * Uses the same longest-visible-candidate rule as jsReadPageState so page
- * chrome (toolbars, action rows) can never shadow the answer body, and skips
- * reasoning/thinking nodes so a model's internal monologue is not mistaken for
- * the answer.
+ * Read the full text of the last assistant response from the DOM. Fallback for
+ * when the site's own Copy control cannot be used (it only exposes "Copy
+ * prompt", sits behind a hover menu, or needs a clipboard permission).
+ * Read-only: never mutates the page. Skips reasoning nodes so a monologue is not
+ * read as the answer.
  */
 export function jsReadLastResponseText(cfg: CopasTargetConfig): string {
   return `(() => {
     ${VISIBILITY_HELPER}
     ${REASONING_EXCLUDE_HELPER}
     const cfg = ${inject(cfg)};
-    // Text that is page chrome, not answer content. Reading a wrapper node
-    // (e.g. <model-response>) otherwise picks up its header and its hover-only
-    // action bar, so a reply could come back as "Copy" or "Gemini says".
+    // Reading a wrapper node (e.g. <model-response>) otherwise picks up its
+    // header and hover-only action bar, so a reply could come back as "Copy".
     const CHROME_TAGS = ['button', 'svg', 'script', 'style', 'noscript', 'textarea', 'input'];
     const CHROME_ROLES = /^(button|menu|menubar|toolbar|tooltip)$/i;
     const CHROME_CLASS = /(^|[\s_-])(actions?|toolbar|toolbar-container|response-footer|buttons?|mat-mdc-tooltip|menu|controls?)([\s_-]|$)/i;
@@ -424,8 +391,8 @@ export function jsReadLastResponseText(cfg: CopasTargetConfig): string {
     const textOf = (el) => {
       if (!el) return '';
       const clone = el.cloneNode(true);
-      // Remove reasoning subtrees and chrome before reading, so neither the
-      // model's monologue nor a control label can bleed into the answer.
+      // Drop reasoning subtrees and chrome so neither the monologue nor a
+      // control label bleeds into the answer.
       for (const bad of Array.from(clone.querySelectorAll('*'))) {
         if (isChrome(bad) || __cstlIsReasoning(bad)) bad.remove();
       }
@@ -435,10 +402,9 @@ export function jsReadLastResponseText(cfg: CopasTargetConfig): string {
     };
     let best = '';
     let bestLen = 0;
-    // Prefer the MOST SPECIFIC selector that yields text. cfg.assistant is
-    // ordered from the answer body outward, so the first non-empty hit is the
-    // cleanest. Taking the LONGEST hit instead picked the outer wrapper and
-    // prepended the speaker header to every translation.
+    // Most specific selector that yields text wins: cfg.assistant is ordered
+    // from the answer body outward, so the first non-empty hit is cleanest.
+    // Taking the longest hit picked the outer wrapper and prepended its header.
     for (const sel of cfg.assistant) {
       let nodes;
       try { nodes = Array.from(document.querySelectorAll(sel)).filter(__cstlVisible); }
@@ -471,11 +437,8 @@ export function jsClickSendButton(cfg: CopasTargetConfig): string {
   })()`;
 }
 
-/**
- * Arena last resort (extension's scrapeArenaCodeBlock): read the translation
- * payload straight out of the last Monaco-style code block. Only used when
- * every copy-button attempt failed to change the clipboard.
- */
+/** Arena last resort (extension's scrapeArenaCodeBlock): read the payload out of
+ * the last Monaco-style code block, only after every copy attempt failed. */
 export function jsScrapeArenaCodeBlock(): string {
   return `(() => {
     const codes = Array.from(document.querySelectorAll('.code-block_container__lbMX4 code, code.whitespace-pre-wrap.break-words'));
@@ -494,11 +457,8 @@ export function jsScrapeArenaCodeBlock(): string {
   })()`;
 }
 
-/**
- * DeepSeek "Pikir Mendalam" / DeepThink toggle (port of selectDeepseekMode's
- * think step). Reads aria-pressed/checked/class state and only clicks when the
- * current state differs, so re-applying never toggles it off.
- */
+/** DeepSeek "Pikir Mendalam" / DeepThink toggle. Reads aria-pressed/checked/class
+ * state and only clicks when it differs, so re-applying never toggles it off. */
 export function jsDeepSeekSetThinking(wantOn: boolean): string {
   return `(async () => {
     ${VISIBILITY_HELPER}
@@ -548,25 +508,14 @@ export function jsDeepSeekSetThinking(wantOn: boolean): string {
 }
 
 /**
- * Gemini thinking toggle.
- *
- * Gemini ships TWO different pickers depending on the model, and the live UI
- * (verified through Camoufox on a logged-in session) looks like this:
- *
- *   Older Flash/Pro:  the chip aria-label names the mode —
- *                     "…saat ini Flash" (off) / "…saat ini Flash Mendalam" (on).
- *   Argon:            the chip reads "…saat ini Argon" in BOTH states, and the
- *                     menu carries a separate "Tingkat penalaran" group with
- *                     Rendah / Sedang / Tinggi rows instead of a toggle.
- *
- * So the old "is the chip label saying Mendalam?" oracle is not enough: on
- * Argon it never reports ON. State is now read from whichever signal the
- * active model exposes, falling back to the reasoning-level row selection.
- *
- * Menu rows carry no aria-checked, and this Camoufox build drops the letter
- * "s" from innerText/aria-label ("Tingkat penalaran" -> "Tingkat penalaran",
- * "rendah" -> "rendah"), so every matcher is prefix/substring based and must
- * never compare whole words.
+ * Gemini thinking toggle. Two pickers exist depending on the model: older
+ * Flash/Pro name the mode in the chip aria-label ("…saat ini Flash" /
+ * "…saat ini Flash Mendalam"), while Argon reads "…saat ini Argon" in both
+ * states and exposes a separate "Tingkat penalaran" group with
+ * Rendah/Sedang/Tinggi rows instead of a toggle. Menu rows carry no
+ * aria-checked, and this Camoufox build drops the letter "s" from innerText and
+ * aria-label, so every matcher is prefix/substring based and must never compare
+ * whole words.
  */
 export function jsGeminiSetThinking(wantOn: boolean): string {
   return `(async () => {
@@ -581,13 +530,12 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
       return (a.includes('aat ini') || a.includes('currently')) && /(fla h|flash|pro|lite|argon|thinking)/.test(a);
     });
     const chipAria = () => { const c = findChip(); return c ? norm(c.getAttribute('aria-label') || '') : ''; };
-    // Legacy oracle: the chip label names the mode. "mendalam" (deep) only shows
-    // up when extended reasoning is on.
+    // Legacy oracle: the chip label names the mode, so "mendalam" only shows up
+    // when extended reasoning is on.
     const labelSaysOn = (aria) => /mendalam|thinking|penalaran|reasoning/.test(aria);
-    // The menu can contain rows that are laid out but report no client rects.
-    // Filtering those out dropped the entire reasoning-level group on Argon,
-    // so menu rows are collected by DOM membership; only explicit hiding
-    // (display:none / aria-hidden / [hidden]) is excluded.
+    // Menu rows can be laid out but report no client rects, and filtering those
+    // out dropped the whole reasoning-level group on Argon, so rows are collected
+    // by DOM membership; only explicit hiding is excluded.
     const __cstlRowShown = (el) => {
       if (!el || !(el instanceof Element)) return false;
       if (el.closest('[hidden], [aria-hidden="true"]')) return false;
@@ -597,10 +545,9 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
       }
       return true;
     };
-    // Level rows can live inside a display:none submenu-container that is only
-    // revealed by activating the "Tingkat penalaran" header row. They are
-    // therefore collected WITHOUT a visibility requirement; the caller opens the
-    // submenu first (see ensureLevelGroup).
+    // Level rows can live inside a display:none submenu-container revealed only
+    // by activating the "Tingkat penalaran" header, so they are collected without
+    // a visibility requirement; the caller opens the submenu first.
     const collectAllItems = () => Array.from(document.querySelectorAll('gem-menu-item, [role="menuitem"], [role="menuitemcheckbox"]')).filter((el) => el instanceof HTMLElement);
     const collectItems = () => collectAllItems().filter(__cstlRowShown);
     const itemText = (el) => norm(el.innerText || el.textContent || '');
@@ -612,10 +559,10 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
       if (!t || isModelRow(t)) return false;
       return /penalaran|diperlu|thinking|extended reasoning|mendalam/.test(t);
     };
-    // Argon: a "Tingkat penalaran" header row that opens a SUBMENU holding the
-    // level rows (observed live: the levels sit in div.submenu-container with
-    // display:none until that header is activated). So the group is never
-    // present on a cold open — it must be opened first.
+    // Argon: a "Tingkat penalaran" header row opens a submenu holding the level
+    // rows (observed live: they sit in div.submenu-container with display:none
+    // until the header is activated), so the group is never present on a cold
+    // open and must be opened first.
     const LEVELS = ['rendah', 'sedang', 'tinggi'];
     const levelOf = (t) => LEVELS.find((lv) => t.startsWith(lv)) || null;
     const levelRows = (items) => items.filter((el) => {
@@ -624,14 +571,14 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
     });
     const headerRow = (items) => items.find((el) => /tingkat penalaran|reasoning level/.test(itemText(el)));
     const hasLevelGroup = (items) => !!headerRow(items) || levelRows(items).length >= 2;
-    /** Open the reasoning-level submenu so its rows can be read/clicked. */
+    /** Open the reasoning-level submenu so its rows can be read and clicked. */
     const ensureLevelGroup = async () => {
       let all = collectAllItems();
       if (levelRows(all).length >= 1) return all;
       const header = headerRow(all);
       if (!header) return all;
-      // Activate the header with a full pointer sequence: gem-menu-item binds on
-      // pointer events in some builds, and a plain .click() misses those.
+      // Full pointer sequence: gem-menu-item binds on pointer events in some
+      // builds, and a plain .click() misses those.
       try { header.scrollIntoView({ block: 'center' }); } catch (_) {}
       for (const type of ['pointerover', 'mouseover', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
         try {
@@ -646,8 +593,8 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
       }
       return collectAllItems();
     };
-    // Which level is active? The rows expose no aria-checked, so read the
-    // selection class/material attribute that gem-menu-item uses instead.
+    // Rows expose no aria-checked, so read the selection class and material
+    // attribute gem-menu-item uses instead.
     const activeLevel = (items) => {
       for (const el of levelRows(items)) {
         const lv = levelOf(itemText(el));
@@ -670,12 +617,10 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
       const chip = findChip();
       if (!chip) return { ok: false, detail: 'picker_not_found' };
 
-      // The chip label is only a reliable oracle on the LEGACY picker, where it
-      // names the mode ("…saat ini Flash" / "…Flash Mendalam"). On Argon the
-      // label reads "…saat ini Argon" in BOTH states, so trusting it reported
-      // "already off" forever and the level rows were never reached.
-      // Rule: a label that positively says ON is trusted for wantOn; any other
-      // case inspects the menu, which carries the level rows on Argon.
+      // The chip label is only a reliable oracle on the legacy picker. On Argon
+      // it reads the same in both states, so trusting it reported "already off"
+      // forever and the level rows were never reached. Rule: a label that
+      // positively says ON is trusted for wantOn; anything else inspects the menu.
       const chipLabel = chipAria();
       if (wantOn && labelSaysOn(chipLabel)) return { ok: true, detail: 'already:on' };
 
@@ -693,7 +638,6 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
         const items = await openMenu();
         if (!items.length) { await sleep(400); continue; }
 
-        // ── Argon-style reasoning LEVEL group ──────────────────────────────
         if (hasLevelGroup(items)) {
           // The levels live in a submenu, so open it before reading state.
           const opened = await ensureLevelGroup();
@@ -722,7 +666,6 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
           }
         }
 
-        // ── Legacy single toggle row ────────────────────────────────────
         const toggleRow = items.find(isToggleRow);
         if (toggleRow) {
           toggleRow.click();
@@ -746,12 +689,10 @@ export function jsGeminiSetThinking(wantOn: boolean): string {
   })()`;
 }
 
-/**
- * Attachment-card recovery (ChatGPT + DeepSeek): long pastes are converted
- * into a document card with a "show in text field" / "Paste original" button.
- * Click it (realistic pointer sequence — React sometimes binds the handler on
- * a plain parent) so the prompt becomes text again.
- */
+/** Attachment-card recovery (ChatGPT + DeepSeek): long pastes become a document
+ * card with a "show in text field" / "Paste original" button. Click it with a
+ * realistic pointer sequence (React sometimes binds on a plain parent) so the
+ * prompt becomes text again. */
 export function jsExpandAttachment(): string {
   return `(() => {
     const re = /(tampilkan di bidang teks|show in text field|open in canvas|buka di kanvas|paste original|tempel asli)/i;

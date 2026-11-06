@@ -1,13 +1,11 @@
-// @module agent-review.ts — Mutation preview (diff-gate) + self-verification
-// for the AI Agent. Large mutations via applyTranslations/editLines pause the
-// agent and render a diff preview with an interactive decision card; after any
-// applied mutation a deterministic quality sweep runs automatically.
+// @module agent-review.ts: mutation preview (diff-gate) and self-verification for
+// the AI Agent. Large applyTranslations/editLines mutations pause the agent and
+// render a diff card; after an applied mutation a deterministic sweep runs.
 
 import { state, ui } from './state';
 import { isTranslated } from './state';
 
-// ── Diff (token LCS, same algorithm as ai-check.ts) ──────────────────────────
-
+// Token LCS, same algorithm as ai-check.ts.
 function tokenize(text: string): string[] {
   return String(text || '').split(/(\s+)/).filter(t => t.length > 0);
 }
@@ -59,9 +57,7 @@ function renderDiffHtml(oldText: string, newText: string): string {
   }).join('');
 }
 
-// ── Mutation preview gate ────────────────────────────────────────────────────
-
-/** Mutations larger than this trigger the interactive diff preview. */
+/** Mutations larger than this trigger the diff preview. */
 const PREVIEW_THRESHOLD = 10;
 
 interface PendingMutation {
@@ -89,10 +85,7 @@ export interface MutationPreviewItem {
   newText: string;
 }
 
-/**
- * Show the interactive diff-preview card in the agent chat and wait for the
- * user's decision. Resolves true = apply, false = cancel.
- */
+/** Diff-preview card in the agent chat; resolves true = apply, false = cancel. */
 function awaitMutationApproval(
   kind: string,
   items: MutationPreviewItem[],
@@ -112,7 +105,7 @@ function awaitMutationApproval(
 
     const title = document.createElement('div');
     title.className = 'agent-mutation-title';
-    title.textContent = `🔍 Preview mutasi ${kind}: ${items.length} baris — menunggu konfirmasi`;
+    title.textContent = `🔍 Preview mutasi ${kind}: ${items.length} baris, menunggu konfirmasi`;
     card.appendChild(title);
 
     const list = document.createElement('div');
@@ -165,7 +158,7 @@ function awaitMutationApproval(
     historyEl.appendChild(card);
     historyEl.scrollTop = historyEl.scrollHeight;
 
-    // Cancel watch — Stop must also kill a pending preview.
+    // Cancel watch: Stop must also kill a pending preview.
     const check = setInterval(() => {
       if (isCancelled()) {
         clearInterval(check);
@@ -180,10 +173,7 @@ function awaitMutationApproval(
   });
 }
 
-/**
- * Gate for mutation tools. If the mutation is large (or auto-review is forced),
- * show the preview and wait. Returns true when the caller may proceed.
- */
+/** If the mutation is large (or preview is forced), show it and wait; true = proceed. */
 export async function gateMutation(
   kind: string,
   items: MutationPreviewItem[],
@@ -201,8 +191,6 @@ export async function gateMutation(
   }
 }
 
-// ── Self-verification (deterministic, runs after applied mutations) ─────────
-
 export interface VerifyIssue {
   num: number;
   kind: string;
@@ -210,9 +198,8 @@ export interface VerifyIssue {
 }
 
 /**
- * Deterministic post-mutation sweep over the affected lines: leftover JP
- * punctuation, suspicious shortening, empty translation, and untranslated
- * flag mismatches. Cheap, no AI — surfaces obvious regressions instantly.
+ * Deterministic sweep over the affected lines: leftover JP punctuation,
+ * suspicious shortening, empty translation, flag mismatches. No AI call.
  */
 export function verifyMutatedLines(nums: number[]): VerifyIssue[] {
   const issues: VerifyIssue[] = [];
@@ -225,7 +212,6 @@ export function verifyMutatedLines(nums: number[]): VerifyIssue[] {
       continue;
     }
     if (!l.is_translated) continue;
-    // Leftover JP punctuation in the message.
     const jp = t.match(/[。、・〜ー]/g);
     if (jp) {
       issues.push({ num, kind: 'jp-punct', detail: `Sisa tanda baca Jepang: ${jp.join(' ')}` });
@@ -234,7 +220,7 @@ export function verifyMutatedLines(nums: number[]): VerifyIssue[] {
     if (l.message.length > 10 && t.length < l.message.length * 0.2) {
       issues.push({ num, kind: 'short', detail: `Terjemahan jauh lebih pendek dari asli (${t.length} vs ${l.message.length} karakter)` });
     }
-    // Untranslated CJK residue in a translated line (kanji may be legit — flag only).
+    // Kana residue in a translated line (kanji may be legit, so flag only).
     if (/[\u3040-\u30ff]/.test(t)) {
       issues.push({ num, kind: 'kana', detail: 'Sisa kana di terjemahan' });
     }
@@ -242,7 +228,6 @@ export function verifyMutatedLines(nums: number[]): VerifyIssue[] {
   return issues;
 }
 
-/** Build a compact report string for the agent from verification issues. */
 export function formatVerifyReport(issues: VerifyIssue[]): string {
   if (!issues.length) return '';
   const lines = issues.slice(0, 15).map(i => `- [${i.num}] ${i.kind}: ${i.detail}`);

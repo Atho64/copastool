@@ -1,5 +1,5 @@
-// @module live-translator.ts — On-the-fly AI translation for live visual novel gameplay
-// Matches CopasTool's exact prompt structure, context settings, glossary, and export formats.
+// @module live-translator.ts: on-the-fly AI translation for live visual novel
+// gameplay, matching CopasTool's prompt, context, glossary, and export formats.
 
 import * as ProjectModule from './project';
 import { state, isIlustrasiLine, isTranslated } from './state';
@@ -45,32 +45,22 @@ class LiveTranslator {
   private pendingDebounceTimer: number | null = null;
   private pendingLineNum: number | null = null;
 
-  /**
-   * Set when a live Copas request should stop before its next polling step.
-   * Auto Copas shares one browser tab, so a live request cannot be aborted
-   * mid-stream without leaving the tab in an ambiguous state; this flag only
-   * takes effect at the driver's own checkpoints.
-   */
+  /** Set when a live Copas request should stop before its next polling step. Auto
+   * Copas shares one browser tab, so a request cannot be aborted mid-stream
+   * without leaving the tab ambiguous; the flag only acts at driver checkpoints. */
   private copasCancelRequested = false;
 
-  /**
-   * The prompt sent by the most recent successful translation. Retained for
-   * debugging a bad prompt from the console instead of re-deriving it.
-   */
+  /** The prompt sent by the most recent successful translation, kept so a bad
+   * prompt can be inspected from the console. */
   private lastPrompt = '';
 
-  /**
-   * Returns the prompt from the last translation request. Useful when inspecting
-   * what was actually sent to the API for a specific line.
-   */
+  /** The prompt from the last translation request. */
   getLastPrompt(): string {
     return this.lastPrompt;
   }
 
-  /**
-   * Translates a single line asynchronously via CopasTool's configured AI API.
-   * Matches CopasTool's standard translation prompt (Header, Glossary, Context, Summary, Export Format).
-   */
+  /** Translate a single line asynchronously through the configured AI API, using
+   * the standard translation prompt (header, glossary, context, summary, format). */
   async translateLine(
     targetLine: Line,
     onStatusUpdate?: (statusText: string) => void
@@ -117,22 +107,19 @@ class LiveTranslator {
 
       const parsed = this.parseResponse(rawResponse, targetLine);
 
-      // Snapshot before mutating so a live translation can be undone like any
-      // other edit. Only this line is captured — a full snapshot before every
-      // hooked line would be far too expensive during gameplay.
+      // Snapshot before mutating so a live translation undoes like any other edit.
+      // Only this line is captured: a full snapshot per hooked line would be far
+      // too expensive during gameplay.
       pushUndoSnapshot(true, [lineNum]);
 
-      // Apply to line in-memory
       targetLine.trans_message = parsed.trans_message;
       if (parsed.trans_name) {
         targetLine.trans_name = parsed.trans_name;
       }
       targetLine.is_translated = true;
 
-      // Persist to project storage
       queueAutoSave();
 
-      // Refresh editor UI if visible
       try {
         renderPreviewRows();
       } catch {}
@@ -149,17 +136,12 @@ class LiveTranslator {
     }
   }
 
-  /**
-   * Picks the look-ahead lines for a batch request: the hooked line followed by
-   * the next still-untranslated visible lines in display order.
-   *
-   * Lines that are already translated are skipped but do NOT consume a batch
-   * slot — otherwise a handful of finished lines would shrink every upcoming
-   * batch to a single line. Illustration markers and hidden lines are skipped
-   * entirely because they are not translatable text.
-   *
-   * @param size Total lines to request (1 = just the hooked line).
-   */
+  /** Look-ahead lines for a batch: the hooked line followed by the next
+   * untranslated visible lines in display order. Translated lines are skipped
+   * without consuming a slot, otherwise a few finished lines would shrink every
+   * upcoming batch to a single line. Illustration markers and hidden lines are
+   * skipped because they are not translatable text. `size` is the total lines to
+   * request (1 = just the hooked line). */
   collectLookahead(targetLine: Line, size: number): Line[] {
     const want = Math.max(1, Math.trunc(size) || 1);
     const picked: Line[] = [targetLine];
@@ -174,26 +156,17 @@ class LiveTranslator {
       if (!candidate || candidate._hidden) continue;
       if (isIlustrasiLine(candidate)) continue;
       if (!candidate.message?.trim()) continue;
-      // Already done — skip without burning a batch slot.
+      // Already done: skip without burning a batch slot.
       if (isTranslated(candidate)) continue;
       picked.push(candidate);
     }
     return picked;
   }
 
-  /**
-   * Translates the hooked line plus up to `batchSize` lines in a single Auto
-   * Copas round-trip (look-ahead pre-translation).
-   *
-   * The response is expected to contain every requested line number; each one
-   * is applied independently, so a partially-parseable reply still keeps what
-   * it understood. The hooked line is applied first and reported through the
-   * normal status callback so the overlay updates as soon as it is available.
-   *
-   * Falls back to `translateLine` when the batch is 1 line, keeps behaving like
-   * the old single-line path for the HTTP API engine (a batch there is cheap
-   * but the per-line loop already streams progress per line).
-   */
+  /** Translate the hooked line plus up to `batchSize` lines in one Auto Copas
+   * round-trip (look-ahead pre-translation). Each requested line number is applied
+   * independently, so a partly parseable reply keeps what it understood. Falls
+   * back to `translateLine` for a 1-line batch and for the HTTP API engine. */
   async translateBatch(
     targetLine: Line,
     batchSize: number,
@@ -204,7 +177,7 @@ class LiveTranslator {
     const size = Math.max(1, Math.trunc(batchSize) || 1);
     const useCopas = state.liveTranslateEngine === 'copas';
 
-    // Single line, or a non-Copas engine: reuse the existing single-line path.
+    // Single line or non-Copas engine: reuse the single-line path.
     if (size <= 1 || !useCopas) {
       return this.translateLine(targetLine, onStatusUpdate);
     }
@@ -244,8 +217,8 @@ class LiveTranslator {
         throw new Error('Respons AI tidak bisa diurai sebagai terjemahan (format tidak dikenali).');
       }
 
-      // Snapshot every line we are about to touch, once, so the whole batch
-      // undoes as a single action rather than line-by-line.
+      // Snapshot every line we are about to touch, once, so the batch undoes as a
+      // single action rather than line by line.
       const applied = targets.filter(l => parsedByNum.has(l.line_num));
       pushUndoSnapshot(true, applied.map(l => l.line_num));
 
@@ -268,8 +241,8 @@ class LiveTranslator {
 
       const head = parsedByNum.get(lineNum);
       if (!head) {
-        // The hooked line itself was absent, but later lines were applied.
-        // Surface that instead of pretending everything worked.
+        // The hooked line was absent but later lines were applied: surface that
+        // instead of pretending everything worked.
         throw new Error('Baris aktif tidak ada di respons batch (baris lain tersimpan).');
       }
 
@@ -285,10 +258,8 @@ class LiveTranslator {
     }
   }
 
-  /**
-   * Schedule a debounced translation for a line. If the line changes or settles within 400ms,
-   * only the latest stable text is translated.
-   */
+  /** Schedule a debounced translation for a line: only the latest stable text
+   * within 400ms is translated. */
   scheduleDebounced(
     targetLine: Line,
     onStatusUpdate?: (statusText: string) => void,
@@ -327,17 +298,12 @@ class LiveTranslator {
     return this.inFlight.has(lineNum) || this.pendingLineNum === lineNum;
   }
 
-  /**
-   * Sends one prompt through the Auto Copas browser transport instead of the
-   * HTTP API. Reuses the same driver, target, and per-run preferences as the
-   * batch loops, so a chat-new/thinking setting applies here too.
-   *
-   * Auto Copas owns exactly one browser tab and one conversation, so a live
-   * request must not interleave with a running Auto Translate / Glossary /
-   * AI Check batch: it would paste into the same composer and read the other
-   * run's answer. When any batch workflow is active, the live request is
-   * skipped with a visible reason instead of corrupting both runs.
-   */
+  /** Send one prompt through the Auto Copas browser transport instead of the HTTP
+   * API, reusing the same driver, target, and per-run preferences as the batch
+   * loops. Auto Copas owns one tab and one conversation, so a live request must
+   * not interleave with a running Auto Translate / Glossary / AI Check batch: it
+   * would paste into the same composer and read the other run's answer. When a
+   * batch workflow is active the live request is skipped with a visible reason. */
   private async translateViaCopas(
     prompt: string,
     onStatusUpdate?: (statusText: string) => void
@@ -359,8 +325,8 @@ class LiveTranslator {
         workflow: 'translate',
         status,
         shouldCancel: () => this.copasCancelRequested,
-        // A live line must land in the conversation the player is already in,
-        // so never start a new chat here; the batch setting is for batches.
+        // A live line must land in the conversation the player is already in, so
+        // never start a new chat here; the batch setting is for batches.
         newChat: false,
         thinking: await this.copasThinkingPref(),
       });
@@ -383,17 +349,12 @@ class LiveTranslator {
     }
   }
 
-  /**
-   * Constructs the prompt exactly identical to CopasTool's buildCopyForAiPrompt / onAutoTranslate.
-   *
-   * @param targets Lines included in the request payload. One line keeps the
-   *   original single-line behaviour; several lines produce a look-ahead batch
-   *   where the model is asked to translate every listed line.
-   */
+  /** Build the prompt exactly as buildCopyForAiPrompt / onAutoTranslate do.
+   * `targets` is the request payload: one line keeps the single-line behaviour,
+   * several produce a look-ahead batch where every listed line is translated. */
   private buildPrompt(targetLine: Line, targets: Line[] = [targetLine]): string {
     const orderedLines = getDisplayOrderedLines();
 
-    // 1. Context Lines following user settings (state.contextLines & state.contextType)
     let contextBlock = '';
     if (state.contextLines > 0) {
       const targetIdx = orderedLines.findIndex(l => l.line_num === targetLine.line_num);
@@ -419,14 +380,13 @@ class LiveTranslator {
       }
     }
 
-    // 2. Export text using the user's active translation format (Numbered, Block, XML, JSONL, JSON Array)
+    // Export text in the user's active format (Numbered, Block, XML, JSONL, JSON Array).
     const lineSet = new Set<number>(targets.map(l => l.line_num));
     const joinedText = sanitizeTagsForChatgpt(buildSelectedTranslationExport(false, lineSet));
 
-    // 3. Glossary prompt matching the input line
     const glossaryBlock = getGlossaryPrompt(joinedText);
 
-    // 4. Prompt Header with variable substitution ({{sourceLang}}, {{targetLang}}, {{lineCount}})
+    // Prompt header with variable substitution ({{sourceLang}}, {{targetLang}}, {{lineCount}}).
     state._lastExportedLineCount = targets.length;
     const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
@@ -438,7 +398,6 @@ class LiveTranslator {
       sections.push(contextBlock.trim());
     }
 
-    // 5. Background chaining if enabled
     if (state.enableBackgroundChaining) {
       if (state.currentBackground) {
         sections.push(sanitizeTagsForChatgpt(`<summary>\n${state.currentBackground.trim()}\n</summary>`));
@@ -451,24 +410,19 @@ class LiveTranslator {
       sections.push(applyPromptVariables(promptText));
     }
 
-    // 6. Uncertain marking if enabled
     if (state.enableUncertainMarking) {
       sections.push('If you are uncertain about a translation, prefix it with [?].');
     }
 
-    // 7. Input Line payload
     sections.push(joinedText.trim());
 
     return sections.join('\n\n');
   }
 
-  /**
-   * True when a plain (unnumbered) reply looks like the model talking about the
-   * task instead of producing a translation — "Sure! Here is the translation:",
-   * apologies, or a refusal. Such text must never be written into a line: the
-   * line would be marked translated while containing prose, which is harder to
-   * notice later than a visible failure.
-   */
+  /** True when a plain (unnumbered) reply is the model talking about the task
+   * instead of translating ("Sure! Here is the translation:", an apology, a
+   * refusal). Such text must never be written into a line: the line would be
+   * marked translated while containing prose, harder to notice than a failure. */
   private looksLikeChatter(text: string): boolean {
     const t = text.trim();
     if (!t) return true;
@@ -476,10 +430,8 @@ class LiveTranslator {
       || /(?:here (?:is|are) the translation|berikut (?:adalah )?terjemahan|translation (?:in|into) \w+)/i.test(t.slice(0, 200));
   }
 
-  /**
-   * Strips markdown fences, a leading line number, and any leaked AI metadata
-   * sections. Returns null when nothing usable is left after cleanup.
-   */
+  /** Strip markdown fences, a leading line number, and leaked AI metadata
+   * sections; null when nothing usable is left. */
   private extractPlainFallback(cleanedRaw: string): { name: string | null; text: string } | null {
     let fallbackText = cleanedRaw
       .replace(/^```[a-z]*\s*/i, '')
@@ -499,10 +451,8 @@ class LiveTranslator {
     return { name, text: fallbackText };
   }
 
-  /**
-   * Splits an AI reply into the format's item list. Returns an empty array when
-   * the payload cannot be read in any known format.
-   */
+  /** Split an AI reply into the format's item list; empty when the payload cannot
+   * be read in any known format. */
   private parseItems(rawText: string): { num: number; name: string | null; msg: string }[] {
     const cleanedRaw = stripThinkingTags(rawText).trim();
     const pasteFormat = detectTranslationPasteFormat(cleanedRaw);
@@ -527,14 +477,10 @@ class LiveTranslator {
     }
   }
 
-  /**
-   * Parses a multi-line (batch) reply into a per-line_num map.
-   *
-   * Only lines that were actually requested are kept, so a model that keeps
-   * numbering after the batch (or echoes context lines) cannot write to lines
-   * nobody asked about. A single-line reply without the expected numbering is
-   * accepted only for the first requested line, matching the legacy fallback.
-   */
+  /** Parse a multi-line (batch) reply into a per-line_num map. Only requested
+   * lines are kept, so a model that keeps numbering after the batch (or echoes
+   * context lines) cannot write to lines nobody asked about. A single-line reply
+   * without the expected numbering is accepted only for the first requested line. */
   private parseResponseMulti(
     rawText: string,
     targets: Line[]
@@ -575,14 +521,10 @@ class LiveTranslator {
     return out;
   }
 
-  /**
-   * Parses the AI response according to CopasTool's format parsers.
-   *
-   * Throws when the reply cannot be understood as a translation. Silently saving
-   * the raw reply (the old behaviour) marked the line translated with prose like
-   * "Sure! Here is the translation:" or an apology, which then had to be hunted
-   * down by hand — a failed translate is strictly better than a poisoned line.
-   */
+  /** Parse the AI response with CopasTool's format parsers, throwing when the
+   * reply cannot be understood as a translation. Saving the raw reply marks the
+   * line translated with prose like "Sure! Here is the translation:", and a
+   * failed translate is strictly better than a poisoned line. */
   private parseResponse(
     rawText: string,
     originalLine: Line
@@ -605,7 +547,7 @@ class LiveTranslator {
         parsedItems = parseTranslationNumberedPaste(cleanedRaw).parsed;
       }
     } catch {
-      // Format mismatch fallback handled below
+      // Unparseable format falls through to the plain-text fallback below.
     }
 
     const matchedItem = parsedItems.find(it => it.num === originalLine.line_num);
@@ -618,8 +560,8 @@ class LiveTranslator {
       }
       trans_message = unescapeStoredNewlines(stripLeakedAiSections(matchedItem.msg));
     } else {
-      // Fallback: single-line replies that came back without the expected format
-      // tags. Only accepted when cleanup leaves real translation text behind.
+      // Single-line replies that came back without the expected format tags are
+      // only accepted when cleanup leaves real translation text behind.
       const fallback = this.extractPlainFallback(cleanedRaw);
       if (!fallback) {
         throw new Error('Respons AI tidak bisa diurai sebagai terjemahan (format tidak dikenali).');
@@ -633,7 +575,7 @@ class LiveTranslator {
       throw new Error('Respons AI tidak memuat teks terjemahan.');
     }
 
-    // Strip wrapping outer quotes if added unnecessarily
+    // Strip wrapping outer quotes when added unnecessarily.
     if (/^["'「](.+)["'」]$/s.test(trans_message) && !originalLine.message.startsWith('「')) {
       trans_message = trans_message.slice(1, -1).trim();
     }

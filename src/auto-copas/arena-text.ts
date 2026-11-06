@@ -1,8 +1,7 @@
-// @module auto-copas/arena-text.ts — Arena response text normalization.
-// Port of the extension's shared/text-utils.ts (normalizeQwenResponseText) and
-// arena fixArenaLineNumbers. Applied to Arena's clipboard captures: Arena
-// renders the translation payload in a Monaco-style code block whose
-// line-number gutter can leak into the copied text, and its model likes to
+// @module auto-copas/arena-text.ts: Arena response text normalization. Port of the
+// extension's shared/text-utils.ts (normalizeQwenResponseText) and arena
+// fixArenaLineNumbers. Arena renders the payload in a Monaco-style code block
+// whose line-number gutter can leak into the copied text, and its model likes to
 // restart numbering at 1.
 
 /** Normalize the Arena/Qwen-style inline-rendered numbered translation blocks. */
@@ -11,9 +10,9 @@ export function normalizeQwenStyleText(raw: string): string {
   // The model may append the prompt context in a tagged block; it is not output.
   text = text.replace(/\s*<background>[\s\S]*?<\/background>\s*$/i, '').trim();
 
-  // Monaco's detached DOM can flatten its line-number gutter before the
-  // content: "123...24251. First line2. Second line". Strip an exact
-  // concatenated 1..N prefix when it is immediately followed by output line 1.
+  // Monaco's detached DOM can flatten its gutter before the content
+  // ("123...24251. First line2. Second line"): strip an exact concatenated 1..N
+  // prefix when it is immediately followed by output line 1.
   const plaintextPrefix = text.match(/^(?:text\s*)?plaintext/i);
   const prefixOffset = plaintextPrefix?.[0].length || 0;
   const afterLabel = text.slice(prefixOffset).trimStart();
@@ -25,8 +24,8 @@ export function normalizeQwenStyleText(raw: string): string {
   }
   if (gutterLength >= 5) text = afterLabel.slice(gutterLength);
 
-  // AI Check payloads flatten into "plaintext123... [line 12]category: ...".
-  // Remove the code-editor gutter prefix and restore structural newlines.
+  // AI Check payloads flatten into "plaintext123... [line 12]category: ...":
+  // remove the gutter prefix and restore structural newlines.
   const firstAiCheckBlock = text.search(/\[line\s+\d+\]/i);
   if (firstAiCheckBlock >= 0) {
     const prefix = text.slice(0, firstAiCheckBlock).replace(/\s+/g, ' ').trim();
@@ -52,8 +51,8 @@ export function normalizeQwenStyleText(raw: string): string {
     text = text.replace(new RegExp(`([^\\n])(?=\\[${glossaryType}\\]\\s*[^=\\n]+\\s*=)`, 'gi'), '$1\n');
   }
 
-  // A run of line-number spans can be flattened before the real marker, e.g.
-  // "123456789...2829 6035. Akari...". Discard that UI-number prefix.
+  // A run of line-number spans can be flattened before the real marker (e.g.
+  // "123456789...2829 6035. Akari..."): discard that UI-number prefix.
   const markers = [...text.matchAll(/(\d{4,6})\.\s/g)];
   if (markers.length >= 2) {
     const second = Number(markers[1][1]);
@@ -104,7 +103,7 @@ function restoreSequentialNumberedLineBreaks(text: string): string {
 }
 
 /** Arena sometimes restarts response numbering at 1 while the payload uses the
- * original line numbers — renumber the response to match the prompt. */
+ * original line numbers, so renumber the response to match the prompt. */
 export function fixArenaLineNumbers(response: string, payload: string): string {
   const payloadNums = [...payload.matchAll(/^\s*(\d+)\.\s/gm)].map((m) => parseInt(m[1], 10));
   if (!payloadNums.length) return response;

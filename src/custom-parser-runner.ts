@@ -1,7 +1,7 @@
-// @module custom-parser-runner.ts — Eksekusi sandbox untuk parser custom.
-// JS parser jalan di Web Worker blob (fresh per panggilan, diberhentikan pakai
-// timeout). Python parser jalan di worker pyodide yang dimuat lazy dari CDN
-// (bundle app & PWA precache tidak terpengaruh).
+// @module custom-parser-runner.ts: eksekusi sandbox untuk parser custom.
+// JS parser jalan di Web Worker blob (fresh per panggilan, dihentikan lewat
+// timeout). Python parser jalan di worker pyodide yang dimuat lazy dari CDN,
+// jadi bundle app dan PWA precache tidak terpengaruh.
 
 import type { CustomParser, CustomParsedEntry } from './types';
 import { normalizeAssetName, bytesFromBase64 } from './custom-parsers';
@@ -10,7 +10,7 @@ import { normalizeAssetName, bytesFromBase64 } from './custom-parsers';
 // di tengah jalan; infinite loop tetap terhenti (hanya lebih sabar menunggu).
 const JS_TIMEOUT_MS = 600000;
 const PY_EXEC_TIMEOUT_MS = 600000;
-/** Unduhan pertama pyodide ~10MB — ikut dilonggarkan untuk koneksi lambat. */
+/** Unduhan pertama pyodide ~10MB, ikut dilonggarkan untuk koneksi lambat. */
 const PY_LOAD_TIMEOUT_MS = 600000;
 
 const PYODIDE_VERSION = 'v314.0.5';
@@ -32,8 +32,6 @@ export interface CustomSerializeCtx extends CustomParseCtx {
 export type CustomSerializeResult =
   | { kind: 'text'; content: string }
   | { kind: 'bytes'; content: Uint8Array };
-
-// ─── JavaScript runner (blob worker, fresh per panggilan) ─────────────────────
 
 export function buildJsWorkerSource(parser: CustomParser): string {
   // Script user dibungkus function scope agar deklarasi `function parse(){}`
@@ -129,7 +127,7 @@ function runJsCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any, ho
     };
     const timer = setTimeout(() => {
       finish(() => reject(new Error(
-        `Parser ${op}() melebihi batas ${JS_TIMEOUT_MS / 1000} detik — script dihentikan. ` +
+        `Parser ${op}() melebihi batas ${JS_TIMEOUT_MS / 1000} detik, script dihentikan. ` +
         'Kemungkinan infinite loop di parser.'
       )));
     }, JS_TIMEOUT_MS);
@@ -154,13 +152,11 @@ function runJsCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any, ho
   });
 }
 
-// ─── Python runner (pyodide worker singleton, lazy dari CDN) ─────────────────
-
 export function buildPyodideWorkerSource(pyodideJs: string): string {
-  // pyodide.js di-embed langsung ke blob worker (bukan importScripts) —
-  // beberapa lingkungan browser memblokir importScripts lintas-origin di
-  // worker, sementa fetch + embed tetap jalan. Aset berat (wasm/stdlib)
-  // diambil sendiri oleh loadPyodide via fetch dari indexURL.
+  // pyodide.js di-embed langsung ke blob worker (bukan importScripts) karena
+  // beberapa browser memblokir importScripts lintas-origin di worker, sedangkan
+  // fetch + embed tetap jalan. Aset berat (wasm/stdlib) diambil loadPyodide
+  // sendiri via fetch dari indexURL.
   return pyodideJs + '\n'
     + 'var __ready = globalThis.loadPyodide({ indexURL: "' + PYODIDE_BASE + '",\n'
     + '  stdout: function (s) { self.postMessage({ __cstl_log: true, level: "log", text: String(s) }); },\n'
@@ -261,10 +257,9 @@ async function cachedFetchPyodideJs(): Promise<string> {
       }
       const res = await fetch(url);
       if (!res.ok) {
-        throw new Error(`Gagal mengunduh loader pyodide dari CDN (HTTP ${res.status}). Cek koneksi internet — Python parser butuh internet saat pemakaian pertama.`);
+        throw new Error(`Gagal mengunduh loader pyodide dari CDN (HTTP ${res.status}). Cek koneksi internet, Python parser butuh internet saat pemakaian pertama.`);
       }
       pyodideJsCache = await res.text();
-      // Simpan salinan untuk pemakaian berikutnya (best-effort).
       try { await cache.put(url, new Response(pyodideJsCache, { headers: { 'Content-Type': 'application/javascript' } })); } catch (_) {}
       return pyodideJsCache;
     }
@@ -275,7 +270,7 @@ async function cachedFetchPyodideJs(): Promise<string> {
   }
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Gagal mengunduh loader pyodide dari CDN (HTTP ${res.status}). Cek koneksi internet — Python parser butuh internet saat pemakaian pertama.`);
+    throw new Error(`Gagal mengunduh loader pyodide dari CDN (HTTP ${res.status}). Cek koneksi internet, Python parser butuh internet saat pemakaian pertama.`);
   }
   pyodideJsCache = await res.text();
   return pyodideJsCache;
@@ -291,7 +286,7 @@ export function setPyodideColdStartHint(hint: () => void): void {
 }
 
 function runPythonCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any, hooks?: CustomRunHooks): Promise<any> {
-  // pyodide single instance — antre panggilan agar tidak tumpang tindih.
+  // pyodide single instance: antre panggilan agar tidak tumpang tindih.
   const run = pyActive.then(async () => {
     let worker: Worker;
     if (pyWorker) {
@@ -316,7 +311,7 @@ function runPythonCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        // Worker dibunuh — instance berikutnya dimuat ulang (cache browser bikin cepat).
+        // Worker dibunuh; instance berikutnya dimuat ulang (cache browser bikin cepat).
         worker.terminate();
         pyWorker = null;
         pyWarm = false;
@@ -325,8 +320,8 @@ function runPythonCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any
       const timer = setTimeout(() => {
         fail(new Error(
           pyWarm
-            ? `Parser ${op}() melebihi batas ${PY_EXEC_TIMEOUT_MS / 1000} detik — script dihentikan.`
-            : 'Memuat runtime Python (pyodide) terlalu lama — cek koneksi internet lalu coba lagi.'
+            ? `Parser ${op}() melebihi batas ${PY_EXEC_TIMEOUT_MS / 1000} detik, script dihentikan.`
+            : 'Memuat runtime Python (pyodide) terlalu lama, cek koneksi internet lalu coba lagi.'
         ));
       }, timeoutMs);
       worker.onmessage = (ev: MessageEvent) => {
@@ -348,8 +343,8 @@ function runPythonCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any
         else reject(new Error(String(d.error)));
       };
       worker.onerror = (ev: ErrorEvent) => {
-        // Pesan asli dari worker sering kalah detail (atau kosong) untuk error
-        // saat loadPyodide — sertakan lokasi file/baris kalau ada.
+        // Pesan asli dari worker sering kurang detail (atau kosong) untuk error
+        // saat loadPyodide; sertakan lokasi file/baris kalau ada.
         var loc = ev.filename ? ' (' + String(ev.filename).split('/').pop() + ':' + (ev.lineno || '?') + ')' : '';
         fail(new Error('Error runtime Python: ' + (ev.message || 'tidak diketahui') + loc +
           '. Kalau ini terjadi saat memuat pyodide pertama kali: cek koneksi internet / matikan pemblokir skrip, lalu coba lagi (cache browser membuat percobaan ke-2 jauh lebih cepat).'));
@@ -365,8 +360,6 @@ function runPythonCall(parser: CustomParser, op: 'parse' | 'serialize', ctx: any
   pyActive = run.then(() => undefined, () => undefined);
   return run;
 }
-
-// ─── API publik + validasi hasil ──────────────────────────────────────────────
 
 function typeName(v: any): string {
   if (v === null) return 'null';
@@ -390,7 +383,7 @@ export async function runCustomParse(parser: CustomParser, ctx: CustomParseCtx, 
       name: item.name == null ? null : String(item.name),
       message: String(item.message),
       raw: item.raw == null ? null : String(item.raw),
-      // index opsional dari parser — angka saja yang diterima, sisanya null.
+      // index opsional dari parser: angka saja yang diterima, sisanya null.
       index: item.index == null ? null : (Number.isFinite(Number(item.index)) ? Number(item.index) : null),
     });
   }

@@ -1,6 +1,6 @@
-// @module luna-hooker.ts — LunaTranslator WebSocket client & connection manager
-// Connects to LunaTranslator local network service (default ws://127.0.0.1:2333/api/ws/text/origin)
-// to receive live hooked dialogue lines during VN playtesting.
+// @module luna-hooker.ts: LunaTranslator WebSocket client and connection manager.
+// Receives live hooked dialogue from ws://127.0.0.1:2333/api/ws/text/origin during
+// VN playtesting.
 
 export type LunaConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 export type LunaOperatingMode = 'check' | 'tl';

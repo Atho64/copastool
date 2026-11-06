@@ -1,19 +1,14 @@
-// @module agent-context.ts — Context window management for the AI Agent.
-// Token estimation (script-aware), per-model context window lookup, and the
-// compaction routine shared by the main agent and subagents.
+// @module agent-context.ts: context window management for the AI Agent. Token
+// estimation, per-model context window lookup, and the compaction routine shared
+// by the main agent and subagents.
 
 import { state } from './state';
 import type { ChatMessage } from './ai-client';
 
-// ── Token estimation (script-aware) ──────────────────────────────────────────
-
 /**
- * Estimate the token count of a string. Modern tokenizers are script-aware:
- * - CJK (Japanese/Chinese/Korean): ~1 token per character (often less for
- *   common kanji words, but 1.0 is a safe upper bound)
- * - Latin/Cyrillic text: ~0.25 tokens per character (≈4 chars/token)
- * - Digits/punctuation: ~0.5 tokens per character
- * This is an estimate — good enough for compaction thresholds, not for billing.
+ * Script-aware token estimate: CJK ~1 token per character (safe upper bound),
+ * Latin ~0.25 (≈4 chars/token), digits/punctuation ~0.5. Good enough for
+ * compaction thresholds, not for billing.
  */
 export function estimateTokens(text: string): number {
   if (!text) return 0;
@@ -43,12 +38,10 @@ export function estimateMessagesTokens(messages: ChatMessage[]): number {
   return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0);
 }
 
-// ── Per-model context window lookup ──────────────────────────────────────────
-
 /**
- * Known context window sizes (in tokens) by model name substring. Matched
- * case-insensitively against the configured model string; the longest matching
- * key wins so "gemini-1.5-flash-8b" beats "gemini-1.5-flash".
+ * Known context windows (tokens) by model name substring, matched
+ * case-insensitively; the longest matching key wins so "gemini-1.5-flash-8b"
+ * beats "gemini-1.5-flash".
  */
 const MODEL_CONTEXT_WINDOWS: [string, number][] = [
   // Google
@@ -98,7 +91,7 @@ const MODEL_CONTEXT_WINDOWS: [string, number][] = [
   ['command-r', 128_000],
 ];
 
-/** Fallback when the model is unknown — conservative modern default. */
+/** Fallback when the model is unknown. */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 export function lookupContextWindow(model: string): number {
@@ -115,10 +108,7 @@ export function lookupContextWindow(model: string): number {
   return best || DEFAULT_CONTEXT_WINDOW;
 }
 
-/**
- * Effective context window for the current provider settings. Manual override
- * (aiContextWindow, in tokens, 0 = auto) wins when set.
- */
+/** Effective window for the current settings; manual aiContextWindow (0 = auto) wins. */
 export function getEffectiveContextWindow(): number {
   const manual = Math.trunc(Number(state.aiContextWindow) || 0);
   if (manual > 0) return manual;
@@ -128,10 +118,8 @@ export function getEffectiveContextWindow(): number {
 /** Compact when the estimated conversation exceeds this share of the window. */
 const COMPACT_RATIO = 0.75;
 
-/** Hard cap for the summarizer request itself — it must fit in the window too. */
+/** Hard cap for the summarizer request itself: it must fit in the window too. */
 const SUMMARY_MAX_CHARS = 120_000;
-
-// ── Compaction ───────────────────────────────────────────────────────────────
 
 export interface CompactionResult {
   compacted: boolean;
@@ -141,8 +129,8 @@ export interface CompactionResult {
 }
 
 /**
- * Compact the agent chat history in place when it grows past COMPACT_RATIO of
- * the effective context window. Returns stats for status logging.
+ * Compact the history in place past COMPACT_RATIO of the context window;
+ * returns stats for status logging.
  */
 export async function compactAgentContextIfNeeded(
   history: ChatMessage[],
@@ -157,7 +145,7 @@ export async function compactAgentContextIfNeeded(
   const compactable = summarizeMessages.length > 1; // keep at least one real message
   if (!compactable) return result;
 
-  // Preserve the system prompt + the last few messages verbatim (recent turns
+  // Keep the system prompt and the last few messages verbatim (recent turns
   // carry the most actionable context); summarize the rest.
   const keepRecent = 4;
   const toSummarize = summarizeMessages.slice(0, -keepRecent);
@@ -166,7 +154,7 @@ export async function compactAgentContextIfNeeded(
 
   const summaryInput = toSummarize.map(m => `[${m.role}]: ${m.content}`).join('\n\n');
   const clipped = summaryInput.length > SUMMARY_MAX_CHARS
-    ? summaryInput.slice(-SUMMARY_MAX_CHARS) // keep the tail — newest context matters most
+    ? summaryInput.slice(-SUMMARY_MAX_CHARS) // keep the tail, newest context matters most
     : summaryInput;
 
   const summary = await summarize([
@@ -174,8 +162,8 @@ export async function compactAgentContextIfNeeded(
     { role: 'user', content: clipped },
   ]);
 
-  // Rebuild: keep any leading system message(s) verbatim, then the summary,
-  // then the recent turns. The caller's system prompt is message 0.
+  // Rebuild: leading system messages verbatim, then the summary, then the
+  // recent turns. The caller's system prompt is message 0.
   const systemHead = history.filter(m => m.role === 'system');
   history.length = 0;
   for (const m of systemHead) history.push(m);
@@ -188,10 +176,9 @@ export async function compactAgentContextIfNeeded(
 }
 
 /**
- * Emergency compaction: force the history down to `targetRatio` of the window
- * (or just below the last failure point) by dropping oldest non-system turns
- * and inserting a short literal digest — no AI summarization (the request that
- * just failed was already too big; another AI call could fail the same way).
+ * Emergency compaction: force the history down to `targetRatio` of the window by
+ * dropping oldest non-system turns and inserting a short literal digest. No AI
+ * summarization: the request that just failed was already too big.
  */
 export async function forceCompactAgentContext(
   history: ChatMessage[],
@@ -205,7 +192,7 @@ export async function forceCompactAgentContext(
 
   // Walk from newest to oldest, keeping as many recent turns as fit.
   const kept: ChatMessage[] = [];
-  let keptTokens = estimateTokens('[Context truncated by emergency compaction — earlier messages were dropped]');
+  let keptTokens = estimateTokens('[Context truncated by emergency compaction: earlier messages were dropped]');
   for (let i = nonSystem.length - 1; i >= 0; i--) {
     const t = estimateTokens(nonSystem[i].content) + 4;
     if (keptTokens + t > target && kept.length >= 2) break; // always keep ≥2 recent
@@ -216,8 +203,7 @@ export async function forceCompactAgentContext(
   history.length = 0;
   for (const m of systemHead) history.push(m);
   if (kept.length && kept[0].role === 'user') {
-    // Prepend the notice to the first kept user message so it reads naturally.
-    history.push({ role: 'assistant', content: '[Context truncated by emergency compaction — earlier messages were dropped to fit the model context window.]' });
+    history.push({ role: 'assistant', content: '[Context truncated by emergency compaction: earlier messages were dropped to fit the model context window.]' });
   }
   for (const m of kept) history.push(m);
 }

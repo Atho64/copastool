@@ -1,13 +1,13 @@
-// @module epub-images.ts — EPUB image extractor, caching, and lightbox preview
+// @module epub-images.ts: EPUB image extractor, cache, and lightbox preview.
 import { state, getOpfsRoot } from './state';
 import type { Line } from './types';
 
-// Map of image zip path (or normalized filename) -> blob URL
+// Image zip path or normalized filename -> blob URL.
 const epubImageCache = new Map<string, string>();
-// Map of file (e.g. OEBPS/text/chap01.xhtml) -> list of image zip paths in that file
+// File (e.g. OEBPS/text/chap01.xhtml) -> image zip paths referenced in it.
 const fileToImagesMap = new Map<string, string[]>();
 
-// Shared in-flight preload so concurrent callers await the same completion
+// Shared in-flight preload so concurrent callers await the same completion.
 let inFlightPreload: Promise<void> | null = null;
 // Bumped on clear; a preload finishing for a stale generation drops what it added.
 let cacheGeneration = 0;
@@ -16,7 +16,7 @@ function tryDecodePath(p: string): string {
   try { return decodeURIComponent(p); } catch (_) { return p; }
 }
 
-// Cached JSZip instance and O(1) file index for the currently active EPUB project session
+// Cached JSZip and O(1) filename index for the active EPUB source.
 let activeZip: any = null;
 let activeZipSourceId: string | null = null;
 let activeZipPromise: Promise<any> | null = null;
@@ -37,7 +37,6 @@ export async function getActiveEpubZip(): Promise<any> {
       const zip = await (window as any).JSZip.loadAsync(file);
       activeZip = zip;
 
-      // Build O(1) filename lookup index
       const index = new Map<string, string>();
       zip.forEach((relPath: string, entry: any) => {
         if (!entry.dir) {
@@ -101,8 +100,7 @@ async function runPreload(): Promise<void> {
     const zip = await getActiveEpubZip();
     if (!zip) return;
 
-    // 1. Populate the file map from inline text images and standalone image
-    // assets. Image-only paragraphs are kept out of the translation line list.
+    // Image-only paragraphs are kept out of the translation line list.
     let hasLineImg = false;
     for (const l of state.lines) {
       if (l.epub_img_src && l.file) {
@@ -127,7 +125,6 @@ async function runPreload(): Promise<void> {
       if (!arr.includes(image.src)) arr.push(image.src);
     }
 
-    // 2. Collect only images referenced by this project
     const referencedImages: string[] = [];
     for (const l of state.lines) {
       if (l.epub_img_src && !referencedImages.includes(l.epub_img_src)) {
@@ -138,7 +135,6 @@ async function runPreload(): Promise<void> {
       if (image.src && !referencedImages.includes(image.src)) referencedImages.push(image.src);
     }
 
-    // Preload referenced images smoothly in background
     for (const imgPath of referencedImages) {
       if (gen !== cacheGeneration || state.epubSourceId !== sourceId) break;
       if (epubImageCache.has(imgPath)) continue;
@@ -150,7 +146,7 @@ async function runPreload(): Promise<void> {
       await new Promise(r => setTimeout(r, 0));
     }
 
-    // Fallback: If project had no inline epub_img_src, scan html files with regex
+    // Fallback when no inline epub_img_src: scan HTML files with a regex.
     if (!hasLineImg) {
       const htmlExtensions = ['.xhtml', '.html', '.htm', '.xml'];
       const htmlPaths = Object.keys(zip.files).filter((relativePath) => {
