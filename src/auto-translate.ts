@@ -6,9 +6,8 @@ import * as SelectionModule from './selection';
 import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { buildSelectedTranslationExport, applyPromptVariables } from './ai-format';
-import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines, mergeGlossaryFromAiText } from './glossary';
-import type { Line } from './types';
-import { DEFAULT_PROMPT_HEADER } from './constants';
+import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines, mergeGlossaryFromAiText, splitInlineGlossaryReply } from './glossary';
+import { DEFAULT_PROMPT_HEADER, INLINE_GLOSSARY_INSTRUCTION } from './constants';
 import { flashHint } from './render';
 import { openModal, closeModal } from './project';
 import * as Translate from './translate';
@@ -535,26 +534,6 @@ function getRepeatDelayMs(): number {
   return Math.max(1000, Math.round(60000 / rpm));
 }
 
-/** Glossary pass for one translation batch. Runs before the batch is
- *  translated, so terms found here are already in the prompt that translates
- *  the same lines, and every later batch inherits them. */
-async function extractGlossaryForBatch(batch: Line[], btn: HTMLButtonElement): Promise<void> {
-  const pending = batch.filter(l => !l._glossary_extracted && !l._hidden && !isIlustrasiLine(l));
-  if (!pending.length) return;
-  const sourceText = buildGlossarySourceLines(pending).join('\n');
-  if (!sourceText.trim()) return;
-
-  btn.textContent = `Ekstrak glossary ${pending.length} baris... (Klik Stop)`;
-  const raw = await fetchWithRetry(() => fetchApiResult(buildGlossaryExtractionPrompt(sourceText)), (retry) => {
-    btn.textContent = `${formatRetryLabel(retry)}... (Klik Stop)`;
-  }, () => !isAutoTranslating);
-
-  if (!raw || !raw.trim()) return;
-  const { added, updated } = mergeGlossaryFromAiText(raw);
-  for (const l of pending) l._glossary_extracted = true;
-  appendProjectLog('Glossary batch', `+${added} baru, ${updated} diperbarui`);
-}
-
 let isAutoTranslating = false;
 
 export async function onAutoTranslate(): Promise<void> {
@@ -616,16 +595,6 @@ export async function onAutoTranslate(): Promise<void> {
       const batchSize = state.selectionBatchSize || 100;
       const batch = untranslatedLines.slice(0, batchSize);
 
-      if (state.glossaryInLoop) {
-        try {
-          await extractGlossaryForBatch(batch, btn);
-        } catch (err: any) {
-          // A glossary hiccup must not cost the user the translation run.
-          if (!isAutoTranslating) throw err;
-          appendProjectLog('Glossary batch gagal', String(err?.message || err));
-        }
-      }
-
       state.selectedLines.clear();
       for (const l of batch) {
         state.selectedLines.add(l.line_num);
@@ -679,6 +648,7 @@ export async function onAutoTranslate(): Promise<void> {
         if (state.enableUncertainMarking) {
           sections.push('If you are uncertain about a translation, prefix it with [?].');
         }
+        if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
         sections.push(joinedText.trim());
         const prompt = sections.join('\n\n');
 
@@ -688,7 +658,10 @@ export async function onAutoTranslate(): Promise<void> {
             const rawResult = await fetchWithRetry(async () => {
               const result = await fetchApiResult(prompt);
               if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
-              (ui.pasteArea as HTMLTextAreaElement).value = result;
+              // The glossary block rides along in the same reply, so the batch
+              // text only goes over the wire once.
+              const parts = splitInlineGlossaryReply(result);
+              (ui.pasteArea as HTMLTextAreaElement).value = parts.translation;
               try {
                 Translate.onApplyTranslation({ suppressAlerts: true });
               } catch (err: any) {
@@ -696,6 +669,10 @@ export async function onAutoTranslate(): Promise<void> {
                   throw createRetryableAiFormatError(err);
                 }
                 throw err;
+              }
+              if (state.glossaryInLoop) {
+                if (parts.glossary) mergeGlossaryFromAiText(parts.glossary);
+                for (const l of sel) l._glossary_extracted = true;
               }
               return result;
             }, (retry) => {
@@ -772,6 +749,7 @@ export async function onAutoTranslate(): Promise<void> {
           if (state.enableUncertainMarking) {
             sections.push('If you are uncertain about a translation, prefix it with [?].');
           }
+          if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
           sections.push(subText.trim());
           return sections.join('\n\n');
         };
@@ -787,9 +765,10 @@ export async function onAutoTranslate(): Promise<void> {
             const result = await fetchWithRetry(async () => {
               const attemptResult = await fetchApiResult(sp.prompt);
               if (!isAutoTranslating) throw new Error('Dibatalkan oleh pengguna.');
+              const parts = splitInlineGlossaryReply(attemptResult);
               const pasteArea = ui.pasteArea as HTMLTextAreaElement;
               const prevVal = pasteArea.value;
-              pasteArea.value = attemptResult;
+              pasteArea.value = parts.translation;
               try {
                 Translate.onApplyTranslation({
                   suppressAlerts: true,
@@ -800,6 +779,10 @@ export async function onAutoTranslate(): Promise<void> {
                 throw err;
               } finally {
                 pasteArea.value = prevVal;
+              }
+              if (state.glossaryInLoop) {
+                if (parts.glossary) mergeGlossaryFromAiText(parts.glossary);
+                for (const l of sp.batch) l._glossary_extracted = true;
               }
               return attemptResult;
             }, (retry) => {

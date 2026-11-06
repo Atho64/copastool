@@ -68,6 +68,24 @@ export function buildGlossaryExtractionPrompt(sourceText: string): string {
   return `${base}${existingHint}\n\n${sourceText}\n`;
 }
 
+const GLOSSARY_FENCE_OPEN = /^[ \t]*`{3,}[ \t]*glossary[ \t]*$/im;
+const GLOSSARY_FENCE_CLOSE = /^[ \t]*`{3,}[ \t]*$/m;
+
+/** Split a combined reply into the translation and the trailing glossary block
+ *  the inline instruction asks for. Without a block the whole reply is treated
+ *  as the translation, so a model that ignores the instruction still works. */
+export function splitInlineGlossaryReply(raw: string): { translation: string; glossary: string } {
+  const open = GLOSSARY_FENCE_OPEN.exec(raw);
+  if (!open) return { translation: raw, glossary: '' };
+  const before = raw.slice(0, open.index);
+  const rest = raw.slice(open.index + open[0].length);
+  const close = GLOSSARY_FENCE_CLOSE.exec(rest);
+  const glossary = (close ? rest.slice(0, close.index) : rest).trim();
+  // A model that put the block first leaves the translation after it.
+  const translation = before.trim() ? before : (close ? rest.slice(close.index + close[0].length) : '');
+  return { translation: translation.trim(), glossary };
+}
+
 /** Merge a raw AI reply into the stored glossary without going through the
  *  paste box, so automated runs never clobber what the user typed there. */
 export function mergeGlossaryFromAiText(raw: string): { added: number; updated: number } {

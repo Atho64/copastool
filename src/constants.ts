@@ -247,6 +247,21 @@ export function getDefaultAiCheckSummaryPrompt(targetLang: string): string {
 }
 
 export const DEFAULT_GLOSSARY_PROMPT = `Extract important names and story-specific terminology from the following text to build a typed glossary.\nFormat the output STRICTLY as:\n[type] [{{sourceLang}} term] = [{{targetLang}} term] {short description}\n\nAllowed types:\n[character], [place], [organization], [item], [ability], [title], [concept], [term]\n\nDescription examples:\n{male name}, {female name}, {family name}, {given name}, {place name}, {school}, {food}, {honorific}, {concept}\n\nExample:\n[character] 速川麦 = Hayakawa Mugi {male name}\n[character] 辻倉朱比華 = Tsujikura Spica {female name}\n[place] 渋谷 = Shibuya {place name}\n[item] 炬燵 = Kotatsu {household item}\n[term] 義妹 = adik tiri perempuan {family term}\n\nRules:\n1. Do NOT translate the text itself.\n2. Only output the typed glossary list.\n3. Do NOT include common everyday words, ordinary verbs, generic adjectives, or basic nouns unless they are proper nouns, recurring key terms, culturally specific terms, or story-specific concepts.\n4. Prefer character names, family names, given names, place names, organization names, titles, unique items, abilities, honorifics, relationship terms, and recurring setting-specific terminology.\n5. Prefer specific types over [term].\n6. Include gender for character names when inferable from context; otherwise use {character name}.\n7. Put results inside a \`\`\`plaintext block.\n8. If no important glossary entries are found, return an empty plaintext block.`;
+/** Appended to the translation prompt when the glossary runs inside the loop.
+ *  The standalone glossary prompt forbids translating, so it cannot be reused
+ *  here; this asks for the same output shape as a trailing block instead. */
+export const INLINE_GLOSSARY_INSTRUCTION = `## New glossary terms
+After the translation, append a fenced block labelled glossary listing the story-specific names and terms from these lines that are NOT already in the glossary above.
+One per line: [type] <source term> = <target term> {short description}
+Allowed types: [character], [place], [organization], [item], [ability], [title], [concept], [term]
+Use the exact wording you used in the translation, so the two agree.
+The translation keeps the format and line count above; the glossary block comes after it and is not part of it.
+If nothing is new, write an empty glossary block.
+Example ending:
+\`\`\`glossary
+[character] 麦 = Mugi {male name}
+\`\`\``;
+
 export const DEFAULT_AI_CHECK_PROMPT = `You are a translation QA reviewer. Check the existing {{targetLang}} translation against the original {{sourceLang}} text.
 Only return lines that need correction. Do not return lines that are already good.
 
