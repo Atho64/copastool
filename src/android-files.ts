@@ -63,6 +63,43 @@ function runFolderIo(method: string, args: string[], fallback: () => string): Pr
   });
 }
 
+/** Android 11+ blocks raw paths unless the app holds All files access. */
+export function hasAllFilesAccess(): boolean {
+  const bridge = androidBridge();
+  if (!bridge || typeof bridge.hasAllFilesAccess !== 'function') return true;
+  try {
+    return !!bridge.hasAllFilesAccess();
+  } catch {
+    return true;
+  }
+}
+
+/** Opens the system screen where the user grants All files access. */
+export function requestAllFilesAccess(): void {
+  const bridge = androidBridge();
+  if (!bridge || typeof bridge.requestAllFilesAccess !== 'function') return;
+  try {
+    bridge.requestAllFilesAccess();
+  } catch {
+    /* the settings screen is best-effort */
+  }
+}
+
+/**
+ * SAF tree URI to a filesystem path. Only primary and SD volumes map cleanly,
+ * which covers every folder the picker can reach.
+ */
+export function androidTreeUriToPath(uri: string): string | null {
+  const match = /^content:\/\/com\.android\.externalstorage\.documents\/tree\/([^/]+)$/.exec(uri);
+  if (!match) return null;
+  const decoded = decodeURIComponent(match[1]);
+  const separator = decoded.indexOf(':');
+  const volume = separator >= 0 ? decoded.slice(0, separator) : decoded;
+  const tail = separator >= 0 ? decoded.slice(separator + 1) : '';
+  const root = volume === 'primary' ? '/storage/emulated/0' : `/storage/${volume}`;
+  return tail ? `${root}/${tail}` : root;
+}
+
 export function pickAndroidFolder(purpose: 'import' | 'backup' | 'restore' | 'game' | 'export'): Promise<string | null> {
   const bridge = androidBridge();
   if (!bridge) return Promise.resolve(null);

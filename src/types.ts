@@ -190,6 +190,10 @@ export interface AppState {
   customRawFiles: Record<string, string>;
   /** Original file bytes (base64) per file for custom-parser round-trip export */
   customRawBuffers: Record<string, string>;
+  /** Game engine cache directory for patch export */
+  gameEngineCacheDir?: string;
+  /** Game executable directory */
+  gameEngineGameDir?: string;
   lines: Line[];
   importedFiles: string[];
   fileOrder: string[];

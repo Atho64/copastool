@@ -61,7 +61,7 @@ object AndroidBridge {
     private var mainWebView: WebView? = null
     private var pendingFolderPurpose: String? = null
 
-    // Pending ACTION_CREATE_DOCUMENT (Save As) — base64 ditahan sampai user
+    // Pending ACTION_CREATE_DOCUMENT (Save As), base64 ditahan sampai user
     // menutup dialog, lalu ditulis di folderIoExecutor.
     @Volatile private var pendingFileCreateCallId = -1
     @Volatile private var pendingFileCreateBase64: String? = null
@@ -625,10 +625,41 @@ object AndroidBridge {
         @JavascriptInterface fun shareFile(filename: String, base64Data: String, mimeType: String): String =
             try { AndroidBridge.shareFile(filename, base64Data, mimeType) } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
 
+        @JavascriptInterface fun hasAllFilesAccess(): Boolean = AndroidBridge.hasAllFilesAccess()
+
+        @JavascriptInterface fun requestAllFilesAccess(): String =
+            try { AndroidBridge.requestAllFilesAccess() } catch (t: Throwable) { "__CSTL_ERROR__ " + (t.message ?: "error") }
+
         @JavascriptInterface fun log(message: String): String {
             AndroidBridge.log("[app] $message")
             return "ok"
         }
+    }
+
+    /// Scoped storage blocks raw paths on Android 11+, and the game engine reads
+    /// folders with plain file APIs, so it needs All files access.
+    @JvmStatic
+    fun hasAllFilesAccess(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager() else true
+
+    @JvmStatic
+    fun requestAllFilesAccess(): String {
+        val act = activity ?: return "__CSTL_ERROR__ Activity not attached"
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return "ok"
+        if (Environment.isExternalStorageManager()) return "ok"
+        act.runOnUiThread {
+            try {
+                act.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + act.packageName)
+                    )
+                )
+            } catch (t: Throwable) {
+                log("all files access intent failed: " + (t.message ?: "error"))
+            }
+        }
+        return "ok"
     }
 
     @JvmStatic
@@ -970,7 +1001,7 @@ object AndroidBridge {
         }
     }
 
-    /** MIME dari ekstensi nama file — dipakai MediaStore (Downloads) dan
+    /** MIME dari ekstensi nama file, dipakai MediaStore (Downloads) dan
      * SAF createDocument agar export .epub/.zip tidak terdaftar sebagai JSON. */
     private fun mimeTypeFor(filename: String): String = when {
         filename.endsWith(".zip", true) -> "application/zip"

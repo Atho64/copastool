@@ -43,6 +43,7 @@ import {
   onImportCustomChange, onImportCustomFolderChange, importAndroidCustomFolder, importAndroidLucaTxtFolder,
 } from './import-source';
 import { initCustomParserModal, updateCustomImportAccept } from './custom-parser-modal';
+import { initGameEngineModal } from './game-engine-modal';
 import { setPyodideColdStartHint } from './custom-parser-runner';
 import { handleTranslatedImport, onImportTranslatedFileChange, onImportTranslatedFolderChange } from './import-translated';
 import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
@@ -1775,6 +1776,8 @@ export async function init(): Promise<void> {
 
   Shortcuts.init();
   OpfsExplorer.init();
+
+  initGameEngineModal();
 
   // The Luna dialog initializes when it is opened.
   try {

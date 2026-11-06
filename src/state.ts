@@ -70,6 +70,8 @@ export const state: AppState = {
   customParserId: null,
   customRawFiles: {},
   customRawBuffers: {},
+  gameEngineCacheDir: '',
+  gameEngineGameDir: '',
   lines: [],
   importedFiles: [],
   fileOrder: [],

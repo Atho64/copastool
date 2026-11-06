@@ -26,11 +26,18 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync", "n
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# Game Engine workspace. All of these are used only by `engine/`.
+regex = "1"
+walkdir = "2"
+sha1 = "0.10"          # PFS data key (SHA-1 of the index); pure Rust
+flate2 = "1"           # zlib for XP3 indexes and segments; miniz backend, Android-safe
+emote-psb = "0.8"      # PSB/MDF scenario read and write; replaces FreeMote
 
 # Win32 window management for the VN overlay: the overlay has to win the z-order
 # fight against a fullscreen game, which needs SetWindowPos + DWM info that the
 # cross-platform windowing layer does not expose.
 [target.'cfg(windows)'.dependencies]
+rfd = "0.15"
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

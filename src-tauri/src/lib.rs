@@ -29,6 +29,8 @@ use url::Url;
 mod camoufox;
 use camoufox::CamofoxState;
 
+pub mod engine;
+
 /// Label of the trusted application window (created in `tauri.conf.json`).
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -1062,7 +1064,16 @@ pub fn run() {
             drag_vn_overlay_window,
             camoufox::copas_camofox_ensure,
             camoufox::copas_camofox_request,
-            camoufox::copas_camofox_stop
+            camoufox::copas_camofox_stop,
+            engine::engine_detect_game,
+            engine::engine_extract_scenario,
+            engine::engine_read_scenario,
+            engine::engine_export_patch,
+            engine::engine_open_folder,
+            engine::engine_open_patch_staging,
+            engine::engine_launch_game,
+            engine::engine_pick_folder,
+            engine::engine_pick_file
         ])
         .setup(|app| {
             if let Some(main_win) = app.get_webview_window(MAIN_WINDOW_LABEL) {

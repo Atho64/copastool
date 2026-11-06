@@ -1401,6 +1401,8 @@ function buildProjectPersistenceData(): Record<string, any> {
     show_epub_images: state.showEpubImages === true,
     increment_enabled: state.incrementEnabled === true,
     proofread_settings: getProofreadSettings(),
+    gameEngineCacheDir: state.gameEngineCacheDir || '',
+    gameEngineGameDir: state.gameEngineGameDir || '',
   };
 }
 
@@ -1929,6 +1931,8 @@ export async function openProject(id: string, data: any): Promise<void> {
   })() : Promise.resolve();
   activeLucaDataProjectId = id;
   activeLucaDataLoad = lucaDataLoad;
+  state.gameEngineCacheDir = data.gameEngineCacheDir || '';
+  state.gameEngineGameDir = data.gameEngineGameDir || '';
   state.regexFilter = data.regex_filter || '';
   state.regexFilterCase = !!data.regex_filter_case;
   state.preReplaceRules = data.pre_replace_rules || '';
