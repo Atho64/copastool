@@ -11,8 +11,8 @@ import {
 import { unescapeStoredNewlines, escapeStoredNewlines, stringSimilarity, applyReplaceRules, stripLeakedAiSections } from './string-utils';
 import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, flashHint, updateButtonStates, pushUndoSnapshot, refreshAll, refreshWorkspaceFast } from './render';
 import { queueAutoSave } from './project';
-import { getGlossaryMatches, getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
-import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS } from './constants';
+import { getGlossaryMatches, getGlossaryPrompt, sanitizeTagsForChatgpt, splitInlineGlossaryReply, mergeGlossaryFromAiText } from './glossary';
+import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS, INLINE_GLOSSARY_INSTRUCTION } from './constants';
 import { applyIncrement } from './increment';
 import { getDisplayOrderedLines } from './selection';
 
@@ -106,6 +106,7 @@ export function buildCopyForAiPrompt(): string | null {
   if (state.enableUncertainMarking) {
     sections.push('If you are uncertain about a translation, prefix it with [?].');
   }
+  if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
   sections.push(joinedText.trim());
   return sections.join('\n\n');
 }
@@ -145,9 +146,15 @@ type ApplyTranslationOptions = {
   selectedLineNums?: ReadonlySet<number>;
 };
 
-export function extractSummaryAndPayload(rawText: string): { cleanText: string; summary: string } {
+export function extractSummaryAndPayload(rawText: string): { cleanText: string; summary: string; glossary: string } {
   let text = rawText.trim();
   let summary = '';
+
+  // Pull the glossary block out first: the summary logic below treats trailing
+  // non-payload text as story summary and would swallow it.
+  const inline = splitInlineGlossaryReply(text);
+  const glossary = inline.glossary;
+  if (glossary) text = inline.translation;
 
   const cleanFence = (s: string) => s.replace(/^```[^\n]*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
@@ -168,7 +175,7 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
 
   if (summary) {
     summary = cleanFence(summary);
-    return { cleanText: text, summary };
+    return { cleanText: text, summary, glossary };
   }
 
   // Untagged summary: non-payload text before or after the translation items.
@@ -236,7 +243,7 @@ export function extractSummaryAndPayload(rawText: string): { cleanText: string; 
       .trim();
   }
 
-  return { cleanText: text, summary };
+  return { cleanText: text, summary, glossary };
 }
 
 let isApplyingTranslation = false;
@@ -266,7 +273,7 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
   let rawText = (ui.pasteArea as HTMLTextAreaElement).value.trim();
   if (!rawText) fail('Teks di kotak kosong atau tidak valid.');
 
-  const { cleanText, summary } = extractSummaryAndPayload(rawText);
+  const { cleanText, summary, glossary } = extractSummaryAndPayload(rawText);
   rawText = cleanText;
   // Ringkasan TIDAK disimpan di sini, baru disimpan setelah lolos semua validasi (lihat akhir fungsi),
   // supaya apply yang gagal tidak mengubah background/ringkasan cerita.
@@ -423,6 +430,12 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
       (ui.settingsBackgroundInput as HTMLTextAreaElement).value = state.currentBackground;
     }
     queueAutoSave();
+  }
+
+  // Same rule as the summary: only take the terms once the lines were accepted.
+  if (glossary) {
+    mergeGlossaryFromAiText(glossary);
+    for (const { l } of updates) l._glossary_extracted = true;
   }
 }
 
