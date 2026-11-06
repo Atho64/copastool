@@ -1,5 +1,6 @@
 // @module qa.ts — Quality Control validation (Kana residue, Similarity, Glossary, Linebreak, Length, Language, Punctuation)
 
+import * as RenderModule from './render';
 import { state, ui, getQaScroller } from './state';
 import { isTranslated } from './state';
 import { stringSimilarity, escapeRegex, unescapeStoredNewlines } from './string-utils';
@@ -323,7 +324,7 @@ export async function onRetranslateFlagged(): Promise<void> {
   closeModal(ui.qaModal as HTMLElement);
   state.selectedLines.clear();
   for (const num of nums) state.selectedLines.add(num);
-  import('./render').then(m => m.syncCheckboxUI());
+  Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
   import('./auto-translate').then(m => m.onAutoTranslate());
 }
 

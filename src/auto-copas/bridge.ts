@@ -7,13 +7,17 @@
 // reference's retry semantics (1 retry, optional infinite repeat on failure,
 // fresh chat on retry).
 
+import * as ProjectModule from '../project';
+import * as RenderModule from '../render';
+import * as SelectionModule from '../selection';
+import * as GlossaryModule from '../glossary';
+import * as AiCheckLinterModule from '../ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from '../state';
 import { flashHint } from '../render';
 import { buildCopyForAiPrompt, onApplyTranslation, TranslationApplyError } from '../translate';
 import { onSaveGlossary } from '../glossary';
 import { DEFAULT_GLOSSARY_PROMPT } from '../constants';
 import { applyPromptVariables } from '../ai-format';
-import { buildAiCheckPrompt, onApplyAiCheckCorrections, renderAiCheckCorrections, recordAiCheckRejections } from '../ai-check';
 import { getDisplayOrderedLines } from '../selection';
 import { isTauri } from '../native-storage';
 import { isAndroidNativeApp } from '../android-files';
@@ -100,7 +104,7 @@ export async function fetchCopasResult(
  * 3, 6, 9, …; X=1 before every batch. Works for every target — including
  * Arena, where a new chat is just a reload of the direct-chat URL. */
 async function copasNewChatDue(batchNumber: number): Promise<boolean> {
-  const { getDefaultSettings } = await import('../project');
+  const { getDefaultSettings } = await Promise.resolve(ProjectModule);
   const n = Math.min(999, Math.max(0, Math.floor(Number(getDefaultSettings().copasNewChatEvery) || 0)));
   if (n === 0) return false;
   return n === 1 ? true : batchNumber % n === 0;
@@ -109,7 +113,7 @@ async function copasNewChatDue(batchNumber: number): Promise<boolean> {
 /** Project setting "Thinking (DeepSeek & Gemini)": 'default' | 'on' | 'off'. */
 async function copasThinkingPref(): Promise<'default' | 'on' | 'off'> {
   try {
-    const { getDefaultSettings } = await import('../project');
+    const { getDefaultSettings } = await Promise.resolve(ProjectModule);
     const v = String(getDefaultSettings().copasThinking || 'default');
     return v === 'on' || v === 'off' ? v : 'default';
   } catch {
@@ -215,8 +219,8 @@ export async function toggleCopasTranslate(): Promise<void> {
       }
       state.selectedLines.clear();
       for (const l of batch) state.selectedLines.add(l.line_num);
-      import('../render').then((m) => m.syncCheckboxUI());
-      import('../selection').then((m) => m.scrollPreviewToLine(batch[0].line_num));
+      Promise.resolve(RenderModule).then((m) => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then((m) => m.scrollPreviewToLine(batch[0].line_num));
 
       const payload = buildCopyForAiPrompt();
       if (!payload) {
@@ -286,7 +290,7 @@ export async function toggleCopasTranslate(): Promise<void> {
     if (activeWorkflow === 'translate') activeWorkflow = null;
     state.selectedLines.clear();
     for (const num of originalSelection) state.selectedLines.add(num);
-    import('../render').then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
+    Promise.resolve(RenderModule).then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
   }
 }
 
@@ -328,8 +332,8 @@ export async function toggleCopasGlossary(): Promise<void> {
       const batch = allLines.slice(0, batchSize);
       state.selectedLines.clear();
       for (const l of batch) state.selectedLines.add(l.line_num);
-      import('../render').then((m) => m.syncCheckboxUI());
-      import('../selection').then((m) => m.scrollPreviewToLine(batch[0].line_num));
+      Promise.resolve(RenderModule).then((m) => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then((m) => m.scrollPreviewToLine(batch[0].line_num));
 
       const out = batch.map((l) => {
         let namePart = '';
@@ -337,7 +341,7 @@ export async function toggleCopasGlossary(): Promise<void> {
         return `${namePart}${l.trans_message || l.message}`;
       }).filter(Boolean);
       const basePrompt = applyPromptVariables((state.glossaryPrompt || DEFAULT_GLOSSARY_PROMPT).trim());
-      const { buildExistingGlossaryHint } = await import('../glossary');
+      const { buildExistingGlossaryHint } = await Promise.resolve(GlossaryModule);
       const existingHint = buildExistingGlossaryHint(out.join('\n'));
       const prompt = `${basePrompt}${existingHint}\n\n${out.join('\n')}\n`;
 
@@ -392,7 +396,7 @@ export async function toggleCopasGlossary(): Promise<void> {
     if (activeWorkflow === 'glossary') activeWorkflow = null;
     state.selectedLines.clear();
     for (const num of originalSelection) state.selectedLines.add(num);
-    import('../render').then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
+    Promise.resolve(RenderModule).then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
   }
 }
 
@@ -426,6 +430,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
   const shouldCancel = () => !isCopasAiCheck;
   const thinking = await copasThinkingPref();
   try {
+    const { onApplyAiCheckCorrections, renderAiCheckCorrections, recordAiCheckRejections } = await import('../ai-check');
     while (isCopasAiCheck) {
       batchNumber++;
       const batchSize = Math.max(1, state.aiCheckBatchSize || 100);
@@ -438,19 +443,19 @@ export async function toggleCopasAiCheck(): Promise<void> {
       const batch = allLines.slice(0, batchSize);
       state.selectedLines.clear();
       for (const l of batch) state.selectedLines.add(l.line_num);
-      import('../render').then((m) => m.syncCheckboxUI());
-      import('../selection').then((m) => m.scrollPreviewToLine(batch[0].line_num));
+      Promise.resolve(RenderModule).then((m) => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then((m) => m.scrollPreviewToLine(batch[0].line_num));
 
       // One undo must cover every mutation of this batch — both Deep Check
       // passes, the corrections and the checked flags — so the snapshot is
       // taken before anything writes to these lines.
-      const { pushUndoSnapshot } = await import('../render');
+      const { pushUndoSnapshot } = await Promise.resolve(RenderModule);
       pushUndoSnapshot(true, batch.map((l) => l.line_num));
 
       // Local lint pass (deterministic, no AI), mirroring the API engine:
       // auto-fixable findings are applied directly, the rest become prompt
       // hints for this batch.
-      const { lintTranslatedLines, buildLintHintBlock, normalizeForNoopCheck } = await import('../ai-check-linter');
+      const { lintTranslatedLines, buildLintHintBlock, normalizeForNoopCheck } = await Promise.resolve(AiCheckLinterModule);
       const { escapeStoredNewlines } = await import('../string-utils');
       const findings = lintTranslatedLines(batch);
       let autoFixed = 0;
@@ -470,7 +475,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
         if (changed) autoFixed++;
       }
       if (autoFixed) {
-        import('../render').then((m) => m.renderPreviewRows()).catch(() => {});
+        Promise.resolve(RenderModule).then((m) => m.renderPreviewRows()).catch(() => {});
       }
       const lintBlock = buildLintHintBlock(findings);
 
@@ -646,7 +651,7 @@ export async function toggleCopasAiCheck(): Promise<void> {
     if (reviewActions) reviewActions.style.display = 'none';
     state.selectedLines.clear();
     for (const num of originalSelection) state.selectedLines.add(num);
-    import('../render').then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
+    Promise.resolve(RenderModule).then((m) => { m.syncCheckboxUI(); m.updateButtonStates(); });
   }
 }
 

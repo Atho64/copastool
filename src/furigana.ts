@@ -2,6 +2,7 @@
 
 import { state } from './state';
 import { kanaToRomaji } from './string-utils';
+import { escapeFuriganaText } from './furigana-html';
 
 let worker: Worker | null = null;
 let initPromise: Promise<void> | null = null;
@@ -89,13 +90,13 @@ export function clearFuriganaCache(): void {
  */
 export function getCachedFurigana(text: string): string | null {
   if (!text) return text;
-  // If no Japanese characters at all, return unchanged
-  if (!JAPANESE_CHAR_REGEX.test(text)) return text;
+  // Every result is inserted as HTML, including text that needs no conversion.
+  if (!JAPANESE_CHAR_REGEX.test(text)) return escapeFuriganaText(text);
 
   const fType = state.furiganaType || 'hiragana';
   // For hiragana or katakana furigana, if text has no kanji, nothing needs ruby
   if ((fType === 'hiragana' || fType === 'katakana') && !KANJI_REGEX.test(text)) {
-    return text;
+    return escapeFuriganaText(text);
   }
 
   const cacheKey = `${fType}:${text}`;
@@ -135,7 +136,7 @@ export async function convertToFurigana(text: string): Promise<string> {
 
   try {
     await initFurigana();
-    const html = await requestWorker('convert', { text, to, dictPath: getDictUrl() }, 45_000) as string;
+    const html = await requestWorker('convert', { text, to, html: true, dictPath: getDictUrl() }, 45_000) as string;
     if (furiganaCache.size >= FURIGANA_CACHE_LIMIT) {
       const oldest = furiganaCache.keys().next().value;
       if (oldest !== undefined) furiganaCache.delete(oldest);
@@ -144,7 +145,7 @@ export async function convertToFurigana(text: string): Promise<string> {
     return html;
   } catch (error: any) {
     console.error('[CSTL] Furigana worker error:', error);
-    return text;
+    return escapeFuriganaText(text);
   }
 }
 

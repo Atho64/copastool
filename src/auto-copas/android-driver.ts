@@ -19,6 +19,7 @@
 // Results arrive via evaluateJavascript("__cstlCopasFinished(callId, result)")
 // on the main webview; errors are "__CSTL_ERROR__ <message>".
 
+import * as PageScriptsModule from './page-scripts';
 import { CopasError, type CopasDriver, type CopasStatusSink } from './types';
 import type { CopasTargetConfig } from './targets';
 
@@ -131,7 +132,7 @@ class AndroidDriver implements CopasDriver {
   }
 
   async focusComposer(target: CopasTargetConfig): Promise<boolean> {
-    const { jsFocusComposer } = await import('./page-scripts');
+    const { jsFocusComposer } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateExpr(jsFocusComposer(target), target);
     return !!res?.found;
   }
@@ -149,18 +150,18 @@ class AndroidDriver implements CopasDriver {
   }
 
   async clickSendButton(target: CopasTargetConfig): Promise<boolean> {
-    const { jsClickSendButton } = await import('./page-scripts');
+    const { jsClickSendButton } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateExpr(jsClickSendButton(target), target);
     return !!res?.clicked;
   }
 
   async readPageState(target: CopasTargetConfig): Promise<any> {
-    const { jsReadPageState } = await import('./page-scripts');
+    const { jsReadPageState } = await Promise.resolve(PageScriptsModule);
     return await this.evaluateExpr(jsReadPageState(target), target);
   }
 
   async clickLastCopyButton(target: CopasTargetConfig, attempt: number): Promise<any> {
-    const { jsClickCopyButton } = await import('./page-scripts');
+    const { jsClickCopyButton } = await Promise.resolve(PageScriptsModule);
     return await this.evaluateExpr(jsClickCopyButton(target, attempt), target);
   }
 
@@ -169,7 +170,7 @@ class AndroidDriver implements CopasDriver {
   }
 
   async clickNewChat(target: CopasTargetConfig): Promise<boolean> {
-    const { jsClickNewChat } = await import('./page-scripts');
+    const { jsClickNewChat } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateExpr(jsClickNewChat(target), target);
     return !!res?.clicked;
   }

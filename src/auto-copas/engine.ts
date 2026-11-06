@@ -5,6 +5,7 @@
 // from the OS clipboard. The clipboard is the only text transport; DOM is only
 // touched to focus/click/read state (see page-scripts.ts).
 
+import * as PageScriptsModule from './page-scripts';
 import {
   CopasError,
   type CopasCancelCheck,
@@ -180,7 +181,7 @@ export async function runCopasBatch(
     const wantOn = opts.thinking === 'on';
     status(`Mengatur Thinking ${wantOn ? 'ON' : 'OFF'} di ${target.label}…`);
     try {
-      const { jsDeepSeekSetThinking, jsGeminiSetThinking } = await import('./page-scripts');
+      const { jsDeepSeekSetThinking, jsGeminiSetThinking } = await Promise.resolve(PageScriptsModule);
       const script = target.id === 'deepseek' ? jsDeepSeekSetThinking(wantOn) : jsGeminiSetThinking(wantOn);
       const res = await driver.evaluateAsync(script, target);
       if (res && res.ok === false) status(`Thinking: ${String(res.detail || 'gagal diterapkan')}`);
@@ -398,7 +399,7 @@ export async function runCopasBatch(
   // this only runs after the clipboard-first path produced nothing usable.
   if (!copied) {
     try {
-      const { jsReadLastResponseText } = await import('./page-scripts');
+      const { jsReadLastResponseText } = await Promise.resolve(PageScriptsModule);
       const domText = String(await driver.evaluateExpr(jsReadLastResponseText(target), target) || '');
       if (domText.trim() && !isEchoOfPrompt(domText, prompt) && !looksLikeReasoning(domText)) {
         copied = domText;
@@ -413,7 +414,7 @@ export async function runCopasBatch(
   // Arena ships DOM changes — read the payload out of the block instead of
   // failing the whole batch (still clipboard-first above).
   if (!copied && target.id === 'arena') {
-    const { jsScrapeArenaCodeBlock } = await import('./page-scripts');
+    const { jsScrapeArenaCodeBlock } = await Promise.resolve(PageScriptsModule);
     const scraped = String(await driver.evaluateExpr(jsScrapeArenaCodeBlock(), target) || '');
     if (scraped.trim().length >= 12) copied = scraped;
   }

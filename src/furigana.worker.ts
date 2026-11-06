@@ -8,6 +8,7 @@ import BrowserDictionaryLoader from 'kuromoji/src/loader/BrowserDictionaryLoader
 // @ts-ignore
 import KuromojiTokenizer from 'kuromoji/src/Tokenizer.js';
 import * as pako from 'pako';
+import { convertFuriganaHtml } from './furigana-html';
 
 let kuroshiroInstance: any = null;
 let initPromise: Promise<void> | null = null;
@@ -132,11 +133,15 @@ self.onmessage = async (e) => {
       self.postMessage({ id, type: 'init_done' });
     } else if (type === 'convert') {
       await init(payload?.dictPath);
-      const result = await kuroshiroInstance!.convert(payload.text, {
+      const options = {
         mode: payload.mode || (payload.to === 'romaji' ? 'spaced' : 'furigana'),
         to: payload.to || 'hiragana',
         romajiSystem: payload.romajiSystem || 'hepburn'
-      });
+      };
+      const convert = (text: string) => kuroshiroInstance!.convert(text, options);
+      const result = payload.html || options.mode === 'furigana'
+        ? await convertFuriganaHtml(payload.text, convert)
+        : await convert(payload.text);
       self.postMessage({ id, type: 'convert_done', result });
     }
   } catch (error: any) {

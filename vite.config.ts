@@ -6,7 +6,7 @@ import { readFileSync } from 'fs';
 // Single source of truth for the app version: package.json.
 // `npm run version:check` (also enforced in CI) keeps tauri.conf.json, Cargo.toml
 // and the README badge in sync with it.
-const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as { version: string };
+const pkg = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf-8')) as { version: string };
 const APP_VERSION = `v${pkg.version}`;
 
 /** Replaces the __APP_VERSION__ placeholder in index.html (hero badge). */
@@ -36,7 +36,7 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       'path': 'path-browserify',
-      'zlibjs/bin/gunzip.min.js': path.resolve(__dirname, 'src/zlib-shim.ts'),
+      'zlibjs/bin/gunzip.min.js': path.resolve(import.meta.dirname, 'src/zlib-shim.ts'),
     },
   },
   build: {
@@ -44,8 +44,8 @@ export default defineConfig(() => ({
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'es2021',
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html'),
-        overlay: path.resolve(__dirname, 'overlay.html'),
+        main: path.resolve(import.meta.dirname, 'index.html'),
+        overlay: path.resolve(import.meta.dirname, 'overlay.html'),
       },
     },
   },

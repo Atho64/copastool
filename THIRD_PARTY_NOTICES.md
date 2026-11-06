@@ -22,6 +22,14 @@ CopasTool **menggunakan atau mengandalkan** karya pihak ketiga di bawah ini. Mas
 
 Aplikasi memilih opsi **MIT** pada `jszip` yang berlisensi ganda.
 
+## Dependensi build lokal
+
+`vendor/safe-deepmerge` berasal dari `deepmerge` 4.3.1 (James Halliday, Josh Duff,
+dan kontributor lainnya), dengan patch untuk GHSA-gcqx-w48m-w2h4. Paket ini hanya
+dipakai tooling build Workbox, bukan kode aplikasi. Lisensi MIT asli disertakan
+di [vendor/safe-deepmerge/LICENSE](./vendor/safe-deepmerge/LICENSE); alasan patch
+dan cara menghapus override tercatat di README folder tersebut.
+
 ## Kredensial furigana
 
 Kamus morfologi Jepang yang dipakai untuk konversi furigana berasal dari **Kuromoji** (Atilika Inc.), berlisensi **Apache License 2.0**. Kamus IPADIC yang dibundel di `public/dict/` tunduk pada lisensi **NAIST** yang mengizinkannya untuk redistribusi.

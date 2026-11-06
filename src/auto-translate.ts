@@ -1,5 +1,11 @@
 // @module auto-translate.ts — API Integration for Automated AI Translation
 
+import * as CopasUiModule from './auto-copas/ui';
+import * as RenderModule from './render';
+import * as SelectionModule from './selection';
+import * as AiFormatModule from './ai-format';
+import * as GlossaryModule from './glossary';
+import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { buildSelectedTranslationExport, applyPromptVariables } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
@@ -97,7 +103,7 @@ export function loadApiSettings(): void {
   }
   // Re-run after saved settings are restored so the Copas rows match the
   // restored engine selection (a reload otherwise leaves the rows hidden).
-  import('./auto-copas/ui').then((m) => m.syncCopasUi());
+  Promise.resolve(CopasUiModule).then((m) => m.syncCopasUi());
   const repeatCheck = document.getElementById('checkAutoRepeatOnFailure') as HTMLInputElement | null;
   if (repeatCheck) repeatCheck.checked = !!state.autoRepeatOnFailure;
   const repeatCached = ui.checkAutoRepeatOnFailure as HTMLInputElement | undefined;
@@ -608,8 +614,8 @@ export async function onAutoTranslate(): Promise<void> {
       }
       
       // Update UI selection
-      import('./render').then(m => m.syncCheckboxUI());
-      import('./selection').then(m => m.scrollPreviewToLine(batch[0].line_num));
+      Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batch[0].line_num));
 
       const sel = batch;
       
@@ -896,8 +902,8 @@ export async function onAutoGlossary(): Promise<void> {
       for (const l of batchLines) {
         state.selectedLines.add(l.line_num);
       }
-      import('./render').then(m => m.syncCheckboxUI());
-      import('./selection').then(m => m.scrollPreviewToLine(batchLines[0].line_num));
+      Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batchLines[0].line_num));
 
       btn.textContent = `Ekstrak Batch (${batchLines.length} baris)... (Klik Stop)`;
 
@@ -907,8 +913,8 @@ export async function onAutoGlossary(): Promise<void> {
         return `${namePart}${l.trans_message || l.message}`;
       }).filter(Boolean);
 
-      const { applyPromptVariables } = await import('./ai-format');
-      const { buildExistingGlossaryHint } = await import('./glossary');
+      const { applyPromptVariables } = await Promise.resolve(AiFormatModule);
+      const { buildExistingGlossaryHint } = await Promise.resolve(GlossaryModule);
       const basePrompt = applyPromptVariables((state.glossaryPrompt || DEFAULT_GLOSSARY_PROMPT).trim());
       const existingHint = buildExistingGlossaryHint(out.join('\n'));
       const prompt = `${basePrompt}${existingHint}\n\n${out.join('\n')}\n`;
@@ -998,8 +1004,8 @@ export async function onAutoAiCheck(): Promise<void> {
       for (const l of batchLines) {
         state.selectedLines.add(l.line_num);
       }
-      import('./render').then(m => m.syncCheckboxUI());
-      import('./selection').then(m => m.scrollPreviewToLine(batchLines[0].line_num));
+      Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batchLines[0].line_num));
 
       btn.textContent = `Cek Batch (${batchLines.length} baris)... (Klik Stop)`;
 
@@ -1007,12 +1013,12 @@ export async function onAutoAiCheck(): Promise<void> {
       // both Deep Check passes, the corrections and the checked flags — so the
       // snapshot is taken before anything writes to these lines.
       // Snapshot only this batch's lines — O(batch) instead of O(project).
-      const { pushUndoSnapshot } = await import('./render');
+      const { pushUndoSnapshot } = await Promise.resolve(RenderModule);
       pushUndoSnapshot(true, batchLines.map(l => l.line_num));
 
       // Local lint pass (deterministic, no AI): auto-fixable findings are
       // applied directly, the rest become prompt hints for this batch.
-      const { lintTranslatedLines, buildLintHintBlock } = await import('./ai-check-linter');
+      const { lintTranslatedLines, buildLintHintBlock } = await Promise.resolve(AiCheckLinterModule);
       const findings = lintTranslatedLines(batchLines);
       let autoFixed = 0;
       for (const f of findings) {
@@ -1031,7 +1037,7 @@ export async function onAutoAiCheck(): Promise<void> {
         if (changed) autoFixed++;
       }
       if (autoFixed) {
-        import('./render').then(m => m.renderPreviewRows()).catch(() => {});
+        Promise.resolve(RenderModule).then(m => m.renderPreviewRows()).catch(() => {});
       }
       const lintBlock = buildLintHintBlock(findings);
 
@@ -1169,7 +1175,7 @@ export async function onAutoAiCheck(): Promise<void> {
         // tab for manual inspection.
         state.aiCheckCorrections = restCorrections;
         if (restCorrections.length) {
-          import('./render').then(m => m.updateButtonStates()).catch(() => {});
+          Promise.resolve(RenderModule).then(m => m.updateButtonStates()).catch(() => {});
         }
       }
 

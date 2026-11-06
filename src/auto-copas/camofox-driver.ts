@@ -7,6 +7,7 @@
 // webview CSP/CORS never matters. Clipboard text is the OS clipboard —
 // written/read via the Tauri clipboard plugin, shared with the Camoufox window.
 
+import * as PageScriptsModule from './page-scripts';
 import { invoke } from '@tauri-apps/api/core';
 import { CopasError, type CopasDriver, type CopasStatusSink } from './types';
 import { COPAS_TARGETS, type CopasTargetConfig } from './targets';
@@ -210,7 +211,7 @@ class CamofoxDriver implements CopasDriver {
   }
 
   async focusComposer(target: CopasTargetConfig): Promise<boolean> {
-    const { jsFocusComposer } = await import('./page-scripts');
+    const { jsFocusComposer } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateWithRecovery(target, jsFocusComposer(target));
     return !!res?.found;
   }
@@ -234,18 +235,18 @@ class CamofoxDriver implements CopasDriver {
   }
 
   async clickSendButton(target: CopasTargetConfig): Promise<boolean> {
-    const { jsClickSendButton } = await import('./page-scripts');
+    const { jsClickSendButton } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateWithRecovery(target, jsClickSendButton(target));
     return !!res?.clicked;
   }
 
   async readPageState(target: CopasTargetConfig): Promise<any> {
-    const { jsReadPageState } = await import('./page-scripts');
+    const { jsReadPageState } = await Promise.resolve(PageScriptsModule);
     return await this.evaluateWithRecovery(target, jsReadPageState(target));
   }
 
   async clickLastCopyButton(target: CopasTargetConfig, attempt: number): Promise<any> {
-    const { jsClickCopyButton } = await import('./page-scripts');
+    const { jsClickCopyButton } = await Promise.resolve(PageScriptsModule);
     return await this.evaluateWithRecovery(target, jsClickCopyButton(target, attempt));
   }
 
@@ -256,7 +257,7 @@ class CamofoxDriver implements CopasDriver {
   }
 
   async clickNewChat(target: CopasTargetConfig): Promise<boolean> {
-    const { jsClickNewChat } = await import('./page-scripts');
+    const { jsClickNewChat } = await Promise.resolve(PageScriptsModule);
     const res = await this.evaluateWithRecovery(target, jsClickNewChat(target));
     return !!res?.clicked;
   }

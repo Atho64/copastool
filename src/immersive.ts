@@ -6,6 +6,7 @@
 // Escape handling is owned here and modals (line editor, bookmark list, etc.)
 // open above the reader because their z-index is higher.
 
+import * as BookmarkModule from './bookmark';
 import { state, isTranslated } from './state';
 import { VirtualScroller } from './virtual-scroller';
 import { getLineDisplayName } from './luca-engine';
@@ -120,7 +121,7 @@ class ImmersiveController {
         const target = e.target as Element;
         const bm = target.closest?.('.immersive-bookmark-toggle') as HTMLElement | null;
         if (bm?.dataset.num) {
-          import('./bookmark').then(m => m.toggleBookmark(Number(bm.dataset.num))).catch(() => {});
+          Promise.resolve(BookmarkModule).then(m => m.toggleBookmark(Number(bm.dataset.num))).catch(() => {});
           return;
         }
         const del = target.closest?.('.immersive-bookmark-item-del') as HTMLElement | null;
@@ -128,7 +129,7 @@ class ImmersiveController {
           e.stopPropagation();
           const item = del.closest('.immersive-bookmark-item') as HTMLElement | null;
           const num = Number(item?.dataset.num);
-          if (num) import('./bookmark').then(m => m.toggleBookmark(num, false)).catch(() => {});
+          if (num) Promise.resolve(BookmarkModule).then(m => m.toggleBookmark(num, false)).catch(() => {});
           return;
         }
         const jumpItem = target.closest?.('.immersive-bookmark-item') as HTMLElement | null;

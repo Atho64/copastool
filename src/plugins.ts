@@ -2,6 +2,7 @@
 // Provides sandboxed plugin lifecycle, permissions, manifest validation, zip reading,
 // iframe RPC sandbox, settings (global/project/shared), copy/apply hooks, UI panels, and custom commands.
 
+import * as ProjectModule from './project';
 import type {
   PluginPermission, SettingScope, SettingType, SettingOption, SettingSpec,
   PluginManifestSettings, MagicSignature, NormalizedMagicSig, PluginManifestUi,
@@ -3488,7 +3489,7 @@ export const PluginUI = {
           if (ui.settingsLucaProfileSelect) (ui.settingsLucaProfileSelect as HTMLSelectElement).value = state.lucaProfile;
           if (ui.settingsLucaExportLangSelect) (ui.settingsLucaExportLangSelect as HTMLSelectElement).value = state.lucaExportLang;
           if (ui.settingsLucaMcDisplayNameInput) (ui.settingsLucaMcDisplayNameInput as HTMLInputElement).value = state.lucaMcDisplayName;
-          import('./project').then(m => m.queueAutoSave());
+          Promise.resolve(ProjectModule).then(m => m.queueAutoSave());
         }
       }
       if (hasShared) {

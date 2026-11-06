@@ -1,6 +1,7 @@
 // @module live-translator.ts — On-the-fly AI translation for live visual novel gameplay
 // Matches CopasTool's exact prompt structure, context settings, glossary, and export formats.
 
+import * as ProjectModule from './project';
 import { state, isIlustrasiLine, isTranslated } from './state';
 import { chatCompletionText, stripThinkingTags } from './ai-client';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
@@ -374,7 +375,7 @@ class LiveTranslator {
   /** Mirrors auto-copas/bridge.ts `copasThinkingPref` without importing the module eagerly. */
   private async copasThinkingPref(): Promise<'default' | 'on' | 'off'> {
     try {
-      const { getDefaultSettings } = await import('./project');
+      const { getDefaultSettings } = await Promise.resolve(ProjectModule);
       const v = String(getDefaultSettings().copasThinking || 'default');
       return v === 'on' || v === 'off' ? v : 'default';
     } catch {

@@ -1,5 +1,7 @@
 // @module agent-translate.ts — Autonomous multi-turn agent translation mode
 
+import * as RenderModule from './render';
+import * as SelectionModule from './selection';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { chatCompletion, ChatMessage } from './ai-agent';
 import { applyAgentTranslations } from './translate';
@@ -222,8 +224,8 @@ export async function onAgentTranslate(): Promise<void> {
 
       state.selectedLines.clear();
       for (const l of batch) state.selectedLines.add(l.line_num);
-      import('./render').then(m => m.syncCheckboxUI());
-      import('./selection').then(m => m.scrollPreviewToLine(batch[0].line_num));
+      Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
+      Promise.resolve(SelectionModule).then(m => m.scrollPreviewToLine(batch[0].line_num));
 
       // Build context block (same as auto-translate)
       let contextBlock = '';

@@ -1,3 +1,5 @@
+import * as AiFormatModule from './ai-format';
+import * as GlossaryModule from './glossary';
 import { state, ui, isTranslated } from './state';
 import { scrollPreviewToLine } from './selection';
 import { getSessionData, deleteSessionData, deriveSessionName, legacyChatKey, persistActiveSession, renderSessionList, renameSession } from './agent-sessions';
@@ -1054,8 +1056,8 @@ async function webSearch(query: string, source: string): Promise<string> {
 
 /** Helper: build a translate prompt for a set of line numbers using the current selection trick. */
 async function buildTranslatePrompt(lineNums: number[], instruction?: string): Promise<string> {
-  const { buildSelectedTranslationExport, applyPromptVariables } = await import('./ai-format');
-  const { getGlossaryPrompt } = await import('./glossary');
+  const { buildSelectedTranslationExport, applyPromptVariables } = await Promise.resolve(AiFormatModule);
+  const { getGlossaryPrompt } = await Promise.resolve(GlossaryModule);
   const { DEFAULT_PROMPT_HEADER } = await import('./constants');
 
   const selectedLineNums = new Set(lineNums);

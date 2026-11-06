@@ -1,5 +1,8 @@
 // @module render.ts — Main rendering, virtual scroller callbacks, status bar, undo, flashHint
 
+import * as ProjectModule from './project';
+import * as GlossaryModule from './glossary';
+import * as BookmarkModule from './bookmark';
 import { state, ui, getMainScroller, incrementHintToken, getHintToken } from './state';
 import { isTranslated, isIlustrasiLine, EPUB_ILUSTRASI_MARKER } from './state';
 import { APP_VERSION, MAX_UNDO_STEPS } from './constants';
@@ -16,9 +19,9 @@ import { escapeStoredNewlines } from './string-utils';
 import { convertToFurigana, getCachedFurigana } from './furigana';
 import type { DisplayRow, EpubImageAsset, Line } from './types';
 
-// ─── Lazy helpers (break circular deps) ──────────────────────────────────────
-function queueAutoSave() { import('./project').then(m => m.queueAutoSave()); }
-function renderGlossaryPreview() { import('./glossary').then(m => m.renderGlossaryPreview()); }
+// ─── Deferred helpers (avoid calls during circular module initialization) ───
+function queueAutoSave() { Promise.resolve(ProjectModule).then(m => m.queueAutoSave()); }
+function renderGlossaryPreview() { Promise.resolve(GlossaryModule).then(m => m.renderGlossaryPreview()); }
 
 // ─── Display State ────────────────────────────────────────────────────────────
 
@@ -260,7 +263,7 @@ export function initPreviewContainerDelegation(): void {
       const row = bmBtn.closest('.preview-row') as HTMLElement | null;
       const num = row?.dataset.lineNum ? parseInt(row.dataset.lineNum) : null;
       if (num) {
-        import('./bookmark').then(m => m.toggleBookmark(num));
+        Promise.resolve(BookmarkModule).then(m => m.toggleBookmark(num));
       }
       return;
     }
@@ -650,8 +653,10 @@ export function refreshAll(): void {
   renderPreviewRows();
   renderNameTable();
   updateStatusBar();
-  import('./immersive').then(m => m.syncImmersiveAfterRefresh()).catch(() => {});
-  import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
+  if (ui.immersiveView?.classList.contains('open')) {
+    import('./immersive').then(m => m.syncImmersiveAfterRefresh()).catch(() => {});
+  }
+  Promise.resolve(BookmarkModule).then(m => m.updateBookmarkBadge()).catch(() => {});
   (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
   if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
   if (state.translationMode === 'htl') {
@@ -671,7 +676,7 @@ export function refreshAllStaged(): void {
   const finish = () => {
     renderNameTable();
     updateStatusBar();
-    import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
+    Promise.resolve(BookmarkModule).then(m => m.updateBookmarkBadge()).catch(() => {});
     (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
     if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
     if (state.translationMode === 'htl') {
@@ -886,7 +891,7 @@ function updateEditedLine(line: Line): void {
   updateButtonStates();
   (ui.btnUndo as HTMLButtonElement).disabled = state.undoStack.length === 0;
   if (ui.btnRedo) (ui.btnRedo as HTMLButtonElement).disabled = state.redoStack.length === 0;
-  import('./bookmark').then(m => m.updateBookmarkBadge()).catch(() => {});
+  Promise.resolve(BookmarkModule).then(m => m.updateBookmarkBadge()).catch(() => {});
   if (state.translationMode === 'htl') {
     import('./htl-mode').then(m => m.refreshHtlPanels()).catch(() => {});
   }

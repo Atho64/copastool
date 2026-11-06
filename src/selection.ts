@@ -1,5 +1,6 @@
 // @module selection.ts — Line selection management, batch select, and history
 
+import * as RenderModule from './render';
 import { state, ui, getMainScroller } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
 import { DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE, DEFAULT_SELECTION_BATCH_SIZE } from './constants';
@@ -14,10 +15,10 @@ export function normalizeSelectionBatchSize(value: any, fallback = DEFAULT_SELEC
 
 // ─── Lazy helpers (break circular deps) ──────────────────────────────────────
 function flashHint(msg: string, keepAlive = false) {
-  import('./render').then(m => m.flashHint(msg, keepAlive)).catch(() => console.log('[hint]', msg));
+  Promise.resolve(RenderModule).then(m => m.flashHint(msg, keepAlive)).catch(() => console.log('[hint]', msg));
 }
 function syncCheckboxUI() {
-  import('./render').then(m => m.syncCheckboxUI());
+  Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
 }
 
 // ─── Selection Filtering ──────────────────────────────────────────────────────
@@ -300,7 +301,7 @@ export function switchWorkspaceTab(tabName: WorkspaceTab): void {
     }
     if (viewEl) viewEl.style.display = active ? 'block' : 'none';
   }
-  import('./render').then(m => {
+  Promise.resolve(RenderModule).then(m => {
     m.renderPreviewRows();
     m.updateButtonStates();
     if (state.selectedLines.size > 0) {

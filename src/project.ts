@@ -1,5 +1,6 @@
 // @module project.ts — Project management, OPFS persistence, dashboard, backup & restore
 
+import * as RenderModule from './render';
 import { state, ui, setSaveTimeout, getSaveTimeout, getOpfsRoot } from './state';
 import {
   APP_VERSION, PROJECT_EXT, LEGACY_PROJECT_EXT,
@@ -107,13 +108,13 @@ function recoverLucaRawFields(): void {
   }
 }
 
-// ─── Lazy render helpers (breaks render.js ↔ project.js circular dep) ─────────
-async function refreshAll() { return (await import('./render')).refreshAll(); }
-async function refreshAllStaged() { return (await import('./render')).refreshAllStaged(); }
-async function flashHintAsync(msg: string, keepAlive?: boolean) { return (await import('./render')).flashHint(msg, keepAlive); }
-function flashHint(msg: string, keepAlive?: boolean) { import('./render').then(m => m.flashHint(msg, keepAlive)); }
-async function updateButtonStates() { return (await import('./render')).updateButtonStates(); }
-async function updateStatusBar() { return (await import('./render')).updateStatusBar(); }
+// Defer calls into the eagerly loaded render module until initialization ends.
+async function refreshAll() { return (await Promise.resolve(RenderModule)).refreshAll(); }
+async function refreshAllStaged() { return (await Promise.resolve(RenderModule)).refreshAllStaged(); }
+async function flashHintAsync(msg: string, keepAlive?: boolean) { return (await Promise.resolve(RenderModule)).flashHint(msg, keepAlive); }
+function flashHint(msg: string, keepAlive?: boolean) { Promise.resolve(RenderModule).then(m => m.flashHint(msg, keepAlive)); }
+async function updateButtonStates() { return (await Promise.resolve(RenderModule)).updateButtonStates(); }
+async function updateStatusBar() { return (await Promise.resolve(RenderModule)).updateStatusBar(); }
 async function applyHtlMode() { return (await import('./htl-mode')).applyHtlMode(); }
 
 // ─── Modal helpers ────────────────────────────────────────────────────────────
@@ -1998,7 +1999,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   if (state.showFurigana) {
     import('./furigana').then(m => m.initFurigana()).catch((err: any) => {
       console.error('[CSTL] Furigana initialization failed:', err);
-      import('./render').then(m => m.flashHint(`Furigana gagal dimuat: ${err?.message || err}`, false));
+      Promise.resolve(RenderModule).then(m => m.flashHint(`Furigana gagal dimuat: ${err?.message || err}`, false));
     });
   }
   state.showEpubImages = data.show_epub_images !== undefined ? !!data.show_epub_images : (getDefaultSettings().showEpubImages !== false);
@@ -2036,7 +2037,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.importedFiles = data.imported_files || [];
   state.fileOrder = data.file_order || [];
   if (legacyImageAssets.length > 0) {
-    (await import('./render')).renumberLinesToDisplayOrder();
+    (await Promise.resolve(RenderModule)).renumberLinesToDisplayOrder();
   }
   state.aiInstructionHeader = data.prompt_header || DEFAULT_PROMPT_HEADER;
   state.aiTranslationFormat = data.ai_translation_format != null
@@ -2181,7 +2182,9 @@ export async function closeProject(): Promise<void> {
 
 export function finishClose(): void {
   try { (window as any).CSTL?.plugins?.onProjectClosed(); } catch (_) {}
-  import('./immersive').then(m => m.Immersive.closeIfOpen()).catch(() => {});
+  if (ui.immersiveView?.classList.contains('open')) {
+    import('./immersive').then(m => m.Immersive.closeIfOpen()).catch(() => {});
+  }
   releaseProjectLock(state.currentProjectId);
   state.currentProjectId = null;
   state.projectLoggingEnabled = false;

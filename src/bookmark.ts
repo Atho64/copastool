@@ -61,7 +61,9 @@ export function toggleBookmark(lineNum: number, notify = true): void {
   updateBookmarkBadge();
 
   // Keep the immersive reader's rows and panel in sync
-  import('./immersive').then(m => m.Immersive.isOpen() ? m.Immersive.syncBookmark(lineNum, !!line.bookmarked) : undefined).catch(() => {});
+  if (ui.immersiveView?.classList.contains('open')) {
+    import('./immersive').then(m => m.Immersive.syncBookmark(lineNum, !!line.bookmarked)).catch(() => {});
+  }
 
   // If bookmark modal is currently open, refresh list
   const modal = ui.bookmarkModal as HTMLElement | undefined;
@@ -132,7 +134,9 @@ export async function clearAllBookmarks(): Promise<void> {
 
   updateBookmarkBadge();
   renderBookmarkList();
-  import('./immersive').then(m => m.Immersive.syncAllBookmarks()).catch(() => {});
+  if (ui.immersiveView?.classList.contains('open')) {
+    import('./immersive').then(m => m.Immersive.syncAllBookmarks()).catch(() => {});
+  }
   queueAutoSave();
   flashHint('Semua bookmark berhasil dihapus.');
 }

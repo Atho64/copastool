@@ -1,5 +1,6 @@
 // @module translate.ts — Copy for AI, paste and apply translations, undo
 
+import * as FileListModule from './file-list';
 import { state, ui, normalizeLineDict } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
 import {
@@ -456,7 +457,7 @@ export async function onUndoLastApply(): Promise<void> {
     });
     
     // Apply the undo
-    const { applyFileAction } = await import('./file-list');
+    const { applyFileAction } = await Promise.resolve(FileListModule);
     applyFileAction(snapshot.fileAction);
     
     state.undoStack.pop();
@@ -510,7 +511,7 @@ export async function onRedoLastUndo(): Promise<void> {
     });
     
     // Apply the redo
-    const { redoFileAction } = await import('./file-list');
+    const { redoFileAction } = await Promise.resolve(FileListModule);
     redoFileAction(snapshot.fileAction);
     
     state.redoStack.pop();

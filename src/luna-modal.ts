@@ -1,5 +1,6 @@
 // @module luna-modal.ts — Modal manager for LunaTranslator & VN Overlay settings
 
+import * as CopasUiModule from './auto-copas/ui';
 import { lunaHooker, type LunaConnectionStatus, type LunaOperatingMode } from './luna-hooker';
 import { overlayController } from './overlay-controller';
 import { openModal, closeModal } from './project';
@@ -283,7 +284,7 @@ export class LunaModalController {
     if (mode === 'tl') {
       if (this.lunaTlModeInfo) this.lunaTlModeInfo.style.display = 'block';
       updateLunaTlBadge(this.lunaTlModelBadge);
-      void import('./auto-copas/ui').then(m => m.syncCopasUi());
+      void Promise.resolve(CopasUiModule).then(m => m.syncCopasUi());
     } else {
       if (this.lunaTlModeInfo) this.lunaTlModeInfo.style.display = 'none';
     }
@@ -361,6 +362,7 @@ export class LunaModalController {
   }
 
   async open(): Promise<void> {
+    this.init();
     this.bindElements();
     this.syncFromConfig();
     const cur = lunaHooker.getStatus();

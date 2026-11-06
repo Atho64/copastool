@@ -1,6 +1,8 @@
 // @module shortcuts.ts — Customizable Keyboard Shortcut System ported from CSTL-Next
 // Supports default actions, user overrides, live key recording, conflict detection, and dynamic plugin commands.
 
+import * as SelectionModule from './selection';
+import * as ProjectModule from './project';
 export interface ShortcutAction {
   id: string;
   label: string;
@@ -36,8 +38,8 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'work.selectAll', label: 'Pilih Semua Baris', scope: 'workspace', def: 'Alt+A', run: () => document.getElementById('btnSelectAll')?.click() },
   { id: 'work.clearSelection', label: 'Batal Pilih Baris', scope: 'workspace', def: 'Alt+Q', run: () => document.getElementById('btnClearSelection')?.click() },
   { id: 'work.selectRange', label: 'Pilih Rentang Baris', scope: 'workspace', def: 'Alt+L', run: () => document.getElementById('btnSelectRange')?.click() },
-  { id: 'work.batchPrev', label: 'Batch Sebelumnya', scope: 'workspace', def: 'Alt+ArrowUp', run: () => { import('./selection').then(m => m.selectActiveWorkspaceBatch(-1)); } },
-  { id: 'work.batchNext', label: 'Batch Berikutnya', scope: 'workspace', def: 'Alt+ArrowDown', run: () => { import('./selection').then(m => m.selectActiveWorkspaceBatch(1)); } },
+  { id: 'work.batchPrev', label: 'Batch Sebelumnya', scope: 'workspace', def: 'Alt+ArrowUp', run: () => { Promise.resolve(SelectionModule).then(m => m.selectActiveWorkspaceBatch(-1)); } },
+  { id: 'work.batchNext', label: 'Batch Berikutnya', scope: 'workspace', def: 'Alt+ArrowDown', run: () => { Promise.resolve(SelectionModule).then(m => m.selectActiveWorkspaceBatch(1)); } },
 
   // Workspace Translation & Undo
   { id: 'work.copy', label: 'Copy untuk AI', scope: 'workspace', def: 'Alt+C', run: () => document.getElementById('btnCopyForAi')?.click() },
@@ -278,7 +280,7 @@ export const Shortcuts = {
     Shortcuts.renderList();
     const modal = document.getElementById('shortcutModal');
     if (modal) {
-      import('./project').then(m => m.openModal(modal));
+      Promise.resolve(ProjectModule).then(m => m.openModal(modal));
     }
   },
 
@@ -286,7 +288,7 @@ export const Shortcuts = {
     Shortcuts.stopRecording();
     const modal = document.getElementById('shortcutModal');
     if (modal) {
-      import('./project').then(m => m.closeModal(modal));
+      Promise.resolve(ProjectModule).then(m => m.closeModal(modal));
     }
   },
 

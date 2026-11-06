@@ -1,5 +1,6 @@
 // @module context-menu.ts — Shared desktop, touch, and keyboard context menu
 
+import * as RenderModule from './render';
 import { state, isTranslated } from './state';
 import { isAndroidPlatform } from './platform';
 import { formatLineLabel } from './luca-engine';
@@ -70,7 +71,7 @@ function lineMenu(target: HTMLElement, actions: MenuAction[]): boolean {
   actions.push(
     { label: 'Salin Teks Asli', run: () => copyText(formatLineLabel(line)) },
     { label: 'Salin Terjemahan', disabled: !isTranslated(line), run: () => copyText(formatLineLabel(line, { translated: true })) },
-    { label: 'Edit Baris', run: () => import('./render').then(m => m.openLineEditor(num)) },
+    { label: 'Edit Baris', run: () => Promise.resolve(RenderModule).then(m => m.openLineEditor(num)) },
   );
   const selectable = isSelectableForActiveTab(line);
   actions.push({
@@ -81,7 +82,7 @@ function lineMenu(target: HTMLElement, actions: MenuAction[]): boolean {
       else state.selectedLines.add(num);
       row.classList.toggle('row-selected', state.selectedLines.has(num));
       recordSelectionHistory();
-      import('./render').then(m => m.syncCheckboxUI());
+      Promise.resolve(RenderModule).then(m => m.syncCheckboxUI());
       updateButtonStates();
     },
   });

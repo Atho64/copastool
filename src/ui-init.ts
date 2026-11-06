@@ -1,5 +1,8 @@
 // @module ui-init.ts — DOM element caching, scroller initialization, and event binding
 
+import * as ProjectModule from './project';
+import * as RenderModule from './render';
+import * as BookmarkModule from './bookmark';
 import { state, ui, setMainScroller, setProofreadScroller, setQaScroller, getActiveLineEditorLineNum } from './state';
 import {
   DEFAULT_GLOSSARY_PROMPT, DEFAULT_AI_CHECK_PROMPT,
@@ -19,7 +22,6 @@ import { onSelectionHistoryKeydown, isSelectableForActiveTab, recordSelectionHis
 import { onSaveGlossary, onImportGlossaryFile, onExportGlossaryFile, onDeleteTranslation, onCopyForGlossaryAi } from './glossary';
 import { onCopyForAi, onApplyTranslation, onUndoLastApply, onRedoLastUndo } from './translate';
 import { onCopyNamesForAi, onApplyNameTranslations, onResetNameTranslations } from './name-translation';
-import { onCopyForAiCheck, onParseAiCheck, onApplyAiCheckCorrections, onClearAiCheck } from './ai-check';
 import { onOpenProofread, onResetProofread, onProofreadReplaceAll, renderProofreadResults, onProofreadIncludeAll, onProofreadExcludeAll } from './proofread';
 import { onOpenQa, onResetQa, runQaCheck, onRetranslateFlagged } from './qa';
 import { onOpenSettings, onSavePromptSettings, onOpenPromptsSettings, onOpenGlossarySettings, onSavePromptsSettings, onSaveGlossarySettings, initSettingsTabs } from './settings';
@@ -55,7 +57,6 @@ import {
 import { isFolderBackupSupported, backupAllToFolder, openFolderRestorePicker } from './folder-backup';
 import { exportProjectToSpreadsheet, importSpreadsheetFile } from './spreadsheet';
 import { getStandardPromptHeaderForFormat } from './ai-format';
-import { lunaModal } from './luna-modal';
 import { overlayController } from './overlay-controller';
 
 function standardPrompt(template: string, format: string): string {
@@ -67,7 +68,6 @@ import { getLucaProfile, populateLucaExportSlotSelect, DEFAULT_LUCA_PROFILE } fr
 import { getMainScroller } from './state';
 import { initDictionary } from './dictionary';
 import { applyProjectLoggingVisibility, appendProjectLog, updateStreamingLog, finishStreamingLog } from './logging';
-import { Immersive } from './immersive';
 import './plugins';
 import { createPluginHostBridge } from './plugin-host-bridge';
 import { ensureStoragePersistence, checkStorageQuota } from './project';
@@ -409,8 +409,8 @@ export function bindEvents(): void {
     }
 
     // 5. Close the immersive reader last (its own handler closes panels first)
-    if (Immersive.isOpen()) {
-      Immersive.close();
+    if (ui.immersiveView?.classList.contains('open')) {
+      void import('./immersive').then(m => m.Immersive.close());
       e.preventDefault();
       return;
     }
@@ -500,7 +500,7 @@ export function bindEvents(): void {
       applyPalette(val);
     });
   }
-  ui.btnDashboardPrompts?.addEventListener('click', () => { import('./project').then(m => m.openDashboardPrompts()); });
+  ui.btnDashboardPrompts?.addEventListener('click', () => { Promise.resolve(ProjectModule).then(m => m.openDashboardPrompts()); });
   document.getElementById('btnPluginManagerOpen')?.addEventListener('click', () => {
     (window as any).CSTL?.plugins?.openPluginManager?.();
   });
@@ -528,8 +528,8 @@ export function bindEvents(): void {
       alert(`Gagal memasang plugin: ${err.message || err}`);
     }
   });
-  ui.btnDashboardPromptsSave?.addEventListener('click', () => { import('./project').then(m => m.saveDashboardPrompts()); });
-  ui.btnDashboardPromptsReset?.addEventListener('click', () => { import('./project').then(m => m.resetDashboardPrompts()); });
+  ui.btnDashboardPromptsSave?.addEventListener('click', () => { Promise.resolve(ProjectModule).then(m => m.saveDashboardPrompts()); });
+  ui.btnDashboardPromptsReset?.addEventListener('click', () => { Promise.resolve(ProjectModule).then(m => m.resetDashboardPrompts()); });
   ui.btnDashboardPromptsCancel?.addEventListener('click', () => (ui.dashboardPromptsModal as HTMLElement).classList.remove('open'));
   ui.dpPromptTemplateSelect?.addEventListener('change', () => {
     const val = (ui.dpPromptTemplateSelect as HTMLSelectElement).value;
@@ -667,10 +667,10 @@ export function bindEvents(): void {
   });
   ui.tabDelete?.addEventListener('click', () => switchWorkspaceTab('delete'));
 
-  ui.btnCopyForAiCheck?.addEventListener('click', onCopyForAiCheck);
-  ui.btnParseAiCheck?.addEventListener('click', () => onParseAiCheck());
-  ui.btnApplyAiCheck?.addEventListener('click', onApplyAiCheckCorrections);
-  ui.btnClearAiCheck?.addEventListener('click', onClearAiCheck);
+  ui.btnCopyForAiCheck?.addEventListener('click', () => import('./ai-check').then(m => m.onCopyForAiCheck()));
+  ui.btnParseAiCheck?.addEventListener('click', () => import('./ai-check').then(m => m.onParseAiCheck()));
+  ui.btnApplyAiCheck?.addEventListener('click', () => import('./ai-check').then(m => m.onApplyAiCheckCorrections()));
+  ui.btnClearAiCheck?.addEventListener('click', () => import('./ai-check').then(m => m.onClearAiCheck()));
   ui.pasteAiCheckArea?.addEventListener('input', () => {
     if (ui.btnParseAiCheck) {
       (ui.btnParseAiCheck as HTMLButtonElement).disabled = !(ui.pasteAiCheckArea as HTMLTextAreaElement).value.trim();
@@ -883,7 +883,7 @@ export function bindEvents(): void {
   ui.btnSettingsClearBackground?.addEventListener('click', () => {
     state.currentBackground = '';
     (ui.settingsBackgroundInput as HTMLTextAreaElement).value = '';
-    import('./project').then(m => m.queueAutoSave());
+    Promise.resolve(ProjectModule).then(m => m.queueAutoSave());
     flashHint('Ringkasan cerita dikosongkan.');
   });
 
@@ -1067,29 +1067,29 @@ if (ui.settingsCheckSimilarity) {
   ui.btnAutoAiCheck?.addEventListener('click', () => import('./auto-translate').then(m => m.onAutoAiCheck()));
 
   ui.btnTextReplacer?.addEventListener('click', () => {
-    import('./project').then(m => m.openModal(ui.textReplacerModal as HTMLElement));
+    Promise.resolve(ProjectModule).then(m => m.openModal(ui.textReplacerModal as HTMLElement));
     (ui.replacerPreInput as HTMLTextAreaElement).value = state.preReplaceRules || '';
     (ui.replacerPostInput as HTMLTextAreaElement).value = state.postReplaceRules || '';
   });
   ui.btnTextReplacerCancel?.addEventListener('click', () => {
-    import('./project').then(m => m.closeModal(ui.textReplacerModal as HTMLElement));
+    Promise.resolve(ProjectModule).then(m => m.closeModal(ui.textReplacerModal as HTMLElement));
   });
   ui.btnTextReplacerSave?.addEventListener('click', () => {
     state.preReplaceRules = (ui.replacerPreInput as HTMLTextAreaElement).value;
     state.postReplaceRules = (ui.replacerPostInput as HTMLTextAreaElement).value;
-    import('./project').then(m => {
+    Promise.resolve(ProjectModule).then(m => {
       m.queueAutoSave();
       m.closeModal(ui.textReplacerModal as HTMLElement);
-      import('./render').then(r => r.flashHint('Aturan Replacer berhasil disimpan.'));
+      Promise.resolve(RenderModule).then(r => r.flashHint('Aturan Replacer berhasil disimpan.'));
     });
   });
 
   // File List
   ui.btnFileList?.addEventListener('click', () => openFileListModal());
-  ui.btnImmersiveOpen?.addEventListener('click', () => Immersive.open());
+  ui.btnImmersiveOpen?.addEventListener('click', () => import('./immersive').then(m => m.Immersive.open()));
   ui.btnLunaHookerOpen?.addEventListener('click', () => {
     if (isAndroidPlatform()) return;
-    void lunaModal.open();
+    void import('./luna-modal').then(m => m.lunaModal.open());
   });
   ui.btnFileListClose?.addEventListener('click', () => closeFileListModal());
   ui.btnFileListAdd?.addEventListener('click', () => onAddFile());
@@ -1632,12 +1632,12 @@ if (ui.settingsCheckSimilarity) {
 
   // Bookmark Feature Events
   ui.btnToolbarBookmark?.addEventListener('click', () => {
-    import('./bookmark').then(m => m.openBookmarkModal());
+    Promise.resolve(BookmarkModule).then(m => m.openBookmarkModal());
   });
   ui.btnLineBookmark?.addEventListener('click', () => {
     const num = getActiveLineEditorLineNum();
     if (!num) return;
-    import('./bookmark').then(m => {
+    Promise.resolve(BookmarkModule).then(m => {
       m.toggleBookmark(num);
       const l = state.lineByNum.get(num);
       if (ui.btnLineBookmark && l) {
@@ -1649,22 +1649,22 @@ if (ui.settingsCheckSimilarity) {
     });
   });
   ui.btnBookmarkClose?.addEventListener('click', () => {
-    import('./bookmark').then(m => m.closeBookmarkModal());
+    Promise.resolve(BookmarkModule).then(m => m.closeBookmarkModal());
   });
   ui.btnBookmarkModalCloseIcon?.addEventListener('click', () => {
-    import('./bookmark').then(m => m.closeBookmarkModal());
+    Promise.resolve(BookmarkModule).then(m => m.closeBookmarkModal());
   });
   ui.btnClearAllBookmarks?.addEventListener('click', () => {
-    import('./bookmark').then(m => m.clearAllBookmarks());
+    Promise.resolve(BookmarkModule).then(m => m.clearAllBookmarks());
   });
   ui.bookmarkModal?.addEventListener('click', (e: MouseEvent) => {
     if (e.target === ui.bookmarkModal) {
-      import('./bookmark').then(m => m.closeBookmarkModal());
+      Promise.resolve(BookmarkModule).then(m => m.closeBookmarkModal());
     }
   });
   ui.bookmarkSearchInput?.addEventListener('input', debounce((e: Event) => {
     const val = (e.target as HTMLInputElement).value;
-    import('./bookmark').then(m => m.renderBookmarkList(val));
+    Promise.resolve(BookmarkModule).then(m => m.renderBookmarkList(val));
   }, 150));
 }
 
@@ -1762,7 +1762,6 @@ export async function init(): Promise<void> {
   initScrollers();
   bindEvents();
   initContextMenu();
-  Immersive.init();
 
   if (!navigator.storage || !navigator.storage.getDirectory) {
     alert('Browser kamu tidak mendukung Sistem File OPFS. Beberapa fitur tidak akan berjalan optimal.');
@@ -1807,9 +1806,8 @@ export async function init(): Promise<void> {
   // Initialize OPFS Explorer
   OpfsExplorer.init();
 
-  // Initialize LunaTranslator Hooker & VN Overlay
+  // Initialize the VN Overlay; the Luna dialog initializes when it is opened.
   try {
-    lunaModal.init();
     overlayController.init();
   } catch (err) {
     console.warn('[LunaHooker] Initialization error:', err);
