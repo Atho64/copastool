@@ -648,7 +648,7 @@ export async function onAutoTranslate(): Promise<void> {
         if (state.enableUncertainMarking) {
           sections.push('If you are uncertain about a translation, prefix it with [?].');
         }
-        if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
+        if (state.glossaryInLoop) sections.push(sanitizeTagsForChatgpt(INLINE_GLOSSARY_INSTRUCTION));
         sections.push(joinedText.trim());
         const prompt = sections.join('\n\n');
 
@@ -747,7 +747,7 @@ export async function onAutoTranslate(): Promise<void> {
           if (state.enableUncertainMarking) {
             sections.push('If you are uncertain about a translation, prefix it with [?].');
           }
-          if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
+          if (state.glossaryInLoop) sections.push(sanitizeTagsForChatgpt(INLINE_GLOSSARY_INSTRUCTION));
           sections.push(subText.trim());
           return sections.join('\n\n');
         };

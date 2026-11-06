@@ -68,21 +68,46 @@ export function buildGlossaryExtractionPrompt(sourceText: string): string {
   return `${base}${existingHint}\n\n${sourceText}\n`;
 }
 
+const NEW_TERMS_PAIR = /<\s*new_terms\s*>([\s\S]*?)<\s*\/\s*new_terms\s*>/i;
+const NEW_TERMS_HEADER = /^[ \t]*=+[ \t]*NEW[ _]?TERMS[ \t]*=+[ \t]*$/im;
+const ANY_SAFE_HEADER = /^[ \t]*=+[ \t]*[A-Za-z][A-Za-z0-9 _]*[ \t]*=+[ \t]*$/m;
 const GLOSSARY_FENCE_OPEN = /^[ \t]*`{3,}[ \t]*glossary[ \t]*$/im;
 const GLOSSARY_FENCE_CLOSE = /^[ \t]*`{3,}[ \t]*$/m;
 
-/** Split a combined reply into the translation and the trailing glossary block
- *  the inline instruction asks for. Without a block the whole reply is treated
- *  as the translation, so a model that ignores the instruction still works. */
+/** Split a combined reply into the translation and the trailing term list.
+ *  Accepts the tagged form, the safe-tag form the same instruction turns into
+ *  when that setting is on, and a fenced block for models that prefer one.
+ *  Without any of them the whole reply is the translation, so a model that
+ *  ignores the instruction still works. */
 export function splitInlineGlossaryReply(raw: string): { translation: string; glossary: string } {
+  const pair = NEW_TERMS_PAIR.exec(raw);
+  if (pair) {
+    const translation = raw.slice(0, pair.index) + raw.slice(pair.index + pair[0].length);
+    return { translation: translation.trim(), glossary: pair[1].trim() };
+  }
+
+  const head = NEW_TERMS_HEADER.exec(raw);
+  if (head) {
+    const before = raw.slice(0, head.index);
+    const after = raw.slice(head.index + head[0].length);
+    // A safe-tag section ends at the next === HEADER ===, or at the end.
+    const next = ANY_SAFE_HEADER.exec(after);
+    const glossary = (next ? after.slice(0, next.index) : after).trim();
+    // Anything after the list (a summary section, say) stays with the
+    // translation so the existing section handling still sees it.
+    const tail = next ? after.slice(next.index) : '';
+    const translation = [before.trim(), tail.trim()].filter(Boolean).join('\n\n');
+    return { translation: translation.trim(), glossary };
+  }
+
   const open = GLOSSARY_FENCE_OPEN.exec(raw);
   if (!open) return { translation: raw, glossary: '' };
   const before = raw.slice(0, open.index);
   const rest = raw.slice(open.index + open[0].length);
   const close = GLOSSARY_FENCE_CLOSE.exec(rest);
   const glossary = (close ? rest.slice(0, close.index) : rest).trim();
-  // A model that put the block first leaves the translation after it.
-  const translation = before.trim() ? before : (close ? rest.slice(close.index + close[0].length) : '');
+  const tail = close ? rest.slice(close.index + close[0].length) : '';
+  const translation = [before.trim(), tail.trim()].filter(Boolean).join('\n\n');
   return { translation: translation.trim(), glossary };
 }
 
@@ -100,7 +125,7 @@ export function mergeGlossaryFromAiText(raw: string): { added: number; updated: 
  * whitelisted sections are touched, so XML-format `<line num="...">` tags inside
  * the payload stay intact. No-op when the setting is off.
  */
-const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'Context_After', 'lines', 'AlreadyInGlossary', 'background', 'summary', 'local_lint_hints'];
+const SAFE_SECTION_TAGS = ['Glossary', 'Context', 'Context_After', 'lines', 'AlreadyInGlossary', 'background', 'summary', 'local_lint_hints', 'new_terms'];
 export function sanitizeTagsForChatgpt(text: string): string {
   if (!state.safeTagsForChatgpt) return text;
   let out = text;

@@ -251,16 +251,16 @@ export const DEFAULT_GLOSSARY_PROMPT = `Extract important names and story-specif
  *  The standalone glossary prompt forbids translating, so it cannot be reused
  *  here; this asks for the same output shape as a trailing block instead. */
 export const INLINE_GLOSSARY_INSTRUCTION = `## New glossary terms
-After the translation, append a fenced block labelled glossary listing the story-specific names and terms from these lines that are NOT already in the glossary above.
-One per line: [type] <source term> = <target term> {short description}
+After the translation, list the story-specific names and terms from these lines that are NOT already in the glossary above, inside a <new_terms> block.
+One per line: [type] [source term] = [target term] {short description}
 Allowed types: [character], [place], [organization], [item], [ability], [title], [concept], [term]
 Use the exact wording you used in the translation, so the two agree.
-The translation keeps the format and line count above; the glossary block comes after it and is not part of it.
-If nothing is new, write an empty glossary block.
+The translation keeps the format and line count above; the new_terms block comes after it and is not part of it.
+If nothing is new, leave the block empty.
 Example ending:
-\`\`\`glossary
+<new_terms>
 [character] 麦 = Mugi {male name}
-\`\`\``;
+</new_terms>`;
 
 export const DEFAULT_AI_CHECK_PROMPT = `You are a translation QA reviewer. Check the existing {{targetLang}} translation against the original {{sourceLang}} text.
 Only return lines that need correction. Do not return lines that are already good.

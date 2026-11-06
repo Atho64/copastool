@@ -106,7 +106,7 @@ export function buildCopyForAiPrompt(): string | null {
   if (state.enableUncertainMarking) {
     sections.push('If you are uncertain about a translation, prefix it with [?].');
   }
-  if (state.glossaryInLoop) sections.push(INLINE_GLOSSARY_INSTRUCTION);
+  if (state.glossaryInLoop) sections.push(sanitizeTagsForChatgpt(INLINE_GLOSSARY_INSTRUCTION));
   sections.push(joinedText.trim());
   return sections.join('\n\n');
 }
