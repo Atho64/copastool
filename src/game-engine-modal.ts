@@ -157,9 +157,8 @@ export function initGameEngineModal(): void {
   if (!modal) return;
   if (isAndroidNativeApp()) document.documentElement.classList.add('android-native-app');
 
-  for (const triggerId of ['btnOpenGameEngine', 'btnWorkspaceGameEngine']) {
-    document.getElementById(triggerId)?.addEventListener('click', () => openGameEngineModal());
-  }
+  // Game Engine hanya bisa dibuka dari dashboard.
+  document.getElementById('btnOpenGameEngine')?.addEventListener('click', () => openGameEngineModal());
 
   document.getElementById('btnCloseGameEngineModal')?.addEventListener('click', () => closeGameEngineModal());
   document.getElementById('btnCloseGameEngineModalBottom')?.addEventListener('click', () => closeGameEngineModal());

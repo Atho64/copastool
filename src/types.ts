@@ -410,6 +410,8 @@ export interface ParsedTranslationItem {
   name: string | null;
   msg: string;
   rawMsg: string;
+  /** [D]/[N] tag echoed by the model, when present. Absent for other formats. */
+  tag?: 'D' | 'N' | null;
 }
 
 // Populated dynamically by ui-init.ts.

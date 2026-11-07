@@ -5,7 +5,7 @@ import * as RenderModule from './render';
 import * as SelectionModule from './selection';
 import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
-import { buildSelectedTranslationExport, applyPromptVariables } from './ai-format';
+import { buildSelectedTranslationExport, applyPromptVariables, buildBeforeContextBlock, buildAfterContextBlock } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines } from './glossary';
 import { DEFAULT_PROMPT_HEADER, INLINE_GLOSSARY_INSTRUCTION } from './constants';
 import { flashHint } from './render';
@@ -609,30 +609,8 @@ export async function onAutoTranslate(): Promise<void> {
       if (parallelSize === 1) {
         btn.textContent = `Menerjemahkan ${sel.length} baris... (Klik untuk Stop)`;
 
-        let contextBlock = '';
-        if (state.contextLines > 0) {
-          const firstSelLineNum = sel[0].line_num;
-          const firstSelIdx = orderedLines.findIndex(l => l.line_num === firstSelLineNum);
-          if (firstSelIdx > 0) {
-            const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
-            const ctxLines = visiblePreceding.slice(-state.contextLines);
-            const ctxOut: string[] = [];
-            for (const l of ctxLines) {
-              const origNameStr = l.name ? `${l.name}: ` : '';
-              const transNameStr = (l.trans_name || l.name) ? `${(l.trans_name || l.name)!.trim()}: ` : '';
-              if (state.contextType === 'raw') {
-                ctxOut.push(`${origNameStr}${l.message}`);
-              } else if (state.contextType === 'both') {
-                ctxOut.push(`[Original] ${origNameStr}${l.message}\n[Translated] ${transNameStr}${l.trans_message || ''}`);
-              } else {
-                ctxOut.push(`${transNameStr}${l.trans_message || l.message}`);
-              }
-            }
-            if (ctxOut.length > 0) {
-              contextBlock = sanitizeTagsForChatgpt(`\n\n<Context>\nThese lines are for context only. Do NOT translate them.\n${ctxOut.join('\n')}\n</Context>`);
-            }
-          }
-        }
+        const contextBlock = sanitizeTagsForChatgpt(buildBeforeContextBlock(orderedLines, sel));
+        const afterContextBlock = sanitizeTagsForChatgpt(buildAfterContextBlock(orderedLines, sel));
 
         const joinedText = buildSelectedTranslationExport(false);
         const glossaryBlock = getGlossaryPrompt(joinedText);
@@ -645,6 +623,7 @@ export async function onAutoTranslate(): Promise<void> {
         const sections: string[] = [baseHeader];
         if (glossaryBlock) sections.push(glossaryBlock.trim());
         if (contextBlock) sections.push(contextBlock.trim());
+        if (afterContextBlock) sections.push(afterContextBlock.trim());
         if (state.enableUncertainMarking) {
           sections.push('If you are uncertain about a translation, prefix it with [?].');
         }
@@ -716,34 +695,13 @@ export async function onAutoTranslate(): Promise<void> {
           state._lastExportedLineCount = subBatch.length;
           const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
 
-          let contextBlock = '';
-          if (state.contextLines > 0) {
-            const firstSelLineNum = subBatch[0].line_num;
-            const firstSelIdx = orderedLines.findIndex(l => l.line_num === firstSelLineNum);
-            if (firstSelIdx > 0) {
-              const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
-              const ctxLines = visiblePreceding.slice(-state.contextLines);
-              const ctxOut: string[] = [];
-              for (const l of ctxLines) {
-                const origNameStr = l.name ? `${l.name}: ` : '';
-                const transNameStr = (l.trans_name || l.name) ? `${(l.trans_name || l.name)!.trim()}: ` : '';
-                if (state.contextType === 'raw') {
-                  ctxOut.push(`${origNameStr}${l.message}`);
-                } else if (state.contextType === 'both') {
-                  ctxOut.push(`[Original] ${origNameStr}${l.message}\n[Translated] ${transNameStr}${l.trans_message || ''}`);
-                } else {
-                  ctxOut.push(`${transNameStr}${l.trans_message || l.message}`);
-                }
-              }
-              if (ctxOut.length > 0) {
-                contextBlock = sanitizeTagsForChatgpt(`\n\n<Context>\nThese lines are for context only. Do NOT translate them.\n${ctxOut.join('\n')}\n</Context>`);
-              }
-            }
-          }
+          const contextBlock = sanitizeTagsForChatgpt(buildBeforeContextBlock(orderedLines, subBatch));
+          const afterContextBlock = sanitizeTagsForChatgpt(buildAfterContextBlock(orderedLines, subBatch));
 
           const sections: string[] = [baseHeader];
           if (glossaryBlock) sections.push(glossaryBlock.trim());
           if (contextBlock) sections.push(contextBlock.trim());
+          if (afterContextBlock) sections.push(afterContextBlock.trim());
           if (state.enableUncertainMarking) {
             sections.push('If you are uncertain about a translation, prefix it with [?].');
           }

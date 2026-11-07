@@ -12,6 +12,7 @@ import {
   DEFAULT_AI_TRANSLATION_FORMAT,
   DEFAULT_DICTIONARY_PROMPT,
   DEFAULT_SELECTION_BATCH_SIZE, DEFAULT_GLOSSARY_BATCH_SIZE, DEFAULT_AI_CHECK_BATCH_SIZE,
+  LEGACY_PROMPT_MIGRATIONS,
 } from './constants';
 import { DEFAULT_LUCA_PROFILE, clearLucaFileLineBytesCache, parseLucaTxt } from './luca-engine';
 import type { Line } from './types';
@@ -35,6 +36,15 @@ import { exportProjectToSpreadsheet } from './spreadsheet';
 
 export function isProjectFile(name: string): boolean {
   return name.endsWith(PROJECT_EXT) || name.endsWith(LEGACY_PROJECT_EXT);
+}
+
+// Header bawaan lama yang tidak pernah diedit user ditukar dengan default baru,
+// supaya format numbered baru dan reason AI Check berbahasa target ikut terpakai.
+function migrateLegacyPrompt(saved: string | undefined | null, fallback: string): string {
+  const text = String(saved || '').trim();
+  if (!text) return fallback;
+  const hit = LEGACY_PROMPT_MIGRATIONS.find(m => m.legacy === text);
+  return hit ? hit.replacement : text;
 }
 
 export function stripProjectExt(idOrName: string): string {
@@ -2000,12 +2010,12 @@ export async function openProject(id: string, data: any): Promise<void> {
   if (legacyImageAssets.length > 0) {
     (await Promise.resolve(RenderModule)).renumberLinesToDisplayOrder();
   }
-  state.aiInstructionHeader = data.prompt_header || DEFAULT_PROMPT_HEADER;
+  state.aiInstructionHeader = migrateLegacyPrompt(data.prompt_header, DEFAULT_PROMPT_HEADER);
   state.aiTranslationFormat = data.ai_translation_format != null
     ? normalizeAiTranslationFormat(data.ai_translation_format)
     : DEFAULT_AI_TRANSLATION_FORMAT;
   state.glossaryPrompt = data.glossary_prompt || DEFAULT_GLOSSARY_PROMPT;
-  state.aiCheckPrompt = data.ai_check_prompt || DEFAULT_AI_CHECK_PROMPT;
+  state.aiCheckPrompt = migrateLegacyPrompt(data.ai_check_prompt, DEFAULT_AI_CHECK_PROMPT);
   state.agentPrompt = data.agent_prompt || DEFAULT_AGENT_PROMPT;
   state.glossaryText = data.glossary_text || '';
   state.contextLines = data.context_lines !== undefined ? data.context_lines : 10;

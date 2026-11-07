@@ -63,8 +63,8 @@ export function getStandardPromptHeaderForFormat(format: string, language: 'id' 
     formatRules = '- Return one JSON array per input line: [number,"speaker","text"] when a speaker exists, or [number,"text"] for narration.';
     example = `Input:\n[12,"スピカ","「${sourceDialogue}」"]\nOutput:\n[12,"Spica",${JSON.stringify(spoken)}]\n\nInput:\n[13,"${sourceNarration}"]\nOutput:\n[13,${JSON.stringify(translatedNarration)}]`;
   } else {
-    formatRules = `- Dialogue: [number]. [Name]: ${kagikakko ? '「[dialogue]」' : '"[dialogue]"'}\n- Narration: [number]. [translated text]`;
-    example = `12. スピカ: 「${sourceDialogue}」 → 12. Spica: ${spoken}\n13. ${sourceNarration} → 13. ${translatedNarration}`;
+    formatRules = `- Dialogue: [number]. [D] [Name]: ${kagikakko ? '「[dialogue]」' : '"[dialogue]"'}\n- Narration: [number]. [N] [translated text]\n- Echo the same [D]/[N] tag at the start of every output line; never output [File: ...] markers, they only label the current script file in the input.`;
+    example = `[File: script01.scs]\n12. [D] スピカ: 「${sourceDialogue}」 → 12. [D] Spica: ${spoken}\n13. [N] ${sourceNarration} → 13. [N] ${translatedNarration}`;
   }
   if (kagikakko) {
     formatRules += '\n- Enclose spoken dialogue in Japanese quotation marks 「」.';
@@ -146,12 +146,62 @@ export function getSelectedTranslationText(includeTranslated = true, lineNums?: 
 export function getSelectedTranslationPlainText(includeTranslated = true, lineNums?: ReadonlySet<number>): string {
   const ordered = getDisplayOrderedLines();
   const sel = ordered.filter(l => !l._hidden && !isIlustrasiLine(l) && (lineNums ? lineNums.has(l.line_num) : state.selectedLines.has(l.line_num)) && (includeTranslated || !isTranslated(l)));
-  return sel.map(l => {
+  const out: string[] = [];
+  let lastFile: string | null = null;
+  for (const l of sel) {
+    // Penanda file muncul di awal batch dan setiap kali ganti file, agar AI tahu posisinya.
+    const file = (l.file || '').trim();
+    if (file && file !== lastFile) {
+      out.push(`[File: ${file}]`);
+      lastFile = file;
+    }
     const dN = applyReplaceRules(l.name || '', state.preReplaceRules, 'name') || l.name || '';
     let msg = unescapeStoredNewlines(l.message);
     msg = applyReplaceRules(msg, state.preReplaceRules, 'msg').replace(/\n/g, '<br>');
-    return dN ? `${l.line_num}. ${dN}: ${msg}` : `${l.line_num}. ${msg}`;
-  }).join('\n');
+    out.push(dN ? `${l.line_num}. [D] ${dN}: ${msg}` : `${l.line_num}. [N] ${msg}`);
+  }
+  return out.join('\n');
+}
+
+// Teks satu baris konteks sesuai contextType; dipakai blok <Context> dan <Context_After>.
+export function buildContextLinesText(ctxLines: Line[]): string[] {
+  const out: string[] = [];
+  for (const l of ctxLines) {
+    const origNameStr = l.name ? `${l.name}: ` : '';
+    const transNameStr = (l.trans_name || l.name) ? `${(l.trans_name || l.name)!.trim()}: ` : '';
+    if (state.contextType === 'raw') {
+      out.push(`${origNameStr}${l.message}`);
+    } else if (state.contextType === 'both') {
+      out.push(`[Original] ${origNameStr}${l.message}\n[Translated] ${transNameStr}${l.trans_message || ''}`);
+    } else {
+      out.push(`${transNameStr}${l.trans_message || l.message}`);
+    }
+  }
+  return out;
+}
+
+// Baris sebelum seleksi, untuk konteks saja (jangan diterjemahkan).
+export function buildBeforeContextBlock(orderedLines: Line[], sel: Line[]): string {
+  if (state.contextLines <= 0 || !sel.length) return '';
+  const firstSelIdx = orderedLines.findIndex(l => l.line_num === sel[0].line_num);
+  if (firstSelIdx <= 0) return '';
+  const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
+  const ctxOut = buildContextLinesText(visiblePreceding.slice(-state.contextLines));
+  if (!ctxOut.length) return '';
+  return `<Context>\nThese lines are for context only. Do NOT translate them.\n${ctxOut.join('\n')}\n</Context>`;
+}
+
+// Baris sesudah seleksi, untuk melihat arah cerita (jangan diterjemahkan).
+export function buildAfterContextBlock(orderedLines: Line[], sel: Line[]): string {
+  if (state.contextLinesAfter <= 0 || !sel.length) return '';
+  const visible = orderedLines.filter(l => !l._hidden && !isIlustrasiLine(l));
+  const lastSelVisibleIdx = visible.findIndex(l => l.line_num === sel[sel.length - 1].line_num);
+  if (lastSelVisibleIdx === -1) return '';
+  const selNums = new Set(sel.map(l => l.line_num));
+  const following = visible.slice(lastSelVisibleIdx + 1).filter(l => !selNums.has(l.line_num));
+  const afterText = buildContextLinesText(following.slice(0, state.contextLinesAfter));
+  if (!afterText.length) return '';
+  return `<Context_After>\nThese lines come AFTER the translated lines (context only, do NOT translate them). They happen later in the story.\n${afterText.join('\n')}\n</Context_After>`;
 }
 
 export function buildSelectedTranslationExport(includeTranslated = true, lineNums?: ReadonlySet<number>): string {
@@ -181,7 +231,7 @@ export function getTranslationPastePlaceholder(): string {
   if (fmt === AI_TRANSLATION_FORMAT_JSON_ARRAY) {
     return `[12,"Spica","Selamat pagi"]\n[13,"Mau ngapain hari ini?"]`;
   }
-  return `12. Spica: Selamat pagi\n13. Mugi: Mau ngapain hari ini?`;
+  return `12. [D] Spica: Selamat pagi\n13. [N] Malam yang tenang.`;
 }
 
 export function detectTranslationPasteFormat(text: string): string {
@@ -337,6 +387,30 @@ export function parseTranslationBlocks(text: string): ParsedTranslationItem[] {
   });
 }
 
+// Buang tag tipe [D]/[N] (atau ejaan panjangnya) di awal respons AI, sambil
+// melaporkan tag pertama agar apply bisa membandingkannya dengan tipe baris asli.
+// Penanda [?] di dalam rangkaian tag dipertahankan sesuai perilaku lama.
+const stripTypeTagPrefix = (s: string): { content: string; tag: 'D' | 'N' | null } => {
+  let rest = s;
+  let tag: 'D' | 'N' | null = null;
+  let uncertain = false;
+  for (;;) {
+    const tagMatch = rest.match(/^\[(d|n|dialogue|narration)\]\s*/i);
+    if (tagMatch) {
+      if (!tag) tag = tagMatch[1].toLowerCase().startsWith('d') ? 'D' : 'N';
+      rest = rest.slice(tagMatch[0].length);
+      continue;
+    }
+    if (!uncertain && rest.startsWith('[?]')) {
+      uncertain = true;
+      rest = rest.slice(3).replace(/^\s+/, '');
+      continue;
+    }
+    break;
+  }
+  return { content: uncertain ? `[?] ${rest}` : rest, tag };
+};
+
 export function parseTranslationNumberedPaste(
   text: string,
   options: { ignoreNames?: boolean } = {}
@@ -349,6 +423,7 @@ export function parseTranslationNumberedPaste(
     num: number;
     rawText: string;
     content: string;
+    tag: 'D' | 'N' | null;
   }
   const linesToProcess: RawNumberedLine[] = [];
 
@@ -357,11 +432,14 @@ export function parseTranslationNumberedPaste(
     if (!txt) continue;
     const match = txt.match(/^\s*(\d+)\s*[.)]\s*(.*)$/);
     if (!match) {
+      // Penanda [File: ...] yang diulang AI dilewati diam-diam, bukan error.
+      if (/^[>\-*#\s]*\[?file\s*:/i.test(txt)) continue;
       errors.push(`[Baris ${i + 1}] Format rusak (Harus "Angka. Teks") -> "${txt.substring(0, 25)}..."`);
       continue;
     }
     const num = Number(match[1]);
-    linesToProcess.push({ num, rawText: txt, content: match[2].trim() });
+    const stripped = stripTypeTagPrefix(match[2].trim());
+    linesToProcess.push({ num, rawText: txt, content: stripped.content, tag: stripped.tag });
   }
 
   const findSplitIndex = (str: string): number => {
@@ -417,7 +495,7 @@ export function parseTranslationNumberedPaste(
       : (linesWithColonSpeaker / totalSpeakerSourceLines >= 0.7));
 
   for (const item of linesToProcess) {
-    const { num, content } = item;
+    const { num, content, tag } = item;
     let name: string | null = null;
     let msg = content;
     const sourceLine = state.lineByNum.get(num);
@@ -442,7 +520,7 @@ export function parseTranslationNumberedPaste(
     }
 
     const cleanMsg = stripLeakedAiSections(msg);
-    parsed.push({ num, name, msg: escapeStoredNewlines(cleanMsg), rawMsg: cleanMsg });
+    parsed.push({ num, name, msg: escapeStoredNewlines(cleanMsg), rawMsg: cleanMsg, tag });
   }
 
   return { parsed, errors };

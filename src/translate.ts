@@ -5,6 +5,7 @@ import { state, ui, normalizeLineDict } from './state';
 import { isTranslated, isIlustrasiLine } from './state';
 import {
   buildSelectedTranslationExport, detectTranslationPasteFormat,
+  buildBeforeContextBlock, buildAfterContextBlock,
   parseTranslationBlocks, parseTranslationXml, parseTranslationJsonl, parseTranslationJsonArray,
   parseTranslationNumberedPaste, applyPromptVariables,
 } from './ai-format';
@@ -58,31 +59,8 @@ export function buildCopyForAiPrompt(): string | null {
   const sel = orderedLines.filter(l => state.selectedLines.has(l.line_num) && !isTranslated(l));
   if (!sel.length) return null;
 
-  let contextBlock = '';
-  if (state.contextLines > 0) {
-    const firstSelLineNum = sel[0].line_num;
-    const firstSelIdx = orderedLines.findIndex(l => l.line_num === firstSelLineNum);
-    if (firstSelIdx > 0) {
-      const visiblePreceding = orderedLines.slice(0, firstSelIdx).filter(l => !l._hidden && !isIlustrasiLine(l));
-      const ctxLines = visiblePreceding.slice(-state.contextLines);
-      const ctxOut: string[] = [];
-      for (const l of ctxLines) {
-        const origNameStr = l.name ? `${l.name}: ` : '';
-        const transNameStr = (l.trans_name || l.name) ? `${(l.trans_name || l.name)!.trim()}: ` : '';
-        if (state.contextType === 'raw') {
-          ctxOut.push(`${origNameStr}${l.message}`);
-        } else if (state.contextType === 'both') {
-          ctxOut.push(`[Original] ${origNameStr}${l.message}\n[Translated] ${transNameStr}${l.trans_message || ''}`);
-        } else {
-          ctxOut.push(`${transNameStr}${l.trans_message || l.message}`);
-        }
-      }
-      if (ctxOut.length > 0) {
-        contextBlock = `\n\n<Context>\nThese lines are for context only. Do NOT translate them.\n${ctxOut.join('\n')}\n</Context>`;
-        contextBlock = sanitizeTagsForChatgpt(contextBlock);
-      }
-    }
-  }
+  const contextBlock = sanitizeTagsForChatgpt(buildBeforeContextBlock(orderedLines, sel));
+  const afterContextBlock = sanitizeTagsForChatgpt(buildAfterContextBlock(orderedLines, sel));
 
   const joinedText = sanitizeTagsForChatgpt(buildSelectedTranslationExport(false));
   const glossaryBlock = getGlossaryPrompt(joinedText);
@@ -91,6 +69,7 @@ export function buildCopyForAiPrompt(): string | null {
   const sections: string[] = [baseHeader];
   if (glossaryBlock) sections.push(glossaryBlock.trim());
   if (contextBlock) sections.push(contextBlock.trim());
+  if (afterContextBlock) sections.push(afterContextBlock.trim());
   if (state.enableBackgroundChaining) {
     if (state.currentBackground) {
       // Follows the Safe Tags setting: <summary> when off, === SUMMARY === when on.
@@ -335,6 +314,10 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
     if (!l) { errors.push(`[#${it.num}] Tidak ada di JSON asli.`); continue; }
     const oN = !!(l.name || '').trim();
     let tN = !!(it.name || '').trim();
+    // Tag [D]/[N] yang dikembalikan AI harus cocok dengan tipe baris aslinya.
+    if (it.tag && !ignoreNames && (it.tag === 'D') !== oN) {
+      errors.push(`[#${it.num}] Tipe berubah: baris asli ${oN ? 'Dialogue' : 'Narration'} tapi hasil [${it.tag}].`);
+    }
     if (tN) {
       it.name = applyReplaceRules(it.name!, state.postReplaceRules, 'name');
     }

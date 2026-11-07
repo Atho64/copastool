@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.2-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.3-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -41,8 +41,9 @@ Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggila
 Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetakan hasil AI ke nomor baris yang benar.
 
 - Format prompt bisa dipilih: numbered list, block, XML, JSONL, atau JSON array.
+- Format numbered menandai file aktif dengan baris `[File: nama-file]` di awal batch dan setiap ganti file, plus tag `[D]` (dialogue) / `[N]` (narration) di tiap baris. Tag yang sama diulang AI di respons, dan apply menolak baris yang tipenya berubah. Prompt header bawaan lama otomatis diperbarui saat proyek dibuka.
 - Prompt header bisa diedit sendiri, termasuk varian yang memakai tanda kutip Jepang (kagikakko).
-- **AI Check**: salin terjemahan yang sudah ada untuk diperiksa ulang, lalu terapkan koreksinya.
+- **AI Check**: salin terjemahan yang sudah ada untuk diperiksa ulang, lalu terapkan koreksinya. Alasan koreksi ditulis dalam bahasa target.
 - Undo dan redo untuk setiap penerapan terjemahan.
 
 ### API global (AI)

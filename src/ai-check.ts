@@ -6,7 +6,7 @@ import { unescapeStoredNewlines, escapeStoredNewlines, applyReplaceRules, stripL
 import { getLineDisplayName, formatLineLabel } from './luca-engine';
 import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, updateButtonStates, pushUndoSnapshot, refreshAll, flashHint } from './render';
 import { queueAutoSave } from './project';
-import { applyPromptVariables } from './ai-format';
+import { applyPromptVariables, buildContextLinesText } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
 import { DEFAULT_AI_CHECK_PROMPT, getDefaultAiCheckSummaryPrompt, AI_CHECK_JSON_FORMAT_RULES, AI_CHECK_PASS_FORMAT_RULES } from './constants';
 import { getDisplayOrderedLines } from './selection';
@@ -45,22 +45,6 @@ function normalizeCategory(raw: string): string {
 
 export function getSelectedTranslatedLines(): Line[] {
   return getDisplayOrderedLines().filter(l => state.selectedLines.has(l.line_num) && isTranslated(l) && !isIlustrasiLine(l));
-}
-
-function buildContextLinesText(ctxLines: Line[]): string[] {
-  const ctxOut: string[] = [];
-  for (const l of ctxLines) {
-    const origNameStr = l.name ? `${l.name}: ` : '';
-    const transNameStr = (l.trans_name || l.name) ? `${(l.trans_name || l.name)!.trim()}: ` : '';
-    if (state.contextType === 'raw') {
-      ctxOut.push(`${origNameStr}${l.message}`);
-    } else if (state.contextType === 'both') {
-      ctxOut.push(`[Original] ${origNameStr}${l.message}\n[Translated] ${transNameStr}${l.trans_message || ''}`);
-    } else {
-      ctxOut.push(`${transNameStr}${l.trans_message || l.message}`);
-    }
-  }
-  return ctxOut;
 }
 
 function buildAiCheckContextBlock(sel: Line[]): string {
@@ -199,7 +183,7 @@ export function buildAiCheckPrompt(sel: Line[], opts: BuildAiCheckPromptOptions 
     sections.push(sanitizeTagsForChatgpt(applyPromptVariables(AI_CHECK_PASS_FORMAT_RULES)));
   }
   sections.push(linesBlock);
-  if (useJson) sections.push(AI_CHECK_JSON_FORMAT_RULES);
+  if (useJson) sections.push(applyPromptVariables(AI_CHECK_JSON_FORMAT_RULES));
   return sections.join('\n\n') + '\n';
 }
 
