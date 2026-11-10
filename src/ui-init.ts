@@ -45,6 +45,7 @@ import {
 import { initCustomParserModal, updateCustomImportAccept } from './custom-parser-modal';
 import { initGameEngineModal } from './game-engine-modal';
 import { setPyodideColdStartHint } from './custom-parser-runner';
+import { getLang, setLang, onLangChange, type UiLang } from './i18n';
 import { handleTranslatedImport, onImportTranslatedFileChange, onImportTranslatedFolderChange } from './import-translated';
 import { isAndroidNativeApp, pickAndroidFolderFiles } from './android-files';
 import { normalizeCopasTarget } from './auto-copas/targets';
@@ -479,6 +480,22 @@ export function bindEvents(): void {
   });
 
   ui.btnDashboardSettings?.addEventListener('click', openDashboardSettings);
+
+  // Interface language. The dashboard switch and the Settings → General picker
+  // drive the same value, so they are kept in sync through the i18n module.
+  const langSelects = [
+    document.getElementById('uiLangSelect'),
+    document.getElementById('settingsUiLangSelect'),
+  ].filter(Boolean) as HTMLSelectElement[];
+  const syncLangSelects = () => {
+    for (const select of langSelects) select.value = getLang();
+  };
+  for (const select of langSelects) {
+    select.addEventListener('change', () => setLang(select.value as UiLang));
+  }
+  syncLangSelects();
+  onLangChange(syncLangSelects);
+
   const paletteSel = document.getElementById('paletteSelect');
   if (paletteSel) {
     paletteSel.addEventListener('change', () => {

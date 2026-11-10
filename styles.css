@@ -301,8 +301,24 @@ body { -webkit-tap-highlight-color: transparent; }
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+/* Compact ID/EN switch in the dashboard hero. The full picker lives in
+   Settings → General, this one is here so the language can be changed before
+   any project is open. */
+.ui-lang-select {
+  width: auto;
+  min-width: 60px;
+  height: 44px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-align: center;
+  cursor: pointer;
 }
 
 .hero-actions .dropdown {
@@ -2226,6 +2242,12 @@ select {
     flex-shrink: 0;
     display: flex !important;
     align-items: center !important;
+    gap: 6px;
+  }
+  .ui-lang-select {
+    height: 40px;
+    min-width: 52px;
+    padding: 0 4px;
   }
   .btn-settings-gear {
     width: 40px;

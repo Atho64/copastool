@@ -11,6 +11,7 @@ import { switchWorkspaceTab } from './selection';
 import type { FileActionSnapshot, Line } from './types';
 import { windowsFileOrderCompare } from './string-utils';
 import { cstlConfirm } from './dialog';
+import { t } from './i18n';
 
 let _draggingIndex = -1;
 
@@ -340,10 +341,11 @@ function createFileListItem(fileName: string, stats: FileLineStats, index: numbe
 
   const countSpan = document.createElement('span');
   countSpan.className = 'file-count';
+  // Inside #fileListContainer, which is data-i18n-skip-text, so translated here.
   if (stats.rawCount && stats.rawCount > stats.count) {
-    countSpan.textContent = `(${stats.count} baris / ${stats.rawCount - stats.count} terfilter)`;
+    countSpan.textContent = t(`(${stats.count} baris / ${stats.rawCount - stats.count} terfilter)`);
   } else {
-    countSpan.textContent = `(${stats.count} baris)`;
+    countSpan.textContent = t(`(${stats.count} baris)`);
   }
 
   metaWrap.append(rangeSpan, countSpan);

@@ -6,7 +6,7 @@ window.onerror = function(message, source, lineno, colno, error) {
   if (typeof message === 'string' && message.includes('ResizeObserver')) return true;
   const errDiv = document.createElement('div');
   errDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999;padding:10px;font-family:monospace;white-space:pre-wrap;cursor:pointer;';
-  errDiv.textContent = `[Klik untuk menutup]\nError: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}\nStack: ${error?.stack}`;
+  errDiv.textContent = `[Click to dismiss]\nError: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}\nStack: ${error?.stack}`;
   errDiv.onclick = () => errDiv.remove();
   document.body.appendChild(errDiv);
 };
@@ -14,7 +14,7 @@ window.onerror = function(message, source, lineno, colno, error) {
 window.addEventListener('unhandledrejection', function(event) {
   const errDiv = document.createElement('div');
   errDiv.style.cssText = 'position:fixed;top:50px;left:0;width:100%;background:darkred;color:white;z-index:9999;padding:10px;font-family:monospace;white-space:pre-wrap;cursor:pointer;';
-  errDiv.textContent = `[Klik untuk menutup]\nUnhandled Promise Rejection: ${event.reason?.message || event.reason}\nStack: ${event.reason?.stack}`;
+  errDiv.textContent = `[Click to dismiss]\nUnhandled Promise Rejection: ${event.reason?.message || event.reason}\nStack: ${event.reason?.stack}`;
   errDiv.onclick = () => errDiv.remove();
   document.body.appendChild(errDiv);
 });
@@ -24,7 +24,12 @@ import { APP_VERSION } from './constants';
 import { isTauri } from './native-storage';
 import { initGlobalDialogs } from './dialog';
 import { initTutorial } from './tutorial';
+import { initI18n } from './i18n';
 import JSZip from 'jszip';
+
+// Runs at module scope, before bootstrap(): the markup is already parsed and the
+// saved language has to be applied before the first paint of the workspace.
+initI18n();
 
 // EPUB import, restore, and image rendering use the shared JSZip global. Set it
 // synchronously before the UI is interactive so these paths do not race the

@@ -2,11 +2,13 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.3-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.4-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
 </div>
+
+[English](./README.en.md) · **Bahasa Indonesia**
 
 Alat bantu terjemahan untuk visual novel dan novel EPUB. Berjalan sebagai aplikasi native Tauri v2 di Windows dan Android, dan sebagai PWA di browser.
 
@@ -35,7 +37,7 @@ Yang bisa dipasang:
 5. **Perintah kustom**: terdaftar otomatis di Shortcut Keyboard Manager lewat `api.registerShortcut()`.
 6. **Parser skrip tunggal (JS / Python)**: parser legacy satu file. Python berjalan di worker Pyodide yang dimuat dari CDN saat dipakai pertama kali (±10 MB).
 
-Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggilan API yang izinnya belum dideklarasikan, jadi `permissions` adalah kontrak kepercayaan, bukan pengaman. Detail arsitektur, `manifest.json`, dan contoh kode ada di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
+Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggilan API yang izinnya belum dideklarasikan, jadi `permissions` adalah kontrak kepercayaan, bukan pengaman. Detail arsitektur, `manifest.json`, dan contoh kode ada di [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md) ([versi Inggris](./PLUGIN_GUIDE.en.md)).
 
 ### Terjemahan copy-paste
 Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetakan hasil AI ke nomor baris yang benar.

@@ -4,6 +4,8 @@
 
 > **Diperbarui 2 Oktober 2026**, disinkronkan dengan `src/plugins.ts`, `src/plugin-types.ts`, dan `src/plugin-host-bridge.ts`. Versi Host API: **1**.
 
+[English](./PLUGIN_GUIDE.en.md) · **Bahasa Indonesia**
+
 ---
 
 ## Prompt template untuk AI (copy-paste ke ChatGPT / Claude / Gemini)

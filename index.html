@@ -65,6 +65,10 @@
         </div>
       </div>
       <div class="hero-actions">
+        <select id="uiLangSelect" class="text-input ui-lang-select" title="Bahasa Antarmuka / Interface Language" aria-label="Bahasa Antarmuka / Interface Language">
+          <option value="id">ID</option>
+          <option value="en">EN</option>
+        </select>
         <div class="dropdown">
           <button id="btnDropdownDashboardSettings" class="btn btn-icon btn-outline btn-settings-gear" aria-expanded="false" aria-haspopup="menu" title="Pengaturan & Backup Proyek">
             <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg>
@@ -259,7 +263,7 @@
             <span id="progressText" class="mono">0/0</span>
           </div>
         </div>
-        <div id="previewViewport" class="preview-viewport">
+        <div id="previewViewport" class="preview-viewport" data-i18n-skip-text>
           <div id="previewContainer" class="preview-container"></div>
         </div>
       </section>
@@ -307,7 +311,7 @@
           </div>
           <div id="glossaryPreviewWrap" class="glossary-preview" hidden data-htl-hide="true">
             <div class="section-label mt-0">Glossary yang ikut terkirim</div>
-            <pre id="glossaryPreviewText" class="mono glossary-preview-text"></pre>
+            <pre id="glossaryPreviewText" class="mono glossary-preview-text" data-i18n-skip></pre>
           </div>
           <label class="section-label" for="pasteArea" data-htl-hide="true">Paste Terjemahan</label>
           <textarea id="pasteArea" class="mono input-area" placeholder="Paste hasil dari AI di sini..." disabled data-htl-hide="true"></textarea>
@@ -340,7 +344,7 @@
                       <th>Terjemahan</th>
                     </tr>
                   </thead>
-                  <tbody id="nameTableBody"></tbody>
+                  <tbody id="nameTableBody" data-i18n-skip-text></tbody>
                 </table>
               </div>
             </div>
@@ -444,9 +448,9 @@
             <button id="btnReviewApply" class="btn btn-success grow">Apply & Lanjut</button>
             <button id="btnReviewSkip" class="btn btn-outline grow">Skip</button>
           </div>
-          <div id="aiCheckResults" class="ai-check-results mt-2"></div>
+          <div id="aiCheckResults" class="ai-check-results mt-2" data-i18n-skip-text></div>
         </div>
-        <div id="pluginPanels" class="plugin-panels mt-2"></div>
+        <div id="pluginPanels" class="plugin-panels mt-2" data-i18n-skip></div>
       </section>
     </main>
     <footer id="statusBar" class="status-bar">
@@ -877,6 +881,22 @@
       <div class="modal-body">
         
         <div id="settingsTabGeneral" class="settings-tab-pane">
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Bahasa Antarmuka
+            </div>
+            <div class="flex-center gap-2 wrap">
+              <div class="flex-col grow" style="flex: 1 1 100%; min-width: 160px;">
+                <label class="form-label" for="settingsUiLangSelect">Bahasa Antarmuka</label>
+                <select id="settingsUiLangSelect" class="text-input w-full">
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+            <div class="hint">Mengubah bahasa antarmuka aplikasi. Bahasa sumber dan tujuan proyek tidak ikut berubah.</div>
+          </div>
           <div class="settings-section">
             <div class="settings-section-title">
               <svg class="lucide-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
@@ -1346,7 +1366,7 @@
         <h3><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /><path d="M18 18a4 4 0 0 0 2-7.464" /><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /><path d="M6 18a4 4 0 0 1-2-7.464" /><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg> Memori AI Agent</h3>
       </div>
       <div class="modal-body">
-        <div id="agentMemoryList" style="max-height: 240px; overflow-y: auto;"></div>
+        <div id="agentMemoryList" style="max-height: 240px; overflow-y: auto;" data-i18n-skip-text></div>
         
         <div class="settings-section mt-3 mb-0">
           <div class="settings-section-title">
@@ -1471,7 +1491,7 @@
           </div>
         </div>
         <div class="proofread-results-wrap mt-2">
-          <div id="proofreadContainer" class="preview-container"></div>
+          <div id="proofreadContainer" class="preview-container" data-i18n-skip-text></div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1517,7 +1537,7 @@
           </div>
           <div id="qaStats" class="mono text-muted mb-2">Status: Siap dijalankan.</div>
           <div class="proofread-results-wrap">
-            <div id="qaResults" class="preview-container"></div>
+            <div id="qaResults" class="preview-container" data-i18n-skip-text></div>
           </div>
         </div>
       </div>
@@ -1545,7 +1565,7 @@
       <button id="btnLoggingClear" class="icon-btn" title="Hapus log"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
       <button id="btnLoggingClose" class="icon-btn" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
-    <div id="loggingHistory" class="agent-history"></div>
+    <div id="loggingHistory" class="agent-history" data-i18n-skip></div>
   </div>
 
   <div id="aiAgentChatPanel" class="agent-panel" style="display: none;">
@@ -1558,17 +1578,15 @@
       <button id="btnAgentClear" class="icon-btn" title="Hapus riwayat chat"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
       <button id="btnAgentClose" class="icon-btn" title="Tutup"><svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
     </div>
-    <div id="agentChatHistory" class="agent-history">
-      <div class="agent-msg system">
-        Halo! Saya CSTL Agent. Saya bisa menjawab pertanyaan seputar proyek ini atau membantu mengeksekusi terjemahan layaknya Vibecoding Agent.
-      </div>
-    </div>
+    <!-- Filled by ai-agent.ts (welcome message + history); kept out of the
+         translation walker because it also holds AI replies. -->
+    <div id="agentChatHistory" class="agent-history" data-i18n-skip></div>
     <div id="agentSessionsPanel" class="agent-sessions-panel" style="display: none;">
       <div class="agent-sessions-head">
         <span style="font-weight: 600; font-size: 12px;">Sesi Chat</span>
         <button id="btnAgentNewSession" class="btn btn-outline btn-xs">+ Sesi Baru</button>
       </div>
-      <div id="agentSessionsList" class="agent-sessions-list"></div>
+      <div id="agentSessionsList" class="agent-sessions-list" data-i18n-skip></div>
     </div>
     <div class="agent-input-area">
       <textarea id="agentInput" class="text-input w-full" style="resize: none; height: 60px; font-family: inherit;" placeholder="Tanyakan arti kata, atau suruh terjemahkan... (Tekan Enter untuk kirim)"></textarea>
@@ -1784,7 +1802,7 @@
         <h3>Riwayat Kamus</h3>
       </div>
       <div class="modal-body">
-        <div id="dictHistoryList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+        <div id="dictHistoryList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;" data-i18n-skip>
         </div>
       </div>
       <div class="modal-actions" style="justify-content: space-between;">
@@ -1919,7 +1937,7 @@
               <span id="cpTestFileName" class="cp-test-file"></span>
             </div>
             <input id="cpTestFileInput" type="file" hidden />
-            <div id="cpTestResult" class="cp-test-result"></div>
+            <div id="cpTestResult" class="cp-test-result" data-i18n-skip></div>
           </div>
           <div class="settings-section mb-2">
             <div class="settings-section-title">Aset Parser <span id="cpAssetsSize" style="font-weight:normal;opacity:.7;"></span></div>
@@ -1927,15 +1945,15 @@
               <button id="btnCpAddAssets" class="btn btn-outline btn-sm" type="button">Tambah File Aset…</button>
               <input id="cpAssetsInput" type="file" multiple hidden />
             </div>
-            <div id="cpAssetList" class="cp-asset-list"></div>
+            <div id="cpAssetList" class="cp-asset-list" data-i18n-skip></div>
           </div>
           <div class="settings-section mb-2">
             <div class="settings-section-title">Setelan Parser (opsional)</div>
-            <textarea id="cpSettingsInput" class="mono input-area w-full" style="height:140px; font-size:12.5px;" placeholder='[]  atau contoh:
+            <textarea id="cpSettingsInput" class="mono input-area w-full" style="height:140px; font-size:12.5px;" placeholder='[]  or example:
 [
   {"key":"encoding","label":"Encoding","type":"select","default":"auto",
    "options":[{"value":"auto","label":"Auto"},{"value":"sjis","label":"Shift_JIS"}]},
-  {"key":"skipComments","label":"Lewati komentar #","type":"boolean","default":true}
+  {"key":"skipComments","label":"Skip # comments","type":"boolean","default":true}
 ]'></textarea>
             <div style="opacity:.65;font-size:12px;margin-top:4px;">
               Dibaca parser lewat <code>ctx.options.&lt;key&gt;</code>. Tipe: string/number/boolean/select/textarea.
@@ -1964,7 +1982,7 @@
             <button id="btnFileListDelete" class="btn btn-danger" disabled>Hapus</button>
           </div>
         </div>
-        <div id="fileListContainer" class="file-list-container">
+        <div id="fileListContainer" class="file-list-container" data-i18n-skip-text>
           <!-- di-render dinamis oleh file-list.ts -->
         </div>
       </div>
@@ -2042,7 +2060,7 @@
             <span class="immersive-bookmark-title">Bookmark</span>
             <span id="immersiveBookmarkPanelCount" class="immersive-bookmark-count">0</span>
           </div>
-          <div id="immersiveBookmarkList" class="immersive-bookmark-list"></div>
+          <div id="immersiveBookmarkList" class="immersive-bookmark-list" data-i18n-skip-text></div>
         </div>
       </div>
 
@@ -2051,7 +2069,7 @@
       </button>
 
       <div id="immersiveViewport" class="immersive-viewport" tabindex="-1">
-        <div id="immersiveContainer" class="immersive-container"></div>
+        <div id="immersiveContainer" class="immersive-container" data-i18n-skip-text></div>
       </div>
     </div>
   </div>
@@ -2069,7 +2087,7 @@
             <button id="btnClearAllBookmarks" class="btn btn-danger btn-sm" disabled title="Hapus semua bookmark di proyek ini" type="button">Hapus Semua</button>
           </div>
         </div>
-        <div id="bookmarkListContainer" class="bookmark-list-container">
+        <div id="bookmarkListContainer" class="bookmark-list-container" data-i18n-skip-text>
           <!-- dynamically populated by bookmark.ts -->
         </div>
       </div>
@@ -2105,7 +2123,7 @@
         <p class="hint hint-danger m-0 mt-1 mb-2">Hati-hati: menghapus file atau folder sistem bisa membuat proyek tidak bisa dibuka. Hapus hanya file yang Anda kenali.</p>
         <div class="opfs-explorer">
           <div id="opfsCrumbs" class="opfs-crumbs" hidden></div>
-          <div id="opfsList" class="opfs-list" role="list"></div>
+          <div id="opfsList" class="opfs-list" role="list" data-i18n-skip-text></div>
           <div id="opfsEmpty" class="opfs-empty" hidden>
             <svg class="lucide-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             <span id="opfsEmptyText">Belum ada file di OPFS.</span>
@@ -2210,7 +2228,7 @@
           <div class="flex gap-2 wrap flex-center">
             <button id="btnLunaConnect" class="btn btn-primary" type="button">Hubungkan</button>
             <button id="btnLunaDisconnect" class="btn btn-outline" type="button" disabled>Putuskan</button>
-            <span id="lunaConnectionLog" class="hint" style="font-size: 12px; margin-left: 8px;"></span>
+            <span id="lunaConnectionLog" class="hint" style="font-size: 12px; margin-left: 8px;" data-i18n-skip></span>
           </div>
         </div>
 
@@ -2286,7 +2304,7 @@
               <span>Diagnosa Fullscreen</span>
             </button>
           </div>
-          <pre id="overlayDiagnosticOut" class="hint" style="display: none; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.35); border-radius: 4px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;"></pre>
+          <pre id="overlayDiagnosticOut" class="hint" style="display: none; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.35); border-radius: 4px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;" data-i18n-skip></pre>
         </div>
 
         <!-- Android/PWA: the overlay needs Win32 SetWindowPos + DWM to beat a
@@ -2402,7 +2420,7 @@
               <svg class="lucide-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               <span>Engine Terdeteksi</span>
             </div>
-            <div id="engineSummaryContent" class="hint-sm"></div>
+            <div id="engineSummaryContent" class="hint-sm" data-i18n-skip></div>
           </div>
         </div>
 

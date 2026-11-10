@@ -3,6 +3,7 @@
 // target. Unnamed legacy chats keep working.
 
 import { state } from './state';
+import { t } from './i18n';
 
 export interface AgentSessionMeta {
   id: string;
@@ -109,7 +110,8 @@ export function renderSessionList(
   if (!sessions.length) {
     const empty = document.createElement('div');
     empty.className = 'agent-session-empty';
-    empty.textContent = 'Belum ada sesi tersimpan. Sesi dibuat otomatis saat kamu mengirim pesan pertama.';
+    // Inside #agentSessionsList, which is data-i18n-skip, so translated here.
+    empty.textContent = t('Belum ada sesi tersimpan. Sesi dibuat otomatis saat kamu mengirim pesan pertama.');
     container.appendChild(empty);
     return;
   }

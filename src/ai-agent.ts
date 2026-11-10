@@ -18,12 +18,19 @@ import type { AgentMemory, MemoryCategory, MemoryScope } from './types';
 import { chatCompletion, currentAbortEpoch, stripThinkingTagsForStream, type ChatMessage, type ChatRole } from './ai-client';
 import { salvageJsonObject } from './json-repair';
 import { escapeStoredNewlines } from './string-utils';
+import { t } from './i18n';
 
 export { chatCompletion, type ChatMessage, type ChatRole };
 export type { StreamDeltaCallback } from './ai-client';
 
 // Token-based compaction lives in agent-context.ts.
-const WELCOME_MSG = 'Halo, saya CSTL Agent. Tanya soal proyek ini atau minta saya mengerjakan terjemahan.';
+// Rendered inside #agentChatHistory, which is data-i18n-skip, so it is translated
+// here rather than by the DOM walker. Resolved lazily: this module is imported
+// before app.ts calls initI18n(), so a module-level constant would freeze the
+// language that was active at import time.
+function welcomeMessage(): string {
+  return t('Halo, saya CSTL Agent. Tanya soal proyek ini atau minta saya mengerjakan terjemahan.');
+}
 
 /**
  * Renders an agent message to safe HTML. Escapes everything first, then
@@ -220,7 +227,7 @@ function resetChatView(): void {
     historyEl.innerHTML = '';
     const welcome = document.createElement('div');
     welcome.className = 'agent-msg system';
-    welcome.textContent = WELCOME_MSG;
+    welcome.textContent = welcomeMessage();
     historyEl.appendChild(welcome);
   }
   updateTokenMeter();
@@ -254,7 +261,7 @@ export function renderChatHistory(): void {
   if (!hasContent) {
     const welcome = document.createElement('div');
     welcome.className = 'agent-msg system';
-    welcome.textContent = WELCOME_MSG;
+    welcome.textContent = welcomeMessage();
     historyEl.appendChild(welcome);
   }
   historyEl.scrollTop = historyEl.scrollHeight;

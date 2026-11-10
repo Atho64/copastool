@@ -7,6 +7,7 @@ import { formatLineLabel } from './luca-engine';
 import { isTranslated } from './state';
 import type { Line } from './types';
 import { cstlConfirm } from './dialog';
+import { t } from './i18n';
 
 export function getBookmarkedLines(): Line[] {
   return state.lines.filter(l => !!l.bookmarked);
@@ -173,8 +174,8 @@ export function renderBookmarkList(filterQuery = ''): void {
       <div class="bookmark-empty-icon">
         <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
       </div>
-      <div class="bookmark-empty-title">Belum ada bookmark tersimpan</div>
-      <p class="hint">Arahkan kursor ke baris teks di panel Daftar Teks, lalu klik ikon bookmark <svg class="lucide-icon inline-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg> di pojok kanan atas baris untuk menyimpannya di sini.</p>
+      <div class="bookmark-empty-title">${t('Belum ada bookmark tersimpan')}</div>
+      <p class="hint">${t('Arahkan kursor ke baris teks di panel Daftar Teks, lalu klik ikon bookmark')} <svg class="lucide-icon inline-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg> ${t('di pojok kanan atas baris untuk menyimpannya di sini.')}</p>
     `;
     container.appendChild(emptyDiv);
     return;

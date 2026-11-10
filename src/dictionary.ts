@@ -2,6 +2,7 @@ import { state } from './state';
 import { fetchApiResult } from './auto-translate';
 import { cstlConfirm } from './dialog';
 import { DEFAULT_DICTIONARY_PROMPT } from './constants';
+import { t } from './i18n';
 
 function simpleParseMarkdown(text: string): string {
   if (!text) return '';
@@ -160,7 +161,8 @@ function renderHistoryUI() {
   if (!listEl) return;
   
   if (dictHistory.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center; padding: 20px; color: #888;">Belum ada kata yang dicari.</div>';
+    // Inside #dictHistoryList, which is data-i18n-skip, so translated here.
+    listEl.innerHTML = `<div style="text-align:center; padding: 20px; color: #888;">${t('Belum ada kata yang dicari.')}</div>`;
     return;
   }
   

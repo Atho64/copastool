@@ -7,6 +7,10 @@ import {
   OVERLAY_EVENT_BOOKMARK,
   OVERLAY_EVENT_REQ_STATE,
 } from './overlay-shared';
+import { initI18n } from './i18n';
+
+// The overlay is its own window, so it reads the saved UI language itself.
+initI18n();
 
 const q = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 

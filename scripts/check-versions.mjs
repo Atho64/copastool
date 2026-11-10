@@ -58,14 +58,16 @@ if (pkgLockRoot !== expected) {
   problems.push(`package-lock.json: packages[""] version "${pkgLockRoot}" != "${expected}"`);
 }
 
-// README.md version badge
+// README version badges (Indonesian and English editions)
 // shields.io renders a literal '-' as '--' inside a static badge path, so
 // "v0.1.14-beta.1" is written as "Version-v0.1.14--beta.1" in the URL. Decode
 // that before comparing, otherwise every pre-release fails this gate.
-const readmeBadgeRaw = /Version-v([0-9][0-9A-Za-z.-]*?)-(?:purple|blue|green|red|orange|grey|gray|yellow|brightgreen|black)(?:\?|\b)/.exec(read('README.md'))?.[1];
-const readmeBadge = readmeBadgeRaw?.replace(/--/g, '-');
-if (readmeBadge !== expected) {
-  problems.push(`README.md: version badge "v${readmeBadge}" != "v${expected}"`);
+for (const readmeFile of ['README.md', 'README.en.md']) {
+  const readmeBadgeRaw = /Version-v([0-9][0-9A-Za-z.-]*?)-(?:purple|blue|green|red|orange|grey|gray|yellow|brightgreen|black)(?:\?|\b)/.exec(read(readmeFile))?.[1];
+  const readmeBadge = readmeBadgeRaw?.replace(/--/g, '-');
+  if (readmeBadge !== expected) {
+    problems.push(`${readmeFile}: version badge "v${readmeBadge}" != "v${expected}"`);
+  }
 }
 
 // Frontend must use the injected placeholder instead of a hard-coded version
