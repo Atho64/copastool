@@ -7,7 +7,7 @@ import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
 import { buildSelectedTranslationExport, applyPromptVariables, buildBeforeContextBlock, buildAfterContextBlock } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines } from './glossary';
-import { DEFAULT_PROMPT_HEADER, INLINE_GLOSSARY_INSTRUCTION } from './constants';
+import { DEFAULT_PROMPT_HEADER, INLINE_GLOSSARY_INSTRUCTION, DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS } from './constants';
 import { flashHint } from './render';
 import { openModal, closeModal } from './project';
 import * as Translate from './translate';
@@ -624,6 +624,14 @@ export async function onAutoTranslate(): Promise<void> {
         if (glossaryBlock) sections.push(glossaryBlock.trim());
         if (contextBlock) sections.push(contextBlock.trim());
         if (afterContextBlock) sections.push(afterContextBlock.trim());
+        if (state.enableBackgroundChaining) {
+          if (state.currentBackground) {
+            sections.push(sanitizeTagsForChatgpt(`<summary>\n${state.currentBackground.trim()}\n</summary>`));
+          }
+          const customPrompt = (state.summaryPrompt || '').trim();
+          const promptText = customPrompt || (state.safeTagsForChatgpt ? DEFAULT_SUMMARY_PROMPT_SAFE_TAGS : DEFAULT_SUMMARY_PROMPT);
+          sections.push(applyPromptVariables(promptText));
+        }
         if (state.enableUncertainMarking) {
           sections.push('If you are uncertain about a translation, prefix it with [?].');
         }

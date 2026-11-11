@@ -203,6 +203,13 @@ export function getDefaultSettings(): Record<string, any> {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (!parsed.translationMode) parsed.translationMode = 'ai';
+      if (parsed.promptHeader) parsed.promptHeader = migrateLegacyPrompt(parsed.promptHeader, parsed.promptHeader);
+      if (parsed.glossaryPrompt) parsed.glossaryPrompt = migrateLegacyPrompt(parsed.glossaryPrompt, parsed.glossaryPrompt);
+      if (parsed.aiCheckPrompt) parsed.aiCheckPrompt = migrateLegacyPrompt(parsed.aiCheckPrompt, parsed.aiCheckPrompt);
+      if (parsed.agentPrompt) parsed.agentPrompt = migrateLegacyPrompt(parsed.agentPrompt, parsed.agentPrompt);
+      if (parsed.summaryPrompt) parsed.summaryPrompt = migrateLegacyPrompt(parsed.summaryPrompt, parsed.summaryPrompt);
+      if (parsed.aiCheckSummaryPrompt) parsed.aiCheckSummaryPrompt = migrateLegacyPrompt(parsed.aiCheckSummaryPrompt, parsed.aiCheckSummaryPrompt);
+      if (parsed.dictionaryPrompt) parsed.dictionaryPrompt = migrateLegacyPrompt(parsed.dictionaryPrompt, parsed.dictionaryPrompt);
       return parsed;
     }
   } catch (e) {}
@@ -1950,7 +1957,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.postReplaceRules = data.post_replace_rules || '';
   state.enableBackgroundChaining = !!(data.enableBackgroundChaining || data.enable_summary_chaining);
   state.currentBackground = data.currentBackground || data.current_summary || '';
-  state.summaryPrompt = data.summary_prompt || data.summaryPrompt || '';
+  state.summaryPrompt = migrateLegacyPrompt(data.summary_prompt || data.summaryPrompt, '');
   state.disableEmptyLineValidation = !!data.disable_empty_line_validation;
   state.checkKanaResidue = !!data.check_kana_residue;
   state.checkSimilarity = !!data.check_similarity;
@@ -1976,7 +1983,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.showEpubImages = data.show_epub_images !== undefined ? !!data.show_epub_images : (getDefaultSettings().showEpubImages !== false);
   state.enableDictionary = !!data.enable_dictionary;
   state.dictionaryEngine = data.dictionary_engine === 'jisho' ? 'jisho' : 'llm';
-  state.dictionaryPrompt = data.dictionary_prompt || DEFAULT_DICTIONARY_PROMPT;
+  state.dictionaryPrompt = migrateLegacyPrompt(data.dictionary_prompt, DEFAULT_DICTIONARY_PROMPT);
   state.fontSize = typeof data.font_size === 'number' ? data.font_size : 14;
   document.documentElement.style.setProperty('--content-font-size', state.fontSize + 'px');
   state.similarityThreshold = (typeof data.similarity_threshold === 'number' && data.similarity_threshold > 0 && data.similarity_threshold < 1)
@@ -2014,9 +2021,9 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.aiTranslationFormat = data.ai_translation_format != null
     ? normalizeAiTranslationFormat(data.ai_translation_format)
     : DEFAULT_AI_TRANSLATION_FORMAT;
-  state.glossaryPrompt = data.glossary_prompt || DEFAULT_GLOSSARY_PROMPT;
+  state.glossaryPrompt = migrateLegacyPrompt(data.glossary_prompt, DEFAULT_GLOSSARY_PROMPT);
   state.aiCheckPrompt = migrateLegacyPrompt(data.ai_check_prompt, DEFAULT_AI_CHECK_PROMPT);
-  state.agentPrompt = data.agent_prompt || DEFAULT_AGENT_PROMPT;
+  state.agentPrompt = migrateLegacyPrompt(data.agent_prompt, DEFAULT_AGENT_PROMPT);
   state.glossaryText = data.glossary_text || '';
   state.contextLines = data.context_lines !== undefined ? data.context_lines : 10;
   state.contextType = data.context_type || 'raw';
@@ -2030,7 +2037,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.enableAiCheckChaining = data.enable_ai_check_chaining !== undefined ? !!data.enable_ai_check_chaining : true;
   state.enableAiCheckStoryContext = data.enable_ai_check_story_context !== undefined ? !!data.enable_ai_check_story_context : true;
   state.aiCheckStoryContext = data.ai_check_story_context || '';
-  state.aiCheckSummaryPrompt = data.ai_check_summary_prompt || '';
+  state.aiCheckSummaryPrompt = migrateLegacyPrompt(data.ai_check_summary_prompt, '');
   state.enableAiCheckAgentMemory = data.enable_ai_check_agent_memory !== undefined ? !!data.enable_ai_check_agent_memory : true;
   state.aiCheckLocalizationNotes = data.ai_check_localization_notes || '';
   state.aiCheckRevisionsSummary = data.ai_check_revisions_summary || '';
@@ -2267,15 +2274,15 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
       font_size: typeof p.font_size === 'number' ? p.font_size : 14,
       enable_dictionary: !!p.enable_dictionary,
       dictionary_engine: p.dictionary_engine === 'jisho' ? 'jisho' : 'llm',
-      dictionary_prompt: p.dictionary_prompt || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.',
+      dictionary_prompt: migrateLegacyPrompt(p.dictionary_prompt, DEFAULT_DICTIONARY_PROMPT),
       similarity_threshold: (typeof p.similarity_threshold === 'number' && p.similarity_threshold > 0 && p.similarity_threshold < 1) ? p.similarity_threshold : 0.7,
       imported_files: p.imported_files || [], file_order: p.file_order || [],
       lines: (p.lines || []).map(normalizeLineDict),
-      prompt_header: p.prompt_header || DEFAULT_PROMPT_HEADER,
+      prompt_header: migrateLegacyPrompt(p.prompt_header, DEFAULT_PROMPT_HEADER),
       ai_translation_format: p.ai_translation_format != null ? normalizeAiTranslationFormat(p.ai_translation_format) : DEFAULT_AI_TRANSLATION_FORMAT,
-      glossary_prompt: p.glossary_prompt || DEFAULT_GLOSSARY_PROMPT,
-      ai_check_prompt: p.ai_check_prompt || DEFAULT_AI_CHECK_PROMPT,
-      agent_prompt: p.agent_prompt || DEFAULT_AGENT_PROMPT,
+      glossary_prompt: migrateLegacyPrompt(p.glossary_prompt, DEFAULT_GLOSSARY_PROMPT),
+      ai_check_prompt: migrateLegacyPrompt(p.ai_check_prompt, DEFAULT_AI_CHECK_PROMPT),
+      agent_prompt: migrateLegacyPrompt(p.agent_prompt, DEFAULT_AGENT_PROMPT),
       dict_history: p.dict_history || [],
       paste_area: p.paste_area || '', paste_glossary_area: p.paste_glossary_area || '',
       paste_ai_check_area: p.paste_ai_check_area || '', glossary_text: p.glossary_text || '',

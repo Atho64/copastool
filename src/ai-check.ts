@@ -403,10 +403,10 @@ export function recordAiCheckRejections(corrections: AiCheckCorrection[]): void 
   renderAiCheckSettingsUI();
 }
 
-export function parseAiCheckBlocks(text: string): { num: number; category: string; reason: string; name: string; text: string }[] {
+export function parseAiCheckBlocks(text: string): { num: number; category: string; reason: string; name: string; text: string; confidence?: string }[] {
   const lines = text.split(/\r?\n/);
-  const blocks: { num: number; category: string; reason: string; name: string; text: string }[] = [];
-  let current: { num: number; category: string; reason: string; name: string; text: string } | null = null;
+  const blocks: { num: number; category: string; reason: string; name: string; text: string; confidence?: string }[] = [];
+  let current: { num: number; category: string; reason: string; name: string; text: string; confidence?: string } | null = null;
   let lastField: 'reason' | 'text' | 'name' | null = null;
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -427,19 +427,22 @@ export function parseAiCheckBlocks(text: string): { num: number; category: strin
       continue;
     }
     if (!current) continue; // lenient: skip stray lines before any header
-    const field = line.match(/^(category|reason|name|text|correction)\s*:\s*(.*)$/i);
+    const field = line.match(/^(category|reason|confidence|name|text|correction)\s*:\s*(.*)$/i);
     if (field) {
-      const key = field[1].toLowerCase() as 'category' | 'reason' | 'name' | 'text' | 'correction';
+      const key = field[1].toLowerCase() as 'category' | 'reason' | 'confidence' | 'name' | 'text' | 'correction';
       const value = field[2];
       if (key === 'category') {
         current.category = normalizeCategory(value);
+        lastField = null;
+      } else if (key === 'confidence') {
+        current.confidence = value.trim().toLowerCase();
         lastField = null;
       } else if (key === 'correction') {
         // Combined "Name: message": split using line context.
         const lineObj = state.lineByNum.get(current.num);
         if (lineObj && lineObj.name) {
           const split = splitNameMessage(value);
-          current.name = split.name;
+          if (split.name) current.name = split.name;
           current.text = split.message;
         } else {
           current.name = '';

@@ -41,38 +41,42 @@ export function getDefaultPromptHeaderForFormat(format: string): string {
 }
 
 export function getStandardPromptHeaderForFormat(format: string, language: 'id' | 'en', kagikakko = false): string {
-  const lang = language === 'en' ? 'English' : 'Indonesian';
   let prompt = language === 'en' ? DEFAULT_PROMPT_HEADER_STANDARD_EN : DEFAULT_PROMPT_HEADER_STANDARD_ID;
   let formatRules = '';
   let example = '';
+  let fenceLang = 'plaintext';
   const dialogue = language === 'en' ? "I'll go on ahead." : 'Aku duluan ya.';
-  const spoken = kagikakko ? `「${dialogue}」` : language === 'en' ? `"${dialogue}"` : `"${dialogue}"`;
+  const spoken = kagikakko ? `「${dialogue}」` : `"${dialogue}"`;
   const sourceDialogue = '先に行くね。';
   const sourceNarration = 'どこからともなく声が聞こえた。';
   const translatedNarration = language === 'en' ? 'A voice could be heard from somewhere nearby.' : 'Suara terdengar dari entah mana.';
   if (format === AI_TRANSLATION_FORMAT_BLOCK) {
-    formatRules = '- Preserve each [line N] block and its fields. Keep type and line number unchanged.\n- Put the speaker name in the speaker field when present; translate only the text field.';
+    formatRules = `- Format:\n  - Preserve each [line N] block and its field order. Keep "type: choice" and line numbers unchanged.\n  - Translate or romanize the "speaker" field when present, and translate the "text" field. For lines with a speaker, enclose spoken dialogue in ${kagikakko ? 'Japanese quotation marks 「」' : 'double quotes "..."'}.`;
     example = `Input:\n[line 12]\nspeaker: スピカ\ntext: 「${sourceDialogue}」\nOutput:\n[line 12]\nspeaker: Spica\ntext: ${spoken}\n\nInput:\n[line 13]\ntext: ${sourceNarration}\nOutput:\n[line 13]\ntext: ${translatedNarration}`;
   } else if (format === AI_TRANSLATION_FORMAT_XML) {
-    formatRules = '- Preserve all XML elements, attributes, and structure. Keep line numbers unchanged.\n- Put all line elements inside a <lines> root element and place the <summary> element after the translated lines inside that root.\n- Translate speaker attributes and text content only.';
+    fenceLang = 'xml';
+    formatRules = `- Format:\n  - Preserve all XML elements (<line>, <text>), attributes (num, type, speaker), and structure. Keep line numbers unchanged.\n  - Translate or romanize "speaker" attributes and the content inside <text> tags only. For lines with a speaker, enclose spoken dialogue in ${kagikakko ? 'Japanese quotation marks 「」' : 'double quotes "..."'}.`;
     example = `Input:\n<line num="12" speaker="スピカ"><text>「${sourceDialogue}」</text></line>\nOutput:\n<line num="12" speaker="Spica"><text>${spoken}</text></line>\n\nInput:\n<line num="13"><text>${sourceNarration}</text></line>\nOutput:\n<line num="13"><text>${translatedNarration}</text></line>`;
   } else if (format === AI_TRANSLATION_FORMAT_JSONL) {
-    formatRules = '- Return one JSON object per input line. Keep num and other metadata fields unchanged; translate speaker and text values only.';
+    fenceLang = 'jsonl';
+    formatRules = '- Format:\n  - Return one valid JSON object per input line. Keep "num" and other metadata fields unchanged; translate "speaker" and "text" values only.\n  - Escape any inner double quotes inside JSON strings as \\".';
     example = `Input:\n{"num":12,"speaker":"スピカ","text":"「${sourceDialogue}」"}\nOutput:\n{"num":12,"speaker":"Spica","text":${JSON.stringify(spoken)}}\n\nInput:\n{"num":13,"text":${JSON.stringify(sourceNarration)}}\nOutput:\n{"num":13,"text":${JSON.stringify(translatedNarration)}}`;
   } else if (format === AI_TRANSLATION_FORMAT_JSON_ARRAY) {
-    formatRules = '- Return one JSON array per input line: [number,"speaker","text"] when a speaker exists, or [number,"text"] for narration.';
-    example = `Input:\n[12,"スピカ","「${sourceDialogue}」"]\nOutput:\n[12,"Spica",${JSON.stringify(spoken)}]\n\nInput:\n[13,"${sourceNarration}"]\nOutput:\n[13,${JSON.stringify(translatedNarration)}]`;
+    fenceLang = 'jsonl';
+    const jsonArraySpoken = kagikakko ? `「${dialogue}」` : dialogue;
+    formatRules = '- Format:\n  - Return one valid JSON array per input line: [number,"speaker","text"] when a speaker exists, or [number,"text"] for narration (no spaces after commas).';
+    example = `Input:\n[12,"スピカ","「${sourceDialogue}」"]\nOutput:\n[12,"Spica",${JSON.stringify(jsonArraySpoken)}]\n\nInput:\n[13,"${sourceNarration}"]\nOutput:\n[13,${JSON.stringify(translatedNarration)}]`;
   } else {
-    formatRules = `- Dialogue: [number]. [D] [Name]: ${kagikakko ? '「[dialogue]」' : '"[dialogue]"'}\n- Narration: [number]. [N] [translated text]\n- Echo the same [D]/[N] tag at the start of every output line; never output [File: ...] markers, they only label the current script file in the input.`;
+    formatRules = `- Format:\n  - Dialogue: [number]. [D] [Name]: ${kagikakko ? '「[dialogue]」' : '"[dialogue]"'}\n  - Narration: [number]. [N] [translated text]\n  - Echo the exact same [D] or [N] tag at the start of every output line; never flip [D] and [N], and never add a speaker prefix to [N] lines.\n  - Lines starting with [File: ...] only label the current script file in the input—never output [File: ...] markers.`;
     example = `[File: script01.scs]\n12. [D] スピカ: 「${sourceDialogue}」 → 12. [D] Spica: ${spoken}\n13. [N] ${sourceNarration} → 13. [N] ${translatedNarration}`;
   }
   if (kagikakko) {
-    formatRules += '\n- Enclose spoken dialogue in Japanese quotation marks 「」.';
+    formatRules += '\n  - Enclose spoken dialogue in Japanese quotation marks 「」.';
   }
-  const plaintextFence = String.fromCharCode(96).repeat(3) + 'plaintext';
+  const codeFence = String.fromCharCode(96).repeat(3) + fenceLang;
   prompt = prompt
-    .replace(/- Format:\n[\s\S]*?(?=\n- Keep Japanese honorifics)/, formatRules)
-    .replace(/Output format:\n[\s\S]*?(?=\n\nExample:)/, `Output format:\n1. Return exactly {{lineCount}} translated lines.\n2. After the translations, write an updated story summary in ${lang} inside <summary>...</summary> tags.\n3. Put the entire response inside a single ${plaintextFence} block.`)
+    .replace(/- Format:\n[\s\S]*?(?=\n- Context & Implied Subjects:)/, formatRules)
+    .replace(/Output format:\n[\s\S]*?(?=\n\nExample:)/, `Output format:\n1. Return exactly {{lineCount}} translated lines matching the input line numbers.\n2. Put the entire response inside a single ${codeFence} block with no commentary outside the fence.`)
     .replace(/Example:\n[\s\S]*$/, `Example:\n${example}`);
   return prompt;
 }

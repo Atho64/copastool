@@ -13,6 +13,25 @@
 
 import { isPlausibleSpeakerName } from '../src/speaker-name.ts';
 import { escapeStoredNewlines } from '../src/string-utils.ts';
+import {
+  DEFAULT_PROMPT_HEADER_NUMBERED,
+  DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_BLOCK,
+  DEFAULT_PROMPT_HEADER_BLOCK_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_XML,
+  DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_JSONL,
+  DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_JSON_ARRAY,
+  DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO,
+  DEFAULT_PROMPT_HEADER_STANDARD_ID,
+  DEFAULT_PROMPT_HEADER_STANDARD_EN,
+  DEFAULT_GLOSSARY_PROMPT,
+  DEFAULT_AI_CHECK_PROMPT,
+  DEFAULT_AGENT_PROMPT,
+  DEFAULT_DICTIONARY_PROMPT,
+  LEGACY_PROMPT_MIGRATIONS,
+} from '../src/constants.ts';
 
 let failures = 0;
 let checks = 0;
@@ -89,6 +108,35 @@ checkEqual(
 );
 // Existing (trimming) behaviour must not change for AI-generated text.
 checkEqual(escapeStoredNewlines(' halo '), 'halo', 'default mode still trims');
+
+// ── Default prompt invariants & legacy migrations ───────────────────────────
+const allTranslationHeaders = [
+  ['NUMBERED', DEFAULT_PROMPT_HEADER_NUMBERED],
+  ['NUMBERED_KAGIKAKKO', DEFAULT_PROMPT_HEADER_NUMBERED_KAGIKAKKO],
+  ['BLOCK', DEFAULT_PROMPT_HEADER_BLOCK],
+  ['BLOCK_KAGIKAKKO', DEFAULT_PROMPT_HEADER_BLOCK_KAGIKAKKO],
+  ['XML', DEFAULT_PROMPT_HEADER_XML],
+  ['XML_KAGIKAKKO', DEFAULT_PROMPT_HEADER_XML_KAGIKAKKO],
+  ['JSONL', DEFAULT_PROMPT_HEADER_JSONL],
+  ['JSONL_KAGIKAKKO', DEFAULT_PROMPT_HEADER_JSONL_KAGIKAKKO],
+  ['JSON_ARRAY', DEFAULT_PROMPT_HEADER_JSON_ARRAY],
+  ['JSON_ARRAY_KAGIKAKKO', DEFAULT_PROMPT_HEADER_JSON_ARRAY_KAGIKAKKO],
+  ['STANDARD_ID', DEFAULT_PROMPT_HEADER_STANDARD_ID],
+  ['STANDARD_EN', DEFAULT_PROMPT_HEADER_STANDARD_EN],
+];
+for (const [label, header] of allTranslationHeaders) {
+  check(header.startsWith('You are a Visual Novel translator.'), `${label} starts with canonical prefix required by UI format switcher`);
+  check(header.includes('{{lineCount}}'), `${label} interpolates {{lineCount}}`);
+  check(!header.includes('<summary>...</summary>'), `${label} does not hardcode <summary> output tag when chaining is off`);
+}
+check(DEFAULT_GLOSSARY_PROMPT.includes('{{sourceLang}}') && DEFAULT_GLOSSARY_PROMPT.includes('{{targetLang}}'), 'DEFAULT_GLOSSARY_PROMPT interpolates language variables');
+check(DEFAULT_AI_CHECK_PROMPT.includes('confidence: high'), 'DEFAULT_AI_CHECK_PROMPT specifies confidence field');
+check(DEFAULT_AGENT_PROMPT.includes('"action":"commit"'), 'DEFAULT_AGENT_PROMPT specifies commit action');
+check(DEFAULT_DICTIONARY_PROMPT.includes('{word}') && DEFAULT_DICTIONARY_PROMPT.includes('{context}'), 'DEFAULT_DICTIONARY_PROMPT interpolates {word} and {context}');
+check(LEGACY_PROMPT_MIGRATIONS.length >= 20, 'LEGACY_PROMPT_MIGRATIONS covers all historical default prompts');
+for (const entry of LEGACY_PROMPT_MIGRATIONS) {
+  check(Boolean(entry.legacy && entry.replacement && entry.legacy !== entry.replacement), 'every legacy prompt migration maps a non-empty legacy string to an updated replacement');
+}
 
 if (failures > 0) {
   console.error(`\n${failures} of ${checks} checks failed.`);

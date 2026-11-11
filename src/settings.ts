@@ -11,6 +11,7 @@ import {
   DEFAULT_SUMMARY_PROMPT,
   getDefaultAiCheckSummaryPrompt,
   DEFAULT_LUCA_MC_DISPLAY_NAME,
+  DEFAULT_DICTIONARY_PROMPT,
 } from './constants';
 import { getDefaultPromptHeaderForFormat, normalizeAiTranslationFormat } from './ai-format';
 import { normalizeSelectionBatchSize } from './selection';
@@ -284,7 +285,7 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   if (ui.settingsFontSize) (ui.settingsFontSize as HTMLInputElement).value = String(state.fontSize || 14);
   if (ui.settingsEnableDictionary) (ui.settingsEnableDictionary as HTMLInputElement).checked = !!state.enableDictionary;
   if (ui.settingsDictionaryEngine) (ui.settingsDictionaryEngine as HTMLSelectElement).value = state.dictionaryEngine || 'llm';
-  if (ui.settingsDictionaryPrompt) (ui.settingsDictionaryPrompt as HTMLTextAreaElement).value = state.dictionaryPrompt || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
+  if (ui.settingsDictionaryPrompt) (ui.settingsDictionaryPrompt as HTMLTextAreaElement).value = state.dictionaryPrompt || DEFAULT_DICTIONARY_PROMPT;
   if (ui.settingsCheckKanaResidue) (ui.settingsCheckKanaResidue as HTMLInputElement).checked = !!state.checkKanaResidue;
   if (ui.settingsCheckSimilarity) {
     (ui.settingsCheckSimilarity as HTMLInputElement).checked = !!state.checkSimilarity;
@@ -357,7 +358,7 @@ export function onSavePromptSettings(): void {
   const fontSize = parseInt((ui.settingsFontSize as HTMLInputElement)?.value) || 14;
   const enableDictionary = !!((ui.settingsEnableDictionary as HTMLInputElement)?.checked);
   const dictionaryEngine = (ui.settingsDictionaryEngine as HTMLSelectElement)?.value === 'jisho' ? 'jisho' : 'llm';
-  const dictionaryPrompt = (ui.settingsDictionaryPrompt as HTMLTextAreaElement)?.value || 'Jelaskan arti kata "{word}" dalam konteks kalimat "{context}". Berikan bentuk dasar, cara baca (hiragana/romaji), kelas kata, dan terjemahan/penjelasan singkat dalam bahasa Indonesia.';
+  const dictionaryPrompt = (ui.settingsDictionaryPrompt as HTMLTextAreaElement)?.value || DEFAULT_DICTIONARY_PROMPT;
   const checkKanaResidue = !!((ui.settingsCheckKanaResidue as HTMLInputElement)?.checked);
   const checkSimilarity = !!((ui.settingsCheckSimilarity as HTMLInputElement)?.checked);
   const simThresholdRaw = parseInt((ui.settingsSimilarityThreshold as HTMLInputElement)?.value);
