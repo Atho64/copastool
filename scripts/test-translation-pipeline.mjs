@@ -96,6 +96,36 @@ ui.pasteArea.value = '1. Nino & Menoa: Pagi.\n2. Pagi yang tenang.';
 translate.onApplyTranslation({ suppressAlerts: true });
 assert.equal(state.lines[0].trans_name, 'Nino & Menoa', 'legacy untagged replies stay accepted');
 
+// An omitted speaker on other lines must not invalidate a correctly prefixed line.
+for (const tags of [true, false]) {
+  reset(tags);
+  state.lines = [1, 2, 3].map(num => normalizeLineDict({
+    line_num: num, file: 'mixed.json', name: '花子', message: '静かな朝。',
+  }));
+  state.lineByNum = new Map(state.lines.map(line => [line.line_num, line]));
+  state.selectedLines = new Set([1, 2, 3]);
+  const tag = tags ? '[D] ' : '';
+  ui.pasteArea.value = '1. ' + tag + 'Hanako: Selamat pagi.\n' +
+    '2. ' + tag + 'Jalan masih sepi.\n3. ' + tag + 'Angin bertiup pelan.';
+  const parsed = formats.parseTranslationNumberedPaste(ui.pasteArea.value).parsed;
+  assert.equal(parsed[0].name, 'Hanako', 'a valid name must survive a batch below 70% named replies');
+  assert.equal(parsed[0].msg, 'Selamat pagi.');
+  assert.equal(parsed[1].name, null, 'missing names must not be invented');
+  assert.equal(parsed[2].name, null);
+  assert.throws(() => translate.onApplyTranslation({ suppressAlerts: true }), error => {
+    assert.deepEqual(Array.from(error.details), [
+      '[#2] Nama karakter hilang.',
+      '[#3] Nama karakter hilang.',
+    ]);
+    return true;
+  });
+  assert.equal(state.lines.some(line => line.is_translated), false);
+  assert.equal(saved, 0);
+  assert.equal(snapshots, 0);
+  assert.equal(formats.parseTranslationNumberedPaste(ui.pasteArea.value, { ignoreNames: true }).parsed[0].name,
+    null, 'ignore-names mode retains conservative batch detection');
+}
+
 reset();
 ui.pasteArea.value = '1. [N] Nino & Menoa: Pagi.\n2. [N] Pagi yang tenang.';
 assert.throws(() => translate.onApplyTranslation({ suppressAlerts: true }),

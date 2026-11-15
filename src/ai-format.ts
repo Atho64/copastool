@@ -526,7 +526,9 @@ export function parseTranslationNumberedPaste(
         const matchesExact = matchesSourceSpeaker(cand, sourceLine);
         const plausible = isPlausibleSpeaker(cand);
 
-        const shouldSplit = matchesExact || (batchHasSpeakers && plausible);
+        // With names required, validate each prefix independently. The batch
+        // heuristic is only needed when names may be omitted intentionally.
+        const shouldSplit = matchesExact || (plausible && (!options.ignoreNames || batchHasSpeakers));
 
         if (shouldSplit) {
           const hasUncertain = cand.startsWith('[?]');
