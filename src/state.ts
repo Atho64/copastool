@@ -78,6 +78,7 @@ export const state: AppState = {
   fileOrder: [],
   aiInstructionHeader: DEFAULT_PROMPT_HEADER,
   aiTranslationFormat: DEFAULT_AI_TRANSLATION_FORMAT,
+  useDialogueTags: true,
   aiApiType: 'openai',
   /** Number of untranslated lines exported by the most recent Copy for AI call. Used to populate {{lineCount}} in prompts. */
   _lastExportedLineCount: 0,

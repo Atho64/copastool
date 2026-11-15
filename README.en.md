@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.4-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -43,7 +43,9 @@ Plugin permissions are declarative, not a sandbox. The runtime does not refuse A
 Select lines, copy them into an AI, paste the result back, apply. The app maps the AI result to the correct line numbers.
 
 - The prompt format is selectable: numbered list, block, XML, JSONL, or JSON array.
-- The numbered format marks the active file with a `[File: file-name]` line at the start of a batch and whenever the file changes, plus `[D]` (dialogue) / `[N]` (narration) tags on every line. The AI repeats the same tags in its reply, and apply rejects lines whose type changed. Older stored default prompt headers are updated automatically when a project is opened.
+- **Optional dialogue tags**: turn off **Use [D]/[N] tags in numbered format** in Project Settings → General → Format & External to copy and apply plain numbered lines (`12. Name: dialogue` / `13. Narration`). The option is also available in dashboard defaults for new projects, and is saved with projects and backups. Line-number and speaker validation remain active; tag-type validation applies only when tags are enabled.
+- Speaker groups joined with `&`, including longer groups and mixed comma/ampersand names, are accepted when applying pasted translations.
+- By default, the numbered format marks the active file with a `[File: file-name]` line at the start of a batch and whenever the file changes, plus `[D]` (dialogue) / `[N]` (narration) tags on every line. The AI repeats the same tags in its reply, and apply rejects lines whose type changed. Older stored default prompt headers are updated automatically when a project is opened.
 - The prompt header is editable, including the variants that use Japanese quotation marks (kagikakko).
 - **AI Check**: copy existing translations to have them re-checked, then apply the corrections. Correction reasons are written in the target language.
 - Undo and redo for every translation apply.

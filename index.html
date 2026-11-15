@@ -670,6 +670,13 @@
               </select>
             </div>
           </div>
+          <div class="mt-2">
+            <label class="checkbox-line">
+              <input id="dsUseDialogueTags" type="checkbox" checked aria-describedby="dsDialogueTagsHint" />
+              <span>Gunakan tag [D]/[N] pada format nomor</span>
+            </label>
+            <p id="dsDialogueTagsHint" class="hint">Jika dimatikan, format nomor memakai Nama: dialog atau teks narasi tanpa tag.</p>
+          </div>
           <div class="flex-center gap-4 wrap mt-2">
             <div class="flex-col grow">
               <label class="form-label" for="dsSelectionBatch">Batch Translate</label>
@@ -1151,6 +1158,13 @@
                 <option value="jsonl">JSONL ({"num":N,"speaker":"...","text":"..."})</option>
                 <option value="jsonarray">JSON Array ([id, "name", "text"])</option>
               </select>
+            </div>
+            <div class="mt-2">
+              <label class="checkbox-line">
+                <input id="settingsUseDialogueTags" type="checkbox" checked aria-describedby="settingsDialogueTagsHint" />
+                <span>Gunakan tag [D]/[N] pada format nomor</span>
+              </label>
+              <p id="settingsDialogueTagsHint" class="hint">Jika dimatikan, format nomor memakai Nama: dialog atau teks narasi tanpa tag.</p>
             </div>
             <div class="mt-2">
               <label class="form-label" for="settingsEpubTagsInput">Tag HTML Target EPUB</label>

@@ -2,7 +2,7 @@
 //
 // Dipakai parser paste berformat nomor ("123. Nama: teks"), yang harus menebak
 // apakah bagian sebelum titik dua adalah nama karakter atau bagian kalimat. Nama
-// boleh memuat koma ("Nino, Menoa, Ichito", "Yuki, Sang Ketua"), tapi kalimat
+// boleh memuat koma atau ampersand ("Nino, Menoa", "Nino & Menoa"), tapi kalimat
 // seperti "Yah, aku tidak tahu: ..." tidak boleh terpotong jadi nama.
 // Tanpa dependensi runtime selain string-utils supaya bisa diuji di Node.
 
@@ -16,14 +16,14 @@ const NAME_FORBIDDEN_RE = /[.…—–\n\r"“”«»「」『』]/;
 
 /** Batas aman supaya kalimat panjang tidak lolos sebagai nama. */
 const MAX_PLAIN_NAME_LENGTH = 40;
-const MAX_COMMA_NAME_LENGTH = 60;
+const MAX_GROUP_NAME_LENGTH = 60;
 const MAX_PLAIN_NAME_WORDS = 5;
-const MAX_COMMA_NAME_WORDS = 8;
+const MAX_GROUP_NAME_WORDS = 8;
 const MAX_NAME_PARTS = 6;
 const MAX_NAME_PART_LENGTH = 30;
 
 /**
- * Apakah `cand` (teks sebelum titik dua) terlihat seperti nama karakter? Koma
+ * Apakah `cand` (teks sebelum titik dua) terlihat seperti nama karakter? Koma dan &
  * diperbolehkan selama tiap bagian tetap terlihat seperti nama: diawali huruf
  * besar atau aksara non-Latin, tanpa koma menggantung, dengan jumlah dibatasi.
  */
@@ -36,20 +36,21 @@ export function isPlausibleSpeakerName(cand: string): boolean {
   if (/^[?？!！]+$/.test(clean)) return true;
   if (/^\d+$/.test(clean)) return false;
 
-  const commaParts = clean.split(/\s*[,，]\s*/);
-  const hasComma = commaParts.length > 1;
-  if (hasComma) {
-    if (commaParts.length > MAX_NAME_PARTS) return false;
-    // "Nino," (koma menggantung) atau "Nino,, Menoa" bukan nama.
-    if (commaParts.some(part => !part)) return false;
-    if (commaParts.some(part => part.length > MAX_NAME_PART_LENGTH)) return false;
+  const nameParts = clean.split(/\s*[,，&＆]\s*/);
+  const hasGroup = nameParts.length > 1;
+  if (hasGroup) {
+    if (nameParts.length > MAX_NAME_PARTS) return false;
+    // "Nino &" (pemisah menggantung) atau "Nino,, Menoa" bukan nama.
+    if (nameParts.some(part => !part)) return false;
+    if (nameParts.some(part => part.length > MAX_NAME_PART_LENGTH)) return false;
     // Ini yang membedakan "Nino, Menoa, Ichito" (nama) dari
     // "Yah, aku tidak tahu" (kalimat).
-    if (commaParts.some(part => !NAME_PART_START_RE.test(part))) return false;
+    if (nameParts.some(part => !NAME_PART_START_RE.test(part) && !/^[?？!！]+$/.test(part))) return false;
   }
 
-  if (clean.length > (hasComma ? MAX_COMMA_NAME_LENGTH : MAX_PLAIN_NAME_LENGTH)) return false;
-  if (clean.split(/\s+/).filter(Boolean).length > (hasComma ? MAX_COMMA_NAME_WORDS : MAX_PLAIN_NAME_WORDS)) return false;
+  if (clean.length > (hasGroup ? MAX_GROUP_NAME_LENGTH : MAX_PLAIN_NAME_LENGTH)) return false;
+  const wordCount = nameParts.reduce((count, part) => count + part.split(/\s+/).filter(Boolean).length, 0);
+  if (wordCount > (hasGroup ? MAX_GROUP_NAME_WORDS : MAX_PLAIN_NAME_WORDS)) return false;
   // Tanda tanya, tanda seru, tilde, kurung, koma, dan apostrof boleh ada di nama
   // (misal "Nama???", "Sosok (???)", "Shin'ichirō").
   if (NAME_FORBIDDEN_RE.test(clean)) return false;

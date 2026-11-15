@@ -5,6 +5,9 @@
 // omitted: the runtime leaves unmatched strings untouched.
 
 export const UI_EN: Record<string, string> = {
+  'Gunakan tag [D]/[N] pada format nomor': 'Use [D]/[N] tags in numbered format',
+  'Jika dimatikan, format nomor memakai Nama: dialog atau teks narasi tanpa tag.':
+    'When off, numbered lines use Name: dialogue or narration without tags.',
   // ── Boot, tutorial, dashboard ────────────────────────────────────────────
   'Alat bantu penerjemahan string dengan dukungan AI.':
     'A string translation helper with AI support.',

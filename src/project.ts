@@ -218,6 +218,7 @@ export function getDefaultSettings(): Record<string, any> {
     targetLang: 'Indonesian',
     translationMode: 'ai',
     aiFormat: DEFAULT_AI_TRANSLATION_FORMAT,
+    useDialogueTags: true,
     contextLines: 10,
     contextType: 'raw',
     selectionBatch: DEFAULT_SELECTION_BATCH_SIZE,
@@ -270,6 +271,7 @@ export function openDashboardSettings(): void {
   if (ui.dsTargetLang) (ui.dsTargetLang as HTMLSelectElement).value = d.targetLang || 'Indonesian';
   if (ui.dsTranslationMode) (ui.dsTranslationMode as HTMLSelectElement).value = d.translationMode || 'ai';
   if (ui.dsAiFormat) (ui.dsAiFormat as HTMLSelectElement).value = d.aiFormat || DEFAULT_AI_TRANSLATION_FORMAT;
+  if (ui.dsUseDialogueTags) (ui.dsUseDialogueTags as HTMLInputElement).checked = d.useDialogueTags !== false;
   if (ui.dsContextLines) (ui.dsContextLines as HTMLInputElement).value = String(d.contextLines !== undefined ? d.contextLines : 10);
   if (ui.dsContextType) (ui.dsContextType as HTMLSelectElement).value = d.contextType || 'raw';
   if (ui.dsSelectionBatch) (ui.dsSelectionBatch as HTMLInputElement).value = String(d.selectionBatch || DEFAULT_SELECTION_BATCH_SIZE);
@@ -334,6 +336,7 @@ export function saveDashboardSettings(): void {
   if (ui.dsTargetLang) d.targetLang = (ui.dsTargetLang as HTMLSelectElement).value;
   if (ui.dsTranslationMode) d.translationMode = (ui.dsTranslationMode as HTMLSelectElement)?.value === 'htl' ? 'htl' : 'ai';
   if (ui.dsAiFormat) d.aiFormat = (ui.dsAiFormat as HTMLSelectElement).value;
+  if (ui.dsUseDialogueTags) d.useDialogueTags = (ui.dsUseDialogueTags as HTMLInputElement).checked;
   if (ui.dsContextLines) d.contextLines = parseInt((ui.dsContextLines as HTMLInputElement).value) || 10;
   if (ui.dsContextLinesAfter) d.contextLinesAfter = Math.max(0, Math.min(50, parseInt((ui.dsContextLinesAfter as HTMLInputElement).value) || 0));
   if (ui.dsContextType) d.contextType = (ui.dsContextType as HTMLSelectElement).value || 'raw';
@@ -1047,6 +1050,7 @@ export function buildProjectScaffold(
     check_punctuation: d.checkPunctuation !== undefined ? !!d.checkPunctuation : true,
     check_untrans_name: !!d.checkUntransName,
     ignore_paste_names: !!d.ignorePasteNames,
+    use_dialogue_tags: d.useDialogueTags !== false,
     enable_uncertain_marking: !!d.enableUncertainMarking,
     safe_tags_for_chatgpt: !!d.safeTagsForChatgpt,
     agent_max_turns: Number.isFinite(d.agentMaxTurns) ? d.agentMaxTurns : 10,
@@ -1380,6 +1384,7 @@ function buildProjectPersistenceData(): Record<string, any> {
     length_ratio_threshold: state.lengthRatioThreshold, check_language: state.checkLanguage,
     check_punctuation: state.checkPunctuation, check_untrans_name: state.checkUntransName,
     ignore_paste_names: state.ignorePasteNames,
+    use_dialogue_tags: state.useDialogueTags,
     enable_uncertain_marking: state.enableUncertainMarking,
     safe_tags_for_chatgpt: state.safeTagsForChatgpt, agent_max_turns: state.agentMaxTurns,
     show_furigana: state.showFurigana, furigana_type: state.furiganaType || 'hiragana',
@@ -1968,6 +1973,7 @@ export async function openProject(id: string, data: any): Promise<void> {
   state.checkPunctuation = data.check_punctuation !== undefined ? !!data.check_punctuation : false;
   state.checkUntransName = !!data.check_untrans_name;
   state.ignorePasteNames = !!data.ignore_paste_names;
+  state.useDialogueTags = data.use_dialogue_tags !== false;
   if (ui.settingsIgnorePasteNames) (ui.settingsIgnorePasteNames as HTMLInputElement).checked = state.ignorePasteNames;
   state.enableUncertainMarking = !!data.enable_uncertain_marking;
   state.safeTagsForChatgpt = data.safe_tags_for_chatgpt !== undefined ? !!data.safe_tags_for_chatgpt : false;
@@ -2266,6 +2272,7 @@ export async function restoreProjectFromFile(f: File): Promise<boolean> {
       check_language: p.check_language !== undefined ? !!p.check_language : false,
       check_punctuation: p.check_punctuation !== undefined ? !!p.check_punctuation : false,
       check_untrans_name: !!p.check_untrans_name,
+      use_dialogue_tags: p.use_dialogue_tags !== false,
       enable_uncertain_marking: !!p.enable_uncertain_marking,
       safe_tags_for_chatgpt: p.safe_tags_for_chatgpt !== undefined ? !!p.safe_tags_for_chatgpt : false,
       agent_max_turns: (typeof p.agent_max_turns === 'number' && (p.agent_max_turns === 0 || p.agent_max_turns >= 3)) ? p.agent_max_turns : 10,

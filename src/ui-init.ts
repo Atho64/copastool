@@ -87,6 +87,7 @@ function debounce(func: Function, wait: number) {
 
 export function cacheElements(): void {
   const ids = [
+    'dsUseDialogueTags', 'settingsUseDialogueTags',
     'dashboardView', 'workspaceView', 'projectList', 'projectFilterInput', 'projectSortSelect', 'projectCountBadge', 'btnNewProject', 'btnRestoreProject', 'btnBackupAllProjects', 'btnFolderBackup', 'btnFolderRestore',
     'btnBackToDashboard', 'btnBackupProject', 'btnBatchPrev', 'btnBatchNext', 'projectNameDisplay', 'restoreProjectInput', 'spreadsheetInput', 'btnExportSpreadsheet', 'btnImportSpreadsheet', 'btnSpreadsheetImport', 'btnDropdownImport', 'dropdownImportMenu', 'btnDropdownImportOther', 'dropdownImportOtherMenu', 'btnImportFile', 'btnDropdownTools', 'dropdownToolsMenu',
     'btnDropdownDashboardSettings', 'dropdownDashboardSettingsMenu', 'btnDashboardSettings', 'dashboardSettingsModal', 'btnDashboardSettingsSave', 'btnDashboardSettingsReset', 'paletteSelect', 'btnDashboardSettingsCancel', 'btnDashboardPrompts', 'dashboardPromptsModal', 'dpPromptInput', 'dpPromptTemplateSelect', 'dpGlossaryPromptInput', 'dpAiCheckPromptInput', 'dpAgentPromptInput', 'dpSummaryPromptInput', 'btnDashboardPromptsSave', 'btnDashboardPromptsReset', 'btnDashboardPromptsCancel',

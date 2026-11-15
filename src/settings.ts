@@ -303,6 +303,7 @@ export function onOpenSettings(tabName: SettingsTabName = 'general'): void {
   if (ui.settingsCheckPunctuation) (ui.settingsCheckPunctuation as HTMLInputElement).checked = state.checkPunctuation !== false;
   if (ui.settingsCheckUntransName) (ui.settingsCheckUntransName as HTMLInputElement).checked = !!state.checkUntransName;
   if (ui.settingsIgnorePasteNames) (ui.settingsIgnorePasteNames as HTMLInputElement).checked = !!state.ignorePasteNames;
+  if (ui.settingsUseDialogueTags) (ui.settingsUseDialogueTags as HTMLInputElement).checked = state.useDialogueTags !== false;
   if (ui.settingsEnableUncertainMarking) (ui.settingsEnableUncertainMarking as HTMLInputElement).checked = !!state.enableUncertainMarking;
   if (ui.settingsSafeTagsForChatgpt) (ui.settingsSafeTagsForChatgpt as HTMLInputElement).checked = !!state.safeTagsForChatgpt;
   if (ui.settingsAgentMaxTurns) (ui.settingsAgentMaxTurns as HTMLInputElement).value = String(Number.isFinite(state.agentMaxTurns) ? state.agentMaxTurns : 10);
@@ -423,6 +424,7 @@ export function onSavePromptSettings(): void {
   state.checkPunctuation = (ui.settingsCheckPunctuation as HTMLInputElement)?.checked !== false;
   state.checkUntransName = !!((ui.settingsCheckUntransName as HTMLInputElement)?.checked);
   state.ignorePasteNames = !!((ui.settingsIgnorePasteNames as HTMLInputElement)?.checked);
+  state.useDialogueTags = (ui.settingsUseDialogueTags as HTMLInputElement)?.checked !== false;
   state.enableUncertainMarking = !!((ui.settingsEnableUncertainMarking as HTMLInputElement)?.checked);
   state.safeTagsForChatgpt = !!((ui.settingsSafeTagsForChatgpt as HTMLInputElement)?.checked);
   const amtRaw = parseInt((ui.settingsAgentMaxTurns as HTMLInputElement)?.value);

@@ -6,7 +6,7 @@ import {
   AI_TRANSLATION_FORMAT_XML, AI_TRANSLATION_FORMAT_JSONL, AI_TRANSLATION_FORMAT_JSON_ARRAY,
   DEFAULT_PROMPT_HEADER_NUMBERED, DEFAULT_PROMPT_HEADER_BLOCK,
   DEFAULT_PROMPT_HEADER_XML, DEFAULT_PROMPT_HEADER_JSONL, DEFAULT_PROMPT_HEADER_JSON_ARRAY,
-  DEFAULT_PROMPT_HEADER_STANDARD_ID, DEFAULT_PROMPT_HEADER_STANDARD_EN,
+  DEFAULT_PROMPT_HEADER_STANDARD_ID, DEFAULT_PROMPT_HEADER_STANDARD_EN, DEFAULT_PROMPT_HEADER,
 } from './constants';
 import { unescapeStoredNewlines, escapeStoredNewlines, escapeXml, stripPlaintextFences, stripScrapedAiPreamble, applyReplaceRules, stripLeakedAiSections, stripDecorativeWrapping } from './string-utils';
 import { getLineDisplayName } from './luca-engine';
@@ -21,6 +21,18 @@ export function applyPromptVariables(prompt: string): string {
     .replace(/\{\{sourceLang\}\}/g, state.sourceLang || 'Japanese')
     .replace(/\{\{targetLang\}\}/g, state.targetLang || 'Indonesian')
     .replace(/\{\{lineCount\}\}/g, String(state._lastExportedLineCount || 0));
+}
+
+/** Adapt the outgoing header without rewriting the user's saved prompt. */
+export function getTranslationPromptHeader(): string {
+  let prompt = (state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim();
+  if (normalizeAiTranslationFormat(state.aiTranslationFormat) === AI_TRANSLATION_FORMAT_NUMBERED && state.useDialogueTags === false) {
+    prompt = prompt
+      .replace(/^[ \t]*-[ \t]*(?:\[D\] marks|Echo (?:the )?(?:exact )?same \[D\])[^\r\n]*(?:\r?\n|$)/gm, '')
+      .replace(/\[(?:D|N)\][ \t]*/g, '');
+    prompt += '\n\nNumbered output format for this batch: use N. Name: dialogue for lines with a speaker, or N. narration for lines without one. Do not add dialogue/narration type tags. Keep every line number and speaker; never add a speaker to narration. Do not output [File: ...] markers.';
+  }
+  return applyPromptVariables(prompt);
 }
 
 export function normalizeAiTranslationFormat(value: string): string {
@@ -162,7 +174,8 @@ export function getSelectedTranslationPlainText(includeTranslated = true, lineNu
     const dN = applyReplaceRules(l.name || '', state.preReplaceRules, 'name') || l.name || '';
     let msg = unescapeStoredNewlines(l.message);
     msg = applyReplaceRules(msg, state.preReplaceRules, 'msg').replace(/\n/g, '<br>');
-    out.push(dN ? `${l.line_num}. [D] ${dN}: ${msg}` : `${l.line_num}. [N] ${msg}`);
+    const tag = state.useDialogueTags !== false ? (dN ? '[D] ' : '[N] ') : '';
+    out.push(`${l.line_num}. ${tag}${dN ? dN + ': ' : ''}${msg}`);
   }
   return out.join('\n');
 }
@@ -235,7 +248,9 @@ export function getTranslationPastePlaceholder(): string {
   if (fmt === AI_TRANSLATION_FORMAT_JSON_ARRAY) {
     return `[12,"Spica","Selamat pagi"]\n[13,"Mau ngapain hari ini?"]`;
   }
-  return `12. [D] Spica: Selamat pagi\n13. [N] Malam yang tenang.`;
+  return state.useDialogueTags !== false
+    ? `12. [D] Spica: Selamat pagi\n13. [N] Malam yang tenang.`
+    : `12. Spica: Selamat pagi\n13. Malam yang tenang.`;
 }
 
 export function detectTranslationPasteFormat(text: string): string {

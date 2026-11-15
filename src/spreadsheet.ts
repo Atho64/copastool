@@ -68,7 +68,7 @@ const INFO_KEYS = [
   'pre_replace_rules', 'post_replace_rules', 'disable_empty_line_validation',
   'check_kana_residue', 'check_similarity', 'check_linebreak', 'check_length_ratio',
   'length_ratio_threshold', 'check_language', 'check_punctuation', 'check_untrans_name',
-  'ignore_paste_names', 'enable_uncertain_marking', 'safe_tags_for_chatgpt',
+  'ignore_paste_names', 'use_dialogue_tags', 'enable_uncertain_marking', 'safe_tags_for_chatgpt',
   'agent_max_turns', 'show_furigana', 'furigana_type', 'font_size', 'enable_dictionary',
   'dictionary_engine', 'dictionary_prompt', 'similarity_threshold',
   'prompt_header', 'ai_translation_format', 'glossary_prompt', 'ai_check_prompt',

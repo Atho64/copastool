@@ -7,6 +7,7 @@ import { chatCompletionText, stripThinkingTags } from './ai-client';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt } from './glossary';
 import {
   applyPromptVariables,
+  getTranslationPromptHeader,
   buildSelectedTranslationExport,
   detectTranslationPasteFormat,
   parseTranslationBlocks,
@@ -18,7 +19,6 @@ import {
 import { queueAutoSave } from './project';
 import { renderPreviewRows, pushUndoSnapshot } from './render';
 import {
-  DEFAULT_PROMPT_HEADER,
   DEFAULT_SUMMARY_PROMPT,
   DEFAULT_SUMMARY_PROMPT_SAFE_TAGS,
   AI_TRANSLATION_FORMAT_BLOCK,
@@ -388,7 +388,7 @@ class LiveTranslator {
 
     // Prompt header with variable substitution ({{sourceLang}}, {{targetLang}}, {{lineCount}}).
     state._lastExportedLineCount = targets.length;
-    const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
+    const baseHeader = getTranslationPromptHeader();
 
     const sections: string[] = [baseHeader];
     if (glossaryBlock && glossaryBlock.trim()) {

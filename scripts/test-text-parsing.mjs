@@ -51,6 +51,12 @@ function checkEqual(actual, expected, message) {
 // The exact case reported by users: several names (or a name + epithet) before
 // the colon used to be rejected because any comma failed the plausibility test.
 const validNames = [
+  'Nino & Menoa',
+  'Nino&Menoa',
+  'Nino Sakuragi & Menoa Shibata & Ichito Takahashi',
+  'Nino, Menoa & Ichito',
+  'ニノ＆メノア',
+  '??? & ???',
   'Nino, Menoa, Ichito',
   'Yuki, Sang Ketua',
   'Nino，Menoa',
@@ -67,6 +73,10 @@ for (const name of validNames) {
 
 // Sentences must not be mistaken for names; a comma alone cannot make one.
 const invalidNames = [
+  'Nino &',
+  '& Menoa',
+  'Nino && Menoa',
+  'Yah & aku tidak tahu',
   'Yah, aku tidak tahu',
   'Nino,',            // dangling comma
   'Nino,, Menoa',     // empty part

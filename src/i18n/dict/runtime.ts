@@ -135,6 +135,8 @@ export const RUNTIME_EN: Record<string, string> = {
     '[12,"Spica","Good morning"]\n[13,"What are we doing today?"]',
   '12. [D] Spica: Selamat pagi\n13. [N] Malam yang tenang.':
     '12. [D] Spica: Good morning\n13. [N] A quiet night.',
+  '12. Spica: Selamat pagi\n13. Malam yang tenang.':
+    '12. Spica: Good morning\n13. A quiet night.',
   'Belum ada sesi tersimpan. Sesi dibuat otomatis saat kamu mengirim pesan pertama.':
     'No saved session yet. A session is created automatically when you send your first message.',
   'Teks di kotak kosong atau tidak valid.': 'The text box is empty or invalid.',

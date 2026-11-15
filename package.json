@@ -1,7 +1,7 @@
 {
   "name": "copas-tool",
   "private": true,
-  "version": "0.1.14-beta.4",
+  "version": "0.1.14",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "version:check": "node scripts/check-versions.mjs",
     "test:copas": "node scripts/test-copas-scripts.mjs",
-    "test:text": "node scripts/test-text-parsing.mjs",
+    "test:text": "node scripts/test-text-parsing.mjs && node scripts/test-translation-pipeline.mjs",
     "test:furigana": "node scripts/test-furigana.mjs",
     "test:merge": "node scripts/test-safe-deepmerge.mjs",
     "tauri": "tauri",

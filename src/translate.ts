@@ -7,7 +7,7 @@ import {
   buildSelectedTranslationExport, detectTranslationPasteFormat,
   buildBeforeContextBlock, buildAfterContextBlock,
   parseTranslationBlocks, parseTranslationXml, parseTranslationJsonl, parseTranslationJsonArray,
-  parseTranslationNumberedPaste, applyPromptVariables,
+  parseTranslationNumberedPaste, applyPromptVariables, getTranslationPromptHeader,
 } from './ai-format';
 import { unescapeStoredNewlines, escapeStoredNewlines, stringSimilarity, applyReplaceRules, stripLeakedAiSections } from './string-utils';
 import { rebuildDisplayState, renderPreviewRows, syncCheckboxUI, flashHint, updateButtonStates, pushUndoSnapshot, refreshAll, refreshWorkspaceFast } from './render';
@@ -49,7 +49,7 @@ function restoreLineSnapshot(l: any, saved: any): void {
 }
 import {
   AI_TRANSLATION_FORMAT_BLOCK, AI_TRANSLATION_FORMAT_XML,
-  AI_TRANSLATION_FORMAT_JSONL, AI_TRANSLATION_FORMAT_JSON_ARRAY, DEFAULT_PROMPT_HEADER,
+  AI_TRANSLATION_FORMAT_JSONL, AI_TRANSLATION_FORMAT_JSON_ARRAY,
 } from './constants';
 
 
@@ -65,7 +65,7 @@ export function buildCopyForAiPrompt(): string | null {
   const joinedText = sanitizeTagsForChatgpt(buildSelectedTranslationExport(false));
   const glossaryBlock = getGlossaryPrompt(joinedText);
   state._lastExportedLineCount = sel.length;
-  const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
+  const baseHeader = getTranslationPromptHeader();
   const sections: string[] = [baseHeader];
   if (glossaryBlock) sections.push(glossaryBlock.trim());
   if (contextBlock) sections.push(contextBlock.trim());
@@ -315,7 +315,7 @@ function onApplyTranslationInternal(options: ApplyTranslationOptions = {}): void
     const oN = !!(l.name || '').trim();
     let tN = !!(it.name || '').trim();
     // Tag [D]/[N] yang dikembalikan AI harus cocok dengan tipe baris aslinya.
-    if (it.tag && !ignoreNames && (it.tag === 'D') !== oN) {
+    if (state.useDialogueTags !== false && it.tag && !ignoreNames && (it.tag === 'D') !== oN) {
       errors.push(`[#${it.num}] Tipe berubah: baris asli ${oN ? 'Dialogue' : 'Narration'} tapi hasil [${it.tag}].`);
     }
     if (tN) {

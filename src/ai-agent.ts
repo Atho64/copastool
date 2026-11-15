@@ -548,6 +548,7 @@ const SETTING_REGISTRY: Record<string, SettingMeta> = {
   checkPunctuation: { field: 'checkPunctuation', type: 'boolean', desc: 'Cek tanda baca' },
   checkUntransName: { field: 'checkUntransName', type: 'boolean', desc: 'Cek nama karakter JP belum diterjemahkan' },
   enableUncertainMarking: { field: 'enableUncertainMarking', type: 'boolean', desc: 'Tandai baris yang belum pasti' },
+  useDialogueTags: { field: 'useDialogueTags', type: 'boolean', desc: 'Gunakan tag [D]/[N] pada format nomor' },
   enableBackgroundChaining: { field: 'enableBackgroundChaining', type: 'boolean', desc: 'Aktifkan background chaining' },
   disableEmptyLineValidation: { field: 'disableEmptyLineValidation', type: 'boolean', desc: 'Matikan validasi baris kosong' },
   aiFilterThinkingOutput: { field: 'aiFilterThinkingOutput', type: 'boolean', desc: 'Filter <think> tag dari output AI' },
@@ -992,9 +993,8 @@ async function webSearch(query: string, source: string): Promise<string> {
 
 /** Builds a translate prompt for the given lines through the selection export path. */
 async function buildTranslatePrompt(lineNums: number[], instruction?: string): Promise<string> {
-  const { buildSelectedTranslationExport, applyPromptVariables } = await Promise.resolve(AiFormatModule);
+  const { buildSelectedTranslationExport, getTranslationPromptHeader } = await Promise.resolve(AiFormatModule);
   const { getGlossaryPrompt } = await Promise.resolve(GlossaryModule);
-  const { DEFAULT_PROMPT_HEADER } = await import('./constants');
 
   const selectedLineNums = new Set(lineNums);
   const joinedText = buildSelectedTranslationExport(false, selectedLineNums);
@@ -1003,7 +1003,7 @@ async function buildTranslatePrompt(lineNums: number[], instruction?: string): P
   // Feed the header this request's line count so {{lineCount}} does not leak
   // the last manual Copy for AI count.
   state._lastExportedLineCount = selectedLineNums.size;
-  const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
+  const baseHeader = getTranslationPromptHeader();
   const extra = instruction ? `\n\nInstruction: ${instruction}` : '';
   const sections: string[] = [baseHeader];
   if (glossaryBlock) sections.push(glossaryBlock.trim());

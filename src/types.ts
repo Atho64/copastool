@@ -199,6 +199,7 @@ export interface AppState {
   fileOrder: string[];
   aiInstructionHeader: string;
   aiTranslationFormat: string;
+  useDialogueTags: boolean;
   aiApiType: 'openai' | 'gemini' | 'anthropic';
   /** Number of untranslated lines exported by the most recent Copy for AI call. Used to populate {{lineCount}} in prompts. */
   _lastExportedLineCount: number;

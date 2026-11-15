@@ -5,9 +5,9 @@ import * as RenderModule from './render';
 import * as SelectionModule from './selection';
 import * as AiCheckLinterModule from './ai-check-linter';
 import { state, ui, isTranslated, isIlustrasiLine } from './state';
-import { buildSelectedTranslationExport, applyPromptVariables, buildBeforeContextBlock, buildAfterContextBlock } from './ai-format';
+import { buildSelectedTranslationExport, applyPromptVariables, getTranslationPromptHeader, buildBeforeContextBlock, buildAfterContextBlock } from './ai-format';
 import { getGlossaryPrompt, sanitizeTagsForChatgpt, buildGlossaryExtractionPrompt, buildGlossarySourceLines } from './glossary';
-import { DEFAULT_PROMPT_HEADER, INLINE_GLOSSARY_INSTRUCTION, DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS } from './constants';
+import { INLINE_GLOSSARY_INSTRUCTION, DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_PROMPT_SAFE_TAGS } from './constants';
 import { flashHint } from './render';
 import { openModal, closeModal } from './project';
 import * as Translate from './translate';
@@ -618,7 +618,7 @@ export async function onAutoTranslate(): Promise<void> {
         // interpolates the last manual Copy for AI count, so the model was told
         // the wrong batch size.
         state._lastExportedLineCount = sel.length;
-        const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
+        const baseHeader = getTranslationPromptHeader();
 
         const sections: string[] = [baseHeader];
         if (glossaryBlock) sections.push(glossaryBlock.trim());
@@ -701,7 +701,7 @@ export async function onAutoTranslate(): Promise<void> {
           // Each sub-batch is its own request, so the header describes that
           // sub-batch's line count, not the whole run's.
           state._lastExportedLineCount = subBatch.length;
-          const baseHeader = applyPromptVariables((state.aiInstructionHeader || DEFAULT_PROMPT_HEADER).trim());
+          const baseHeader = getTranslationPromptHeader();
 
           const contextBlock = sanitizeTagsForChatgpt(buildBeforeContextBlock(orderedLines, subBatch));
           const afterContextBlock = sanitizeTagsForChatgpt(buildAfterContextBlock(orderedLines, subBatch));

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  ![Version](https://img.shields.io/badge/Version-v0.1.14--beta.4-purple?style=for-the-badge)
+  ![Version](https://img.shields.io/badge/Version-v0.1.14-purple?style=for-the-badge)
   ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-blue?style=for-the-badge)
   ![Engine](https://img.shields.io/badge/Engine-Tauri%20v2-orange?style=for-the-badge)
 
@@ -43,7 +43,9 @@ Izin plugin bersifat deklaratif, bukan sandbox. Runtime tidak menolak pemanggila
 Pilih baris, salin ke AI, tempel balik hasilnya, terapkan. Aplikasi yang memetakan hasil AI ke nomor baris yang benar.
 
 - Format prompt bisa dipilih: numbered list, block, XML, JSONL, atau JSON array.
-- Format numbered menandai file aktif dengan baris `[File: nama-file]` di awal batch dan setiap ganti file, plus tag `[D]` (dialogue) / `[N]` (narration) di tiap baris. Tag yang sama diulang AI di respons, dan apply menolak baris yang tipenya berubah. Prompt header bawaan lama otomatis diperbarui saat proyek dibuka.
+- **Tag dialog opsional**: matikan **Gunakan tag [D]/[N] pada format nomor** di Pengaturan Proyek → Umum → Format & Eksternal untuk menyalin dan menerapkan baris bernomor tanpa tag (`12. Nama: dialog` / `13. Narasi`). Opsi ini juga tersedia di pengaturan bawaan dashboard untuk proyek baru, dan ikut disimpan dalam proyek serta backup. Validasi nomor baris dan nama tetap aktif; validasi tipe tag hanya berlaku saat tag diaktifkan.
+- Grup nama dengan `&`, termasuk grup panjang dan gabungan koma/ampersand, diterima saat menerapkan hasil terjemahan yang ditempel.
+- Secara bawaan, format numbered menandai file aktif dengan baris `[File: nama-file]` di awal batch dan setiap ganti file, plus tag `[D]` (dialogue) / `[N]` (narration) di tiap baris. Tag yang sama diulang AI di respons, dan apply menolak baris yang tipenya berubah. Prompt header bawaan lama otomatis diperbarui saat proyek dibuka.
 - Prompt header bisa diedit sendiri, termasuk varian yang memakai tanda kutip Jepang (kagikakko).
 - **AI Check**: salin terjemahan yang sudah ada untuk diperiksa ulang, lalu terapkan koreksinya. Alasan koreksi ditulis dalam bahasa target.
 - Undo dan redo untuk setiap penerapan terjemahan.
